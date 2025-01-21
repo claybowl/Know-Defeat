@@ -42,7 +42,7 @@ class DatabaseManager:
         self.conn.commit()
         
     def update_bot_metrics(self, bot_id, metrics):
-        """Update bot performance metrics"""
+        """Update bot performance values"""
         sql = """
             INSERT INTO bot_metrics (
                 bot_id, symbol, algorithm_id, timeframe,

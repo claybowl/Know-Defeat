@@ -19,9 +19,7 @@ class IBDataCollector:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        # Initialize queues for handling data
-        self.tick_queue = queue.Queue()
-        self.error_queue = queue.Queue()
+        # Ini
         
         # Store symbols we want to track
         self.symbols = symbols
