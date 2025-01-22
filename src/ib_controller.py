@@ -10,14 +10,15 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.common import TickerId, BarData
-from bots.bot1 import CoinMomentumBot
+from bots.coin_momentum_bot import CoinMomentumBot
+
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('ib_data_ingestion.log'),
+        logging.FileHandler('ib_controller.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -135,7 +136,7 @@ class DataIngestionManager:
         try:
             self.db_pool = await asyncpg.create_pool(
                 user='postgres',
-                password='your_password',  # Replace with your actual password
+                password='musicman',  # Replace with your actual password
                 database='tick_data',
                 host='localhost',
                 port=5432,

@@ -123,8 +123,40 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 ## License
 [License details to be added]
 
+## New Features
+- Enhanced bot management with dynamic activation based on rankings.
+- Improved backtesting framework with detailed performance metrics.
+- Real-time data processing with optimized tick data handling.
 
+## Database Table Descriptions
+- **tick_data**: Stores tick-level market data with timestamps, prices, and volumes.
+- **simulated_trades**: Records trades executed during simulations for performance analysis.
+- **real_trades**: Logs actual trades executed in the market for historical tracking.
 
+## Instructions for Making Changes
+- **Code Modularity**: Ensure changes are isolated to specific modules to avoid cross-dependencies.
+- **Testing**: Run unit tests after making changes to verify functionality.
+- **Version Control**: Use Git for tracking changes and revert if necessary.
 
+## Bot Information
+- **CoinMomentumBot**: Implements a momentum strategy for COIN with trailing stops.
+- **Bot Management**: Bots are ranked and activated based on performance metrics.
+- **Strategy Updates**: Strategies can be updated dynamically without downtime.
+
+## Running the Application
+1. **Start the Database**: Ensure your PostgreSQL and TimescaleDB are running.
+2. **Configure Environment**: Set up your environment variables as needed.
+3. **Run the Main Script**: Execute the main script to start the application.
+   ```bash
+   python src/main.py
+   ```
+
+## Viewing Logs
+- **Log Files**: Logs are stored in the `logs/` directory.
+- **Real-Time Logs**: Use the following command to view logs in real-time:
+  ```bash
+  tail -f logs/application.log
+  ```
+- **Log Levels**: Adjust log levels in the configuration file to control verbosity.
 
 -----------------------

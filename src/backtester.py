@@ -81,13 +81,16 @@ class CoinBacktester:
                         AND timestamp BETWEEN $1 AND $2
                 ''', self.start_date, self.end_date)
 
-                self.logger.info(f"""
-    Data Range Summary:
-    ------------------
-    Earliest tick: {time_range['earliest_tick']}
-    Latest tick: {time_range['latest_tick']}
-    Number of trading days: {time_range['unique_days']}
-                """)
+                self.logger.info(
+                    "Data Range Summary:\n"
+                    "------------------\n"
+                    "Earliest tick: %s\n"
+                    "Latest tick: %s\n"
+                    "Number of trading days: %s",
+                    time_range['earliest_tick'],
+                    time_range['latest_tick'],
+                    time_range['unique_days']
+                )
 
                 # Get sample of data to verify content
                 sample_data = await conn.fetch('''

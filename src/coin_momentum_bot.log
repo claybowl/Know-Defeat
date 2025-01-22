@@ -1,0 +1,1083 @@
+2025-01-21 18:19:49,525 - INFO - Starting backtest...
+2025-01-21 18:19:49,529 - INFO - Loaded 0 ticks for backtesting
+2025-01-21 18:20:43,665 - INFO - Starting backtest...
+2025-01-21 18:20:43,669 - INFO - Loaded 0 ticks for backtesting
+2025-01-21 18:33:03,864 - INFO - Starting backtest...
+2025-01-21 18:33:03,869 - INFO - Found 0 total ticks in the specified date range
+2025-01-21 18:33:03,870 - INFO - 
+    Data Range Summary:
+    ------------------
+    Earliest tick: None
+    Latest tick: None
+    Number of trading days: 0
+                
+2025-01-21 18:33:03,872 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 18:33:03,873 - INFO - 
+Successfully loaded 0 ticks for backtesting
+2025-01-21 18:33:03,874 - INFO - Loaded 0 ticks for backtesting
+2025-01-21 18:35:52,838 - INFO - Starting backtest...
+2025-01-21 18:35:52,839 - INFO - Found 452 total ticks in the specified date range
+2025-01-21 18:35:52,841 - INFO - 
+    Data Range Summary:
+    ------------------
+    Earliest tick: 2025-01-22 01:31:50.128491+00:00
+    Latest tick: 2025-01-22 03:41:17.820883+00:00
+    Number of trading days: 1
+                
+2025-01-21 18:35:52,842 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 18:35:52,843 - INFO - Time: 2025-01-22 01:31:50.128491+00:00, Price: $300.97000000, Volume: None
+2025-01-21 18:35:52,843 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $303.10000000, Volume: None
+2025-01-21 18:35:52,843 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $273.62000000, Volume: None
+2025-01-21 18:35:52,844 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $295.48000000, Volume: None
+2025-01-21 18:35:52,844 - INFO - Time: 2025-01-22 01:31:50.174270+00:00, Price: $298.52000000, Volume: None
+2025-01-21 18:35:52,845 - INFO - 
+Successfully loaded 452 ticks for backtesting
+2025-01-21 18:35:52,846 - INFO - Average time between ticks: 0:00:17.185160
+2025-01-21 18:35:52,847 - INFO - Loaded 452 ticks for backtesting
+2025-01-21 18:39:24,158 - INFO - Starting backtest...
+2025-01-21 18:39:24,159 - INFO - Found 452 total ticks in the specified date range
+2025-01-21 18:39:24,160 - INFO - 
+    Data Range Summary:
+    ------------------
+    Earliest tick: 2025-01-22 01:31:50.128491+00:00
+    Latest tick: 2025-01-22 03:41:17.820883+00:00
+    Number of trading days: 1
+                
+2025-01-21 18:39:24,161 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 18:39:24,161 - INFO - Time: 2025-01-22 01:31:50.128491+00:00, Price: $300.97000000, Volume: None
+2025-01-21 18:39:24,161 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $303.10000000, Volume: None
+2025-01-21 18:39:24,162 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $273.62000000, Volume: None
+2025-01-21 18:39:24,162 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $295.48000000, Volume: None
+2025-01-21 18:39:24,162 - INFO - Time: 2025-01-22 01:31:50.174270+00:00, Price: $298.52000000, Volume: None
+2025-01-21 18:39:24,164 - INFO - 
+Successfully loaded 452 ticks for backtesting
+2025-01-21 18:39:24,164 - INFO - Average time between ticks: 0:00:17.185160
+2025-01-21 18:39:24,165 - INFO - Loaded 452 ticks for backtesting
+2025-01-21 18:40:02,347 - INFO - Starting backtest...
+2025-01-21 18:40:02,348 - INFO - Found 452 total ticks in the specified date range
+2025-01-21 18:40:02,350 - INFO - 
+    Data Range Summary:
+    ------------------
+    Earliest tick: 2025-01-22 01:31:50.128491+00:00
+    Latest tick: 2025-01-22 03:41:17.820883+00:00
+    Number of trading days: 1
+                
+2025-01-21 18:40:02,351 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 18:40:02,352 - INFO - Time: 2025-01-22 01:31:50.128491+00:00, Price: $300.97000000, Volume: None
+2025-01-21 18:40:02,352 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $303.10000000, Volume: None
+2025-01-21 18:40:02,352 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $273.62000000, Volume: None
+2025-01-21 18:40:02,353 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $295.48000000, Volume: None
+2025-01-21 18:40:02,353 - INFO - Time: 2025-01-22 01:31:50.174270+00:00, Price: $298.52000000, Volume: None
+2025-01-21 18:40:02,355 - INFO - 
+Successfully loaded 452 ticks for backtesting
+2025-01-21 18:40:02,355 - INFO - Average time between ticks: 0:00:17.185160
+2025-01-21 18:40:02,356 - INFO - Loaded 452 ticks for backtesting
+2025-01-21 18:41:24,346 - INFO - Starting backtest...
+2025-01-21 18:41:24,348 - INFO - Found 452 total ticks in the specified date range
+2025-01-21 18:41:24,349 - INFO - 
+    Data Range Summary:
+    ------------------
+    Earliest tick: 2025-01-22 01:31:50.128491+00:00
+    Latest tick: 2025-01-22 03:41:17.820883+00:00
+    Number of trading days: 1
+                
+2025-01-21 18:41:24,351 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 18:41:24,351 - INFO - Time: 2025-01-22 01:31:50.128491+00:00, Price: $300.97000000, Volume: None
+2025-01-21 18:41:24,351 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $303.10000000, Volume: None
+2025-01-21 18:41:24,352 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $273.62000000, Volume: None
+2025-01-21 18:41:24,352 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $295.48000000, Volume: None
+2025-01-21 18:41:24,352 - INFO - Time: 2025-01-22 01:31:50.174270+00:00, Price: $298.52000000, Volume: None
+2025-01-21 18:41:24,354 - INFO - 
+Successfully loaded 452 ticks for backtesting
+2025-01-21 18:41:24,355 - INFO - Average time between ticks: 0:00:17.185160
+2025-01-21 18:41:24,355 - INFO - Loaded 452 ticks for backtesting
+2025-01-21 19:28:53,201 - INFO - Starting backtest...
+2025-01-21 19:28:53,202 - INFO - Found 452 total ticks in the specified date range
+2025-01-21 19:28:53,203 - INFO - Data Range Summary:
+------------------
+Earliest tick: 2025-01-22 01:31:50.128491+00:00
+Latest tick: 2025-01-22 03:41:17.820883+00:00
+Number of trading days: 1
+2025-01-21 19:28:53,204 - INFO - 
+First 5 ticks in the dataset:
+2025-01-21 19:28:53,204 - INFO - Time: 2025-01-22 01:31:50.128491+00:00, Price: $300.97000000, Volume: None
+2025-01-21 19:28:53,204 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $303.10000000, Volume: None
+2025-01-21 19:28:53,205 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $273.62000000, Volume: None
+2025-01-21 19:28:53,205 - INFO - Time: 2025-01-22 01:31:50.173267+00:00, Price: $295.48000000, Volume: None
+2025-01-21 19:28:53,205 - INFO - Time: 2025-01-22 01:31:50.174270+00:00, Price: $298.52000000, Volume: None
+2025-01-21 19:28:53,207 - INFO - 
+Successfully loaded 452 ticks for backtesting
+2025-01-21 19:28:53,207 - INFO - Average time between ticks: 0:00:17.185160
+2025-01-21 19:28:53,208 - INFO - Loaded 452 ticks for backtesting
+2025-01-21 20:04:16,143 - INFO - Starting backtest...
+2025-01-21 20:04:16,148 - ERROR - Error fetching minute data: column "tick_data.price" must appear in the GROUP BY clause or be used in an aggregate function
+2025-01-21 20:04:16,148 - ERROR - No data available for backtesting
+2025-01-21 20:20:27,577 - INFO - Starting backtest...
+2025-01-21 20:21:12,644 - INFO - Starting backtest...
+2025-01-21 20:58:33,813 - INFO - Starting backtest...
+2025-01-22 00:15:00,659 - INFO - Database connection pool initialized
+2025-01-22 00:15:03,715 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:03,716 - INFO - could not connect
+2025-01-22 00:15:03,716 - INFO - disconnecting
+2025-01-22 00:15:03,717 - WARNING - Connection to IB closed
+2025-01-22 00:15:03,717 - INFO - Attempting to reconnect...
+2025-01-22 00:15:11,735 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:11,736 - INFO - could not connect
+2025-01-22 00:15:11,736 - INFO - disconnecting
+2025-01-22 00:15:11,736 - WARNING - Connection to IB closed
+2025-01-22 00:15:11,737 - INFO - Attempting to reconnect...
+2025-01-22 00:15:19,763 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:19,764 - INFO - could not connect
+2025-01-22 00:15:19,764 - INFO - disconnecting
+2025-01-22 00:15:19,765 - WARNING - Connection to IB closed
+2025-01-22 00:15:19,765 - INFO - Attempting to reconnect...
+2025-01-22 00:15:27,800 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:27,800 - INFO - could not connect
+2025-01-22 00:15:27,800 - INFO - disconnecting
+2025-01-22 00:15:27,801 - WARNING - Connection to IB closed
+2025-01-22 00:15:27,801 - INFO - Attempting to reconnect...
+2025-01-22 00:15:35,834 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:35,835 - INFO - could not connect
+2025-01-22 00:15:35,835 - INFO - disconnecting
+2025-01-22 00:15:35,835 - WARNING - Connection to IB closed
+2025-01-22 00:15:35,836 - INFO - Attempting to reconnect...
+2025-01-22 00:15:43,873 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:43,873 - INFO - could not connect
+2025-01-22 00:15:43,874 - INFO - disconnecting
+2025-01-22 00:15:43,874 - WARNING - Connection to IB closed
+2025-01-22 00:15:43,874 - INFO - Attempting to reconnect...
+2025-01-22 00:15:51,920 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:51,921 - INFO - could not connect
+2025-01-22 00:15:51,921 - INFO - disconnecting
+2025-01-22 00:15:51,922 - WARNING - Connection to IB closed
+2025-01-22 00:15:51,922 - INFO - Attempting to reconnect...
+2025-01-22 00:15:59,970 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:15:59,970 - INFO - could not connect
+2025-01-22 00:15:59,971 - INFO - disconnecting
+2025-01-22 00:15:59,971 - WARNING - Connection to IB closed
+2025-01-22 00:15:59,971 - INFO - Attempting to reconnect...
+2025-01-22 00:16:08,019 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:08,020 - INFO - could not connect
+2025-01-22 00:16:08,020 - INFO - disconnecting
+2025-01-22 00:16:08,020 - WARNING - Connection to IB closed
+2025-01-22 00:16:08,021 - INFO - Attempting to reconnect...
+2025-01-22 00:16:16,061 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:16,061 - INFO - could not connect
+2025-01-22 00:16:16,061 - INFO - disconnecting
+2025-01-22 00:16:16,061 - WARNING - Connection to IB closed
+2025-01-22 00:16:16,061 - INFO - Attempting to reconnect...
+2025-01-22 00:16:24,122 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:24,123 - INFO - could not connect
+2025-01-22 00:16:24,123 - INFO - disconnecting
+2025-01-22 00:16:24,123 - WARNING - Connection to IB closed
+2025-01-22 00:16:24,123 - INFO - Attempting to reconnect...
+2025-01-22 00:16:32,169 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:32,169 - INFO - could not connect
+2025-01-22 00:16:32,169 - INFO - disconnecting
+2025-01-22 00:16:32,170 - WARNING - Connection to IB closed
+2025-01-22 00:16:32,170 - INFO - Attempting to reconnect...
+2025-01-22 00:16:40,217 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:40,218 - INFO - could not connect
+2025-01-22 00:16:40,218 - INFO - disconnecting
+2025-01-22 00:16:40,218 - WARNING - Connection to IB closed
+2025-01-22 00:16:40,218 - INFO - Attempting to reconnect...
+2025-01-22 00:16:48,262 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:48,263 - INFO - could not connect
+2025-01-22 00:16:48,263 - INFO - disconnecting
+2025-01-22 00:16:48,263 - WARNING - Connection to IB closed
+2025-01-22 00:16:48,264 - INFO - Attempting to reconnect...
+2025-01-22 00:16:56,311 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:16:56,312 - INFO - could not connect
+2025-01-22 00:16:56,312 - INFO - disconnecting
+2025-01-22 00:16:56,312 - WARNING - Connection to IB closed
+2025-01-22 00:16:56,312 - INFO - Attempting to reconnect...
+2025-01-22 00:17:04,362 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:04,363 - INFO - could not connect
+2025-01-22 00:17:04,363 - INFO - disconnecting
+2025-01-22 00:17:04,363 - WARNING - Connection to IB closed
+2025-01-22 00:17:04,363 - INFO - Attempting to reconnect...
+2025-01-22 00:17:12,410 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:12,411 - INFO - could not connect
+2025-01-22 00:17:12,411 - INFO - disconnecting
+2025-01-22 00:17:12,411 - WARNING - Connection to IB closed
+2025-01-22 00:17:12,412 - INFO - Attempting to reconnect...
+2025-01-22 00:17:20,459 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:20,460 - INFO - could not connect
+2025-01-22 00:17:20,460 - INFO - disconnecting
+2025-01-22 00:17:20,460 - WARNING - Connection to IB closed
+2025-01-22 00:17:20,460 - INFO - Attempting to reconnect...
+2025-01-22 00:17:28,481 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:28,482 - INFO - could not connect
+2025-01-22 00:17:28,482 - INFO - disconnecting
+2025-01-22 00:17:28,482 - WARNING - Connection to IB closed
+2025-01-22 00:17:28,482 - INFO - Attempting to reconnect...
+2025-01-22 00:17:36,531 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:36,532 - INFO - could not connect
+2025-01-22 00:17:36,532 - INFO - disconnecting
+2025-01-22 00:17:36,532 - WARNING - Connection to IB closed
+2025-01-22 00:17:36,533 - INFO - Attempting to reconnect...
+2025-01-22 00:17:44,596 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:44,596 - INFO - could not connect
+2025-01-22 00:17:44,597 - INFO - disconnecting
+2025-01-22 00:17:44,597 - WARNING - Connection to IB closed
+2025-01-22 00:17:44,597 - INFO - Attempting to reconnect...
+2025-01-22 00:17:52,632 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:17:52,633 - INFO - could not connect
+2025-01-22 00:17:52,633 - INFO - disconnecting
+2025-01-22 00:17:52,633 - WARNING - Connection to IB closed
+2025-01-22 00:17:52,634 - INFO - Attempting to reconnect...
+2025-01-22 00:18:00,668 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:00,668 - INFO - could not connect
+2025-01-22 00:18:00,669 - INFO - disconnecting
+2025-01-22 00:18:00,669 - WARNING - Connection to IB closed
+2025-01-22 00:18:00,669 - INFO - Attempting to reconnect...
+2025-01-22 00:18:08,698 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:08,699 - INFO - could not connect
+2025-01-22 00:18:08,699 - INFO - disconnecting
+2025-01-22 00:18:08,700 - WARNING - Connection to IB closed
+2025-01-22 00:18:08,700 - INFO - Attempting to reconnect...
+2025-01-22 00:18:16,730 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:16,731 - INFO - could not connect
+2025-01-22 00:18:16,731 - INFO - disconnecting
+2025-01-22 00:18:16,732 - WARNING - Connection to IB closed
+2025-01-22 00:18:16,732 - INFO - Attempting to reconnect...
+2025-01-22 00:18:24,749 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:24,750 - INFO - could not connect
+2025-01-22 00:18:24,750 - INFO - disconnecting
+2025-01-22 00:18:24,750 - WARNING - Connection to IB closed
+2025-01-22 00:18:24,751 - INFO - Attempting to reconnect...
+2025-01-22 00:18:32,809 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:32,809 - INFO - could not connect
+2025-01-22 00:18:32,810 - INFO - disconnecting
+2025-01-22 00:18:32,810 - WARNING - Connection to IB closed
+2025-01-22 00:18:32,810 - INFO - Attempting to reconnect...
+2025-01-22 00:18:40,846 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:40,846 - INFO - could not connect
+2025-01-22 00:18:40,846 - INFO - disconnecting
+2025-01-22 00:18:40,847 - WARNING - Connection to IB closed
+2025-01-22 00:18:40,847 - INFO - Attempting to reconnect...
+2025-01-22 00:18:48,907 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:48,908 - INFO - could not connect
+2025-01-22 00:18:48,908 - INFO - disconnecting
+2025-01-22 00:18:48,909 - WARNING - Connection to IB closed
+2025-01-22 00:18:48,909 - INFO - Attempting to reconnect...
+2025-01-22 00:18:56,963 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:18:56,964 - INFO - could not connect
+2025-01-22 00:18:56,964 - INFO - disconnecting
+2025-01-22 00:18:56,965 - WARNING - Connection to IB closed
+2025-01-22 00:18:56,965 - INFO - Attempting to reconnect...
+2025-01-22 00:19:05,019 - ERROR - Error 502: Couldn't connect to TWS. Confirm that "Enable ActiveX and Socket EClients" 
+is enabled and connection port is the same as "Socket Port" on the 
+TWS "Edit->Global Configuration...->API->Settings" menu. Live Trading ports: 
+TWS: 7496; IB Gateway: 4001. Simulated Trading ports for new installations 
+of version 954.1 or newer:  TWS: 7497; IB Gateway: 4002
+2025-01-22 00:19:05,019 - INFO - could not connect
+2025-01-22 00:19:05,019 - INFO - disconnecting
+2025-01-22 00:19:05,020 - WARNING - Connection to IB closed
+2025-01-22 00:19:05,020 - INFO - Attempting to reconnect...
+2025-01-22 00:19:10,067 - INFO - sent startApi
+2025-01-22 00:19:10,067 - INFO - REQUEST startApi {}
+2025-01-22 00:19:10,068 - INFO - SENDING startApi b'\x00\x00\x00\x0871\x002\x000\x00\x00'
+2025-01-22 00:19:10,068 - INFO - Successfully connected to IB Gateway on port 4002
+2025-01-22 00:19:12,077 - INFO - REQUEST reqMktData {'reqId': 1, 'contract': 2032944412112: 0,COIN,STK,,0.0,,,SMART,NASDAQ,USD,,,False,,combo:, 'genericTickList': '', 'snapshot': False, 'regulatorySnapshot': False, 'mktDataOptions': []}
+2025-01-22 00:19:12,077 - ERROR - Error 504: Not connected
+2025-01-22 00:19:12,077 - INFO - Subscribed to market data for COIN
+2025-01-22 00:19:12,078 - INFO - Data ingestion system started successfully
+2025-01-22 00:19:12,078 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:13,087 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:14,099 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:15,110 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:16,122 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:17,137 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:18,138 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:19,154 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:20,164 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:21,176 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:22,190 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:23,191 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:24,202 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:25,216 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:26,216 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:27,225 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:28,233 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:29,247 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:30,261 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:31,269 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:32,270 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:33,280 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:34,292 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:35,307 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:36,315 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:37,327 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:38,340 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:39,355 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:40,369 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:41,384 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:42,392 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:43,402 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:44,416 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:45,431 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:46,439 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:47,450 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:48,459 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:49,472 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:50,486 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:51,499 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:52,514 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:53,527 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:54,527 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:55,527 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:56,537 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:57,550 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:58,551 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:19:59,561 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:00,573 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:01,588 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:02,601 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:03,602 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:04,615 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:05,628 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:06,644 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:07,644 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:08,657 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:09,666 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:10,667 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:11,682 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:12,697 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:13,710 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:14,721 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:15,735 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:16,749 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:17,762 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:18,776 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:19,790 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:20,801 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:21,807 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:22,821 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:23,834 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:24,842 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:25,855 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:26,865 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:27,876 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:28,888 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:29,903 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:30,915 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:31,925 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:32,936 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:33,950 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:34,964 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:35,975 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:36,982 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:37,996 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:39,010 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:40,018 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:41,029 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:42,032 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:43,044 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:44,052 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:45,064 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:46,075 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:47,087 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:48,102 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:49,110 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:50,124 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:51,132 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:52,145 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:53,156 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:54,157 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:55,168 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:56,178 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:57,183 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:58,198 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:20:59,212 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:00,222 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:01,227 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:02,239 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:03,248 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:04,259 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:05,260 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:06,271 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:07,281 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:08,287 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:09,298 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:10,311 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:11,325 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:12,333 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:13,345 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:14,358 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:15,359 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:16,372 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:17,384 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:18,396 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:19,398 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:20,399 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:21,414 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:22,425 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:23,436 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:24,438 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:25,451 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:26,463 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:27,471 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:28,483 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:29,497 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:30,500 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:31,511 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:32,517 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:33,532 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:34,533 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:35,545 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:36,558 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:37,560 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:38,570 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:39,572 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:40,585 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:41,590 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:42,593 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:43,605 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:44,611 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:45,625 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:46,639 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:47,650 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:48,652 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:49,653 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:50,659 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:51,673 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:52,675 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:53,684 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:54,685 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:55,697 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:56,709 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:57,718 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:58,732 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:21:59,734 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:22:00,750 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:22:01,752 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:22:02,766 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:22:03,778 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:22:04,779 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:23:08,175 - INFO - Database connection pool initialized
+2025-01-22 00:23:08,179 - INFO - sent startApi
+2025-01-22 00:23:08,179 - INFO - REQUEST startApi {}
+2025-01-22 00:23:08,179 - INFO - SENDING startApi b'\x00\x00\x00\x0871\x002\x000\x00\x00'
+2025-01-22 00:23:08,180 - INFO - Successfully connected to IB Gateway on port 4002
+2025-01-22 00:23:08,198 - INFO - ANSWER managedAccounts {'accountsList': 'DUH325772'}
+2025-01-22 00:23:08,210 - INFO - Connection fully established and ready for trading
+2025-01-22 00:23:08,215 - ERROR - Error 2104: Market data farm connection is OK:usfarm
+2025-01-22 00:23:08,215 - ERROR - Error 2106: HMDS data farm connection is OK:ushmds
+2025-01-22 00:23:08,216 - ERROR - Error 2158: Sec-def data farm connection is OK:secdefnj
+2025-01-22 00:23:10,189 - INFO - REQUEST reqMktData {'reqId': 1, 'contract': 2642548401616: 0,COIN,STK,,0.0,,,SMART,NASDAQ,USD,,,False,,combo:, 'genericTickList': '', 'snapshot': False, 'regulatorySnapshot': False, 'mktDataOptions': []}
+2025-01-22 00:23:10,190 - INFO - SENDING reqMktData b'\x00\x00\x0041\x0011\x001\x000\x00COIN\x00STK\x00\x000.0\x00\x00\x00SMART\x00NASDAQ\x00USD\x00\x00\x000\x00\x000\x000\x00\x00'
+2025-01-22 00:23:10,190 - INFO - Subscribed to market data for COIN
+2025-01-22 00:23:10,190 - INFO - Data ingestion system started successfully
+2025-01-22 00:23:10,191 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:23:10,426 - INFO - ANSWER marketDataType {'reqId': 1, 'marketDataType': 1}
+2025-01-22 00:23:10,429 - INFO - ANSWER tickReqParams {'tickerId': 1, 'minTick': 0.01, 'bboExchange': '9c0001', 'snapshotPermissions': 3}
+2025-01-22 00:23:10,592 - INFO - ANSWER tickString {'reqId': 1, 'tickType': 45, 'value': '1737526939'}
+2025-01-22 00:23:10,600 - INFO - Tick Price - COIN: LAST = $293.35
+2025-01-22 00:23:10,600 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:23:10,600 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:23:10,603 - INFO - Tick Price - COIN: BID = $293.01
+2025-01-22 00:23:10,603 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:23:10,603 - INFO - Tick Price - COIN: ASK = $293.55
+2025-01-22 00:23:10,604 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:23:10,604 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:23:10,604 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:23:15,806 - INFO - Tick Price - COIN: CLOSE = $294.19
+2025-01-22 00:24:32,594 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:24:47,612 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:24:48,363 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:24:50,866 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:24:51,617 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:25:07,386 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:25:09,019 - ERROR - Error 2107: HMDS data farm connection is inactive but should be available upon demand.ushmds
+2025-01-22 00:26:00,949 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:26:02,202 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:26:02,952 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:26:03,703 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:26:04,455 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 4}
+2025-01-22 00:26:14,718 - INFO - Tick Price - COIN: ASK = $293.54
+2025-01-22 00:26:14,718 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:14,718 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:17,721 - INFO - Tick Price - COIN: ASK = $293.48
+2025-01-22 00:26:17,722 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:18,768 - INFO - Tick Price - COIN: ASK = $293.41
+2025-01-22 00:26:18,768 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:19,474 - INFO - Tick Price - COIN: BID = $293.00
+2025-01-22 00:26:19,474 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 4}
+2025-01-22 00:26:19,475 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 4}
+2025-01-22 00:26:20,224 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 3}
+2025-01-22 00:26:20,976 - INFO - Tick Price - COIN: ASK = $293.32
+2025-01-22 00:26:20,976 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:26,983 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:26:29,236 - INFO - Tick Price - COIN: ASK = $293.35
+2025-01-22 00:26:29,236 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:32,740 - INFO - Tick Price - COIN: ASK = $293.37
+2025-01-22 00:26:32,741 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:37,246 - INFO - Tick Price - COIN: ASK = $293.28
+2025-01-22 00:26:37,246 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:37,496 - INFO - Tick Price - COIN: ASK = $293.32
+2025-01-22 00:26:37,497 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:37,748 - INFO - Tick Price - COIN: ASK = $293.25
+2025-01-22 00:26:37,748 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:38,248 - INFO - Tick Price - COIN: ASK = $293.19
+2025-01-22 00:26:38,249 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:38,249 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:26:38,498 - INFO - Tick Price - COIN: ASK = $293.22
+2025-01-22 00:26:38,498 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:39,249 - INFO - Tick Price - COIN: ASK = $293.31
+2025-01-22 00:26:39,249 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:39,499 - INFO - Tick Price - COIN: ASK = $293.26
+2025-01-22 00:26:39,500 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:43,254 - INFO - Tick Price - COIN: ASK = $293.24
+2025-01-22 00:26:43,255 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:51,514 - INFO - Tick Price - COIN: ASK = $293.20
+2025-01-22 00:26:51,514 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:52,265 - INFO - Tick Price - COIN: BID = $292.80
+2025-01-22 00:26:52,265 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:26:52,266 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:26:53,516 - INFO - Tick Price - COIN: ASK = $293.24
+2025-01-22 00:26:53,517 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:54,517 - INFO - Tick Price - COIN: ASK = $293.20
+2025-01-22 00:26:54,517 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:57,271 - INFO - Tick Price - COIN: BID = $292.84
+2025-01-22 00:26:57,271 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:26:57,272 - INFO - Tick Price - COIN: ASK = $293.36
+2025-01-22 00:26:57,272 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:57,272 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:26:57,521 - INFO - Tick Price - COIN: ASK = $293.29
+2025-01-22 00:26:57,521 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:57,772 - INFO - Tick Price - COIN: ASK = $293.26
+2025-01-22 00:26:57,772 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:58,022 - INFO - Tick Price - COIN: BID = $292.83
+2025-01-22 00:26:58,023 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:26:58,272 - INFO - Tick Price - COIN: BID = $292.80
+2025-01-22 00:26:58,272 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:26:58,272 - INFO - Tick Price - COIN: ASK = $293.24
+2025-01-22 00:26:58,272 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:26:58,273 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:27:00,025 - INFO - Tick Price - COIN: ASK = $293.20
+2025-01-22 00:27:00,025 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:36:55,949 - INFO - Database connection pool initialized
+2025-01-22 00:36:55,952 - INFO - sent startApi
+2025-01-22 00:36:55,953 - INFO - REQUEST startApi {}
+2025-01-22 00:36:55,953 - INFO - SENDING startApi b'\x00\x00\x00\x0871\x002\x000\x00\x00'
+2025-01-22 00:36:55,954 - INFO - Successfully connected to IB Gateway on port 4002
+2025-01-22 00:36:55,956 - INFO - ANSWER managedAccounts {'accountsList': 'DUH325772'}
+2025-01-22 00:36:55,956 - INFO - Connection fully established and ready for trading
+2025-01-22 00:36:55,956 - ERROR - Error 2104: Market data farm connection is OK:usfarm
+2025-01-22 00:36:55,957 - ERROR - Error 2107: HMDS data farm connection is inactive but should be available upon demand.ushmds
+2025-01-22 00:36:55,957 - ERROR - Error 2158: Sec-def data farm connection is OK:secdefnj
+2025-01-22 00:36:57,965 - INFO - REQUEST reqMktData {'reqId': 1, 'contract': 2615516749136: 0,COIN,STK,,0.0,,,SMART,NASDAQ,USD,,,False,,combo:, 'genericTickList': '', 'snapshot': False, 'regulatorySnapshot': False, 'mktDataOptions': []}
+2025-01-22 00:36:57,965 - INFO - SENDING reqMktData b'\x00\x00\x0041\x0011\x001\x000\x00COIN\x00STK\x00\x000.0\x00\x00\x00SMART\x00NASDAQ\x00USD\x00\x00\x000\x00\x000\x000\x00\x00'
+2025-01-22 00:36:57,966 - INFO - Subscribed to market data for COIN
+2025-01-22 00:36:57,966 - INFO - Data ingestion system started successfully
+2025-01-22 00:36:57,966 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:36:58,063 - INFO - ANSWER marketDataType {'reqId': 1, 'marketDataType': 1}
+2025-01-22 00:36:58,064 - INFO - ANSWER tickReqParams {'tickerId': 1, 'minTick': 0.01, 'bboExchange': '9c0001', 'snapshotPermissions': 3}
+2025-01-22 00:36:58,314 - INFO - ANSWER tickString {'reqId': 1, 'tickType': 45, 'value': '1737527791'}
+2025-01-22 00:36:58,315 - INFO - Tick Price - COIN: LAST = $292.33
+2025-01-22 00:36:58,315 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:36:58,315 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:36:58,315 - INFO - Tick Price - COIN: BID = $292.12
+2025-01-22 00:36:58,316 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:36:58,316 - INFO - Tick Price - COIN: ASK = $292.98
+2025-01-22 00:36:58,316 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:36:58,317 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:36:58,317 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:00,317 - INFO - Tick Price - COIN: ASK = $292.99
+2025-01-22 00:37:00,317 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:01,319 - INFO - Tick Price - COIN: ASK = $292.98
+2025-01-22 00:37:01,319 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:01,568 - INFO - Tick Price - COIN: ASK = $292.99
+2025-01-22 00:37:01,569 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:02,320 - INFO - Tick Price - COIN: ASK = $293.04
+2025-01-22 00:37:02,320 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:03,822 - INFO - Tick Price - COIN: CLOSE = $294.19
+2025-01-22 00:37:04,324 - INFO - Tick Price - COIN: ASK = $293.03
+2025-01-22 00:37:04,324 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:05,073 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:37:06,575 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:37:06,575 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:37:08,077 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:37:08,327 - INFO - Tick Price - COIN: ASK = $293.02
+2025-01-22 00:37:08,328 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:08,328 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:10,079 - INFO - Tick Price - COIN: ASK = $293.03
+2025-01-22 00:37:10,079 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:37:10,080 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:37:14,085 - INFO - Tick Price - COIN: ASK = $293.02
+2025-01-22 00:37:14,085 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:14,086 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 2}
+2025-01-22 00:37:14,086 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:16,088 - INFO - Tick Price - COIN: ASK = $293.03
+2025-01-22 00:37:16,088 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:16,839 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:37:20,594 - INFO - Tick Price - COIN: ASK = $292.83
+2025-01-22 00:37:20,594 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:20,594 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:24,097 - INFO - Tick Price - COIN: ASK = $292.84
+2025-01-22 00:37:24,098 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:26,099 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:37:28,898 - INFO - Tick Price - COIN: BID = $292.07
+2025-01-22 00:37:28,899 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:37:29,353 - INFO - Tick Price - COIN: BID = $292.12
+2025-01-22 00:37:29,354 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:37:30,355 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:37:30,356 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:37:39,117 - INFO - Tick Price - COIN: ASK = $292.88
+2025-01-22 00:37:39,117 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:40,118 - INFO - Tick Price - COIN: ASK = $292.85
+2025-01-22 00:37:40,118 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:45,124 - INFO - Tick Price - COIN: ASK = $292.81
+2025-01-22 00:37:45,124 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:55,636 - INFO - Tick Price - COIN: ASK = $292.76
+2025-01-22 00:37:55,637 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:57,639 - INFO - Tick Price - COIN: ASK = $292.75
+2025-01-22 00:37:57,640 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:37:59,643 - INFO - Tick Price - COIN: ASK = $292.81
+2025-01-22 00:37:59,643 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:01,644 - INFO - Tick Price - COIN: ASK = $292.86
+2025-01-22 00:38:01,644 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:05,148 - INFO - Tick Price - COIN: ASK = $292.81
+2025-01-22 00:38:05,149 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:08,402 - INFO - Tick Price - COIN: ASK = $292.74
+2025-01-22 00:38:08,403 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:09,404 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:38:09,405 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:38:10,405 - INFO - Tick Price - COIN: ASK = $292.81
+2025-01-22 00:38:10,406 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:32,184 - INFO - Tick Price - COIN: ASK = $292.74
+2025-01-22 00:38:32,184 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:33,185 - INFO - Tick Price - COIN: ASK = $292.81
+2025-01-22 00:38:33,185 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:36,440 - INFO - Tick Price - COIN: ASK = $292.80
+2025-01-22 00:38:36,440 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:38,441 - INFO - Tick Price - COIN: ASK = $292.84
+2025-01-22 00:38:38,442 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:48,999 - INFO - Tick Price - COIN: ASK = $292.93
+2025-01-22 00:38:49,000 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:49,455 - INFO - Tick Price - COIN: ASK = $292.86
+2025-01-22 00:38:49,455 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:38:51,458 - INFO - Tick Price - COIN: ASK = $292.79
+2025-01-22 00:38:51,459 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:39:09,324 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:39:09,324 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:39:09,324 - INFO - Tick Price - COIN: ASK = $292.88
+2025-01-22 00:39:09,325 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:39:16,239 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:39:16,239 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:39:16,239 - INFO - Tick Price - COIN: ASK = $292.85
+2025-01-22 00:39:16,240 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:39:16,739 - INFO - Tick Price - COIN: ASK = $292.79
+2025-01-22 00:39:16,739 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:39:17,740 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:39:17,741 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:10,642 - INFO - Database connection pool initialized
+2025-01-22 00:48:10,645 - INFO - sent startApi
+2025-01-22 00:48:10,646 - INFO - REQUEST startApi {}
+2025-01-22 00:48:10,646 - INFO - SENDING startApi b'\x00\x00\x00\x0871\x002\x000\x00\x00'
+2025-01-22 00:48:10,646 - INFO - Successfully connected to IB Gateway on port 4002
+2025-01-22 00:48:10,649 - INFO - ANSWER managedAccounts {'accountsList': 'DUH325772'}
+2025-01-22 00:48:10,649 - INFO - Connection fully established and ready for trading
+2025-01-22 00:48:10,649 - ERROR - Error 2104: Market data farm connection is OK:usfarm
+2025-01-22 00:48:10,650 - ERROR - Error 2107: HMDS data farm connection is inactive but should be available upon demand.ushmds
+2025-01-22 00:48:10,650 - ERROR - Error 2158: Sec-def data farm connection is OK:secdefnj
+2025-01-22 00:48:12,654 - INFO - REQUEST reqMktData {'reqId': 1, 'contract': 3068643009296: 0,COIN,STK,,0.0,,,SMART,NASDAQ,USD,,,False,,combo:, 'genericTickList': '', 'snapshot': False, 'regulatorySnapshot': False, 'mktDataOptions': []}
+2025-01-22 00:48:12,654 - INFO - SENDING reqMktData b'\x00\x00\x0041\x0011\x001\x000\x00COIN\x00STK\x00\x000.0\x00\x00\x00SMART\x00NASDAQ\x00USD\x00\x00\x000\x00\x000\x000\x00\x00'
+2025-01-22 00:48:12,655 - INFO - Subscribed to market data for COIN
+2025-01-22 00:48:12,655 - INFO - Data ingestion system started successfully
+2025-01-22 00:48:12,655 - ERROR - Error processing queue: cannot access local variable 'data' where it is not associated with a value
+2025-01-22 00:48:12,755 - INFO - ANSWER marketDataType {'reqId': 1, 'marketDataType': 1}
+2025-01-22 00:48:12,755 - INFO - ANSWER tickReqParams {'tickerId': 1, 'minTick': 0.01, 'bboExchange': '9c0001', 'snapshotPermissions': 3}
+2025-01-22 00:48:12,857 - INFO - ANSWER tickString {'reqId': 1, 'tickType': 45, 'value': '1737527791'}
+2025-01-22 00:48:12,857 - INFO - Tick Price - COIN: LAST = $292.33
+2025-01-22 00:48:12,858 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:48:12,858 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 5, 'size': 1}
+2025-01-22 00:48:12,858 - INFO - Tick Price - COIN: CLOSE = $294.19
+2025-01-22 00:48:12,858 - INFO - Tick Price - COIN: BID = $292.25
+2025-01-22 00:48:12,859 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:12,859 - INFO - Tick Price - COIN: ASK = $292.66
+2025-01-22 00:48:12,859 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:48:12,860 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:12,860 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:48:13,006 - INFO - Tick Price - COIN: ASK = $292.67
+2025-01-22 00:48:13,007 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:48:13,756 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:48:18,012 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:48:18,012 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:19,059 - INFO - Tick Price - COIN: BID = $292.25
+2025-01-22 00:48:19,059 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:19,763 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:48:19,764 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:48:22,516 - INFO - Tick Price - COIN: BID = $292.15
+2025-01-22 00:48:22,517 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:06,569 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:49:06,570 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:10,077 - INFO - Tick Price - COIN: BID = $292.13
+2025-01-22 00:49:10,077 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:10,077 - INFO - Tick Price - COIN: ASK = $292.65
+2025-01-22 00:49:10,077 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:10,078 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:10,577 - INFO - Tick Price - COIN: ASK = $292.61
+2025-01-22 00:49:10,577 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:11,328 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:49:12,328 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:49:12,329 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:15,333 - INFO - Tick Price - COIN: ASK = $292.73
+2025-01-22 00:49:15,334 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:15,334 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:24,344 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:49:24,344 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:26,346 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:49:26,347 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:27,849 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:49:27,849 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:27,849 - INFO - Tick Price - COIN: ASK = $292.62
+2025-01-22 00:49:27,850 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:28,099 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:49:28,099 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:28,349 - INFO - Tick Price - COIN: ASK = $292.47
+2025-01-22 00:49:28,350 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:28,600 - INFO - Tick Price - COIN: BID = $292.06
+2025-01-22 00:49:28,600 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:28,850 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:49:28,850 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:29,351 - INFO - Tick Price - COIN: BID = $292.14
+2025-01-22 00:49:29,351 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:29,852 - INFO - Tick Price - COIN: ASK = $292.50
+2025-01-22 00:49:29,852 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:30,352 - INFO - Tick Price - COIN: ASK = $292.53
+2025-01-22 00:49:30,352 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:30,852 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:49:30,853 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:31,353 - INFO - Tick Price - COIN: ASK = $292.56
+2025-01-22 00:49:31,354 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:31,604 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:49:31,604 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:49:31,605 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:49:31,605 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:32,354 - INFO - Tick Price - COIN: ASK = $292.61
+2025-01-22 00:49:32,355 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:37,612 - INFO - Tick Price - COIN: ASK = $292.64
+2025-01-22 00:49:37,612 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:37,862 - INFO - Tick Price - COIN: ASK = $292.63
+2025-01-22 00:49:37,862 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:49:37,862 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:49:45,121 - INFO - Tick Price - COIN: ASK = $292.70
+2025-01-22 00:49:45,122 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:45,122 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:45,873 - INFO - Tick Price - COIN: ASK = $292.63
+2025-01-22 00:49:45,873 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:53,132 - INFO - Tick Price - COIN: ASK = $292.67
+2025-01-22 00:49:53,132 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:53,633 - INFO - Tick Price - COIN: ASK = $292.70
+2025-01-22 00:49:53,633 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:55,134 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:49:55,885 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:57,137 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:49:57,887 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:49:59,389 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 3}
+2025-01-22 00:50:00,140 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:00,392 - INFO - Tick Price - COIN: ASK = $292.68
+2025-01-22 00:50:00,392 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:09,496 - INFO - Tick Price - COIN: ASK = $292.73
+2025-01-22 00:50:09,496 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:19,414 - INFO - Tick Price - COIN: ASK = $292.85
+2025-01-22 00:50:19,414 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:19,664 - INFO - Tick Price - COIN: ASK = $292.77
+2025-01-22 00:50:19,664 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:22,668 - INFO - Tick Price - COIN: ASK = $292.66
+2025-01-22 00:50:22,668 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:30,176 - INFO - Tick Price - COIN: ASK = $292.55
+2025-01-22 00:50:30,177 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:35,182 - INFO - Tick Price - COIN: ASK = $292.45
+2025-01-22 00:50:35,182 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:35,432 - INFO - Tick Price - COIN: ASK = $292.48
+2025-01-22 00:50:35,432 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:43,942 - INFO - Tick Price - COIN: ASK = $292.52
+2025-01-22 00:50:43,943 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:46,945 - INFO - Tick Price - COIN: BID = $292.08
+2025-01-22 00:50:46,946 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:50:47,445 - INFO - Tick Price - COIN: ASK = $292.56
+2025-01-22 00:50:47,446 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:48,697 - INFO - Tick Price - COIN: ASK = $292.47
+2025-01-22 00:50:48,698 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:55,204 - INFO - Tick Price - COIN: ASK = $292.52
+2025-01-22 00:50:55,204 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:56,705 - INFO - Tick Price - COIN: ASK = $292.43
+2025-01-22 00:50:56,706 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:50:56,956 - INFO - Tick Price - COIN: ASK = $292.47
+2025-01-22 00:50:56,956 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:00,709 - INFO - Tick Price - COIN: ASK = $292.40
+2025-01-22 00:51:00,710 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:11,723 - INFO - Tick Price - COIN: ASK = $292.43
+2025-01-22 00:51:11,723 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:16,728 - INFO - Tick Price - COIN: ASK = $292.37
+2025-01-22 00:51:16,729 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:17,979 - INFO - Tick Price - COIN: ASK = $292.56
+2025-01-22 00:51:17,979 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:19,481 - INFO - Tick Price - COIN: ASK = $292.50
+2025-01-22 00:51:19,481 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:25,738 - INFO - Tick Price - COIN: ASK = $292.44
+2025-01-22 00:51:25,738 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:33,998 - INFO - Tick Price - COIN: ASK = $292.51
+2025-01-22 00:51:33,998 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:35,250 - INFO - Tick Price - COIN: ASK = $292.56
+2025-01-22 00:51:35,250 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:35,499 - INFO - Tick Price - COIN: ASK = $292.65
+2025-01-22 00:51:35,500 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:35,751 - INFO - Tick Price - COIN: ASK = $292.62
+2025-01-22 00:51:35,751 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:36,000 - INFO - Tick Price - COIN: ASK = $292.65
+2025-01-22 00:51:36,001 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:37,503 - INFO - Tick Price - COIN: ASK = $292.63
+2025-01-22 00:51:37,503 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:46,012 - INFO - Tick Price - COIN: ASK = $292.56
+2025-01-22 00:51:46,013 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:51:51,519 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:51:51,519 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:03,533 - INFO - Tick Price - COIN: ASK = $292.65
+2025-01-22 00:52:03,534 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:10,291 - INFO - Tick Price - COIN: ASK = $292.64
+2025-01-22 00:52:10,291 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:10,542 - INFO - Tick Price - COIN: ASK = $292.62
+2025-01-22 00:52:10,543 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:11,543 - INFO - Tick Price - COIN: ASK = $292.64
+2025-01-22 00:52:11,543 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:12,294 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:52:16,550 - INFO - Tick Price - COIN: ASK = $292.62
+2025-01-22 00:52:16,550 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:16,551 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:35,821 - INFO - Tick Price - COIN: ASK = $292.63
+2025-01-22 00:52:35,821 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:57,847 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:52:57,847 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:52:59,141 - INFO - Tick Price - COIN: ASK = $292.52
+2025-01-22 00:52:59,141 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:01,600 - INFO - Tick Price - COIN: ASK = $292.55
+2025-01-22 00:53:01,601 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:02,853 - INFO - Tick Price - COIN: BID = $292.05
+2025-01-22 00:53:02,853 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:53:02,853 - INFO - Tick Price - COIN: ASK = $292.54
+2025-01-22 00:53:02,854 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:09,610 - INFO - Tick Price - COIN: ASK = $292.49
+2025-01-22 00:53:09,611 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:17,870 - INFO - Tick Price - COIN: ASK = $292.43
+2025-01-22 00:53:17,870 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:19,871 - INFO - Tick Price - COIN: ASK = $292.50
+2025-01-22 00:53:19,871 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:40,146 - INFO - Tick Price - COIN: ASK = $292.48
+2025-01-22 00:53:40,147 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:53:57,917 - INFO - Tick Price - COIN: ASK = $292.52
+2025-01-22 00:53:57,917 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:54:05,176 - INFO - Tick Price - COIN: ASK = $292.46
+2025-01-22 00:54:05,177 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:54:06,177 - INFO - Tick Price - COIN: ASK = $292.49
+2025-01-22 00:54:06,178 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:54:11,184 - INFO - Tick Price - COIN: ASK = $292.50
+2025-01-22 00:54:11,184 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:54:26,952 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:54:26,953 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:25,272 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:25,272 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:27,275 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:55:27,275 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:29,277 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:29,278 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:30,027 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:55:30,028 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:38,789 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:38,789 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:40,791 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:55:40,791 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:43,544 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:43,544 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:45,798 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:55:45,798 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:48,551 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:48,551 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:50,553 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:55:50,553 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:55:52,806 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:55:52,806 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:10,325 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:10,325 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:12,328 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:12,328 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:14,330 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:14,330 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:16,332 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:16,333 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:18,586 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:18,586 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:20,587 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:20,587 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:22,590 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:22,590 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:27,846 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:27,847 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:30,100 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:30,100 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:32,102 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:32,102 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:32,351 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:32,351 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:33,102 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:56:34,605 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:38,359 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:38,360 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:40,361 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:40,362 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:42,363 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:56:42,364 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:56:44,366 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:56:44,366 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:57:48,693 - INFO - Tick Price - COIN: BID = $292.10
+2025-01-22 00:57:48,694 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 0, 'size': 1}
+2025-01-22 00:58:23,733 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:58:23,733 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:25,736 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:58:25,736 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:27,988 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:58:27,988 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:34,246 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:58:34,246 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:36,248 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:58:36,248 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:46,760 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:58:46,761 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:48,762 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:58:48,762 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:50,764 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:58:50,764 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:53,517 - INFO - Tick Price - COIN: ASK = $292.58
+2025-01-22 00:58:53,518 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:59,023 - INFO - Tick Price - COIN: ASK = $292.59
+2025-01-22 00:58:59,024 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
+2025-01-22 00:58:59,774 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 2}
+2025-01-22 00:59:00,525 - INFO - ANSWER tickSize {'reqId': 1, 'tickType': 3, 'size': 1}
