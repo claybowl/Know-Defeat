@@ -36,7 +36,8 @@ class MockIBClient:
 class CoinBacktester:
     """Backtesting system for the COIN momentum strategy"""
 
-    def __init__(self, db_pool, start_date, end_date):
+    def __init__(self, db_pool, start_date, end_date, bot_id):
+        self.bot_id = bot_id
         self.db_pool = db_pool
         self.start_date = start_date
         self.end_date = end_date
@@ -177,7 +178,8 @@ class CoinBacktester:
         """Execute the backtest using historical data"""
         # Initialize the bot with mock IB client
 
-        bot = CoinMomentumBot(self.db_pool, self.mock_ib)
+        bot_id = 1  # Replace with the desired bot_id value
+        bot = CoinMomentumBot(self.db_pool, self.mock_ib, bot_id)
 
         self.logger.info("Starting backtest...")
 
@@ -254,7 +256,8 @@ async def main():
         end_date = data_range['latest_tick']
 
     # Create and run backtester
-    backtester = CoinBacktester(db_pool, start_date, end_date)
+    bot_id = 1  # Replace with the desired bot_id value
+    backtester = CoinBacktester(db_pool, start_date, end_date, bot_id)
     await backtester.run_backtest()
 
     # Clean up

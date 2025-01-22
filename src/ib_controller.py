@@ -92,7 +92,7 @@ class IBDataIngestion(EWrapper, EClient):
         contract.currency = currency
 
         # For NASDAQ stocks, set the primary exchange
-        if symbol in ['COIN']:
+        if symbol in ['COIN','TSLA']:
             contract.primaryExchange = 'NASDAQ'
 
         # Store contract details for reference
@@ -218,6 +218,8 @@ class DataIngestionManager:
             # Initialize and add the COIN momentum bot
             coin_bot = CoinMomentumBot(self.db_pool, self.app)
             self.bot_manager.add_bot(coin_bot)
+            tsla_bot = TSLAMomentumBot(self.db_pool, self.app)
+            self.bot_manager.add_bot(tsla_bot)
 
         except Exception as e:
             self.logger.error(f"Failed to start data ingestion: {e}")
@@ -236,7 +238,7 @@ class DataIngestionManager:
 
 async def main():
     # List of symbols to track
-    symbols = ['COIN']
+    symbols = ['COIN', 'TSLA']
 
     # Create and start data ingestion manager
     manager = DataIngestionManager(symbols)
