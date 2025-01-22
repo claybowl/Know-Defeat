@@ -10,6 +10,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.common import TickerId, BarData
+from bots.bot1 import CoinMomentumBot
 
 # Configure logging
 logging.basicConfig(
@@ -105,6 +106,21 @@ class IBDataIngestion(EWrapper, EClient):
         self.reqMktData(req_id, contract, '', False, False, [])
         self.logger.info(f"Subscribed to market data for {symbol}")
 
+class BotManager:
+    def __init__(self):
+        self.bots = []
+        self.logger = logging.getLogger(__name__)
+
+    def add_bot(self, bot):
+        """Add a new bot to the manager"""
+        self.bots.append(bot)
+        self.logger.info(f"Added new bot: {bot}")
+
+    async def process_tick(self, ticker, price, timestamp):
+        """Process tick data through all registered bots"""
+        for bot in self.bots:
+            await bot.process_tick(ticker, price, timestamp)
+
 class DataIngestionManager:
     def __init__(self, symbols: list):
         self.symbols = symbols
@@ -112,6 +128,7 @@ class DataIngestionManager:
         self.app = IBDataIngestion(self.data_queue)
         self.logger = logging.getLogger(__name__)
         self.db_pool = None
+        self.bot_manager = BotManager()
 
     async def init_db(self):
         """Initialize database connection pool"""
@@ -159,6 +176,13 @@ class DataIngestionManager:
                         data['timestamp']
                     )
 
+                # Add this line to process the tick through the bots
+                await self.bot_manager.process_tick(
+                    data['ticker'],
+                    data['price'],
+                    data['timestamp']
+                )
+
                 # Wait a short time before checking queue again
                 await asyncio.sleep(0.1)
 
@@ -189,6 +213,10 @@ class DataIngestionManager:
 
             # Start processing the queue
             await self.process_queue()
+
+            # Initialize and add the COIN momentum bot
+            coin_bot = CoinMomentumBot(self.db_pool, self.app)
+            self.bot_manager.add_bot(coin_bot)
 
         except Exception as e:
             self.logger.error(f"Failed to start data ingestion: {e}")
