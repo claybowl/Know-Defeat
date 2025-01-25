@@ -6,7 +6,8 @@ import asyncio
 import asyncpg
 from ibapi.contract import Contract
 from ibapi.order import Order
-from utils.time_utils import is_market_hours, get_current_minute_start
+from ibapi.client import EClient
+from ibapi.wrapper import EWrapper
 
 
 # Configure logging
@@ -18,6 +19,11 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+class YourIBClient(EWrapper, EClient):
+    def __init__(self):
+        EClient.__init__(self, self)
+        # Additional initialization code
 
 class CoinMomentumBot:
     """Coin Momentum Bot class"""
@@ -205,3 +211,29 @@ class CoinMomentumBot:
             """, self.bot_id, avg_win_rate, total_pnl,  
                 win_streak>=2, win_streak>=3, win_streak>=4,
                 win_streak>=5, win_streak>=6, win_streak>=7)
+
+        # Log the metrics
+        self.logger.info(f"Total Trades: {total_trades}")
+        self.logger.info(f"Total PnL: {total_pnl}")
+        self.logger.info("Average Win Rate: %.2f%%", avg_win_rate * 100)
+        self.logger.info(f"Win Streak: {win_streak}")
+
+        # Print the metrics to the terminal
+        print(f"Total Trades: {total_trades}")
+        print(f"Total PnL: {total_pnl}")
+        print("Average Win Rate: %.2f%%", avg_win_rate * 100)
+        print(f"Win Streak: {win_streak}")
+
+async def main():
+    # Initialize necessary components like db_pool and ib_client
+    db_pool = await asyncpg.create_pool(dsn='postgresql://clayb:musicman@localhost:5432/tick_data')
+    ib_client = YourIBClient()  # Replace with the actual initialization
+
+    # Create an instance of CoinMomentumBot
+    bot = CoinMomentumBot(db_pool, ib_client, bot_id='your_bot_id')
+
+    # Example of processing a tick
+    await bot.process_tick('COIN', 250.0, datetime.now())
+
+if __name__ == "__main__":
+    asyncio.run(main())

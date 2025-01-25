@@ -10,10 +10,10 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.common import TickerId, BarData
-from bots.coin_momentum_bot import CoinMomentumBot
-from bots.tsla_momentum_bot import TSLAMomentumBot
-from bots.coin_short_bot import CoinShortBot
-from bots.tsla_short_bot import TSLAShortBot
+from bots.COIN_long_bot import CoinMomentumBot
+from bots.TSLA_long_bot import TSLAMomentumBot
+from bots.COIN_short_bot import CoinShortBot
+from bots.TSLA_short_bot import TSLAShortBot
 
 
 # Configure logging
@@ -217,11 +217,10 @@ class DataIngestionManager:
 
             # Start processing the queue
             await self.process_queue()
-
             # Initialize and add the bots
-            coin_bot = CoinMomentumBot(self.db_pool, self.app)
+            coin_bot = CoinMomentumBot(self.db_pool)
             self.bot_manager.add_bot(coin_bot)
-            tsla_bot = TSLAMomentumBot(self.db_pool, self.app)
+            tsla_bot = TSLAMomentumBot(self.db_pool)
             self.bot_manager.add_bot(tsla_bot)
 
             # Add the new short bots
