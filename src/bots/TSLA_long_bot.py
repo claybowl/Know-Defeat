@@ -195,7 +195,7 @@ class TSLALongBot:
                     SET actual_exit_price = $1,
                         actual_exit_time = $2,
                         trade_duration = $2 - trade_timestamp,
-                        profit_loss = $1 - entry_price
+                        pnl = $1 - entry_price
                     WHERE id = $3
                 """, price, timestamp, self.current_trade_id)
         except Exception as e:

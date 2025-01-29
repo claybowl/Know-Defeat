@@ -19,7 +19,7 @@ class IBClient(EWrapper, EClient):
     def error(self, reqId, errorCode, errorString):
         logging.error(f"IB Error {errorCode}: {errorString}")
 
-class CoinMomentumBot:
+class CoinLongBot:
 
     def __init__(self, db_pool, ib_client, bot_id):
         """Initialize the trading bot with database connection and parameters."""
@@ -66,16 +66,16 @@ class CoinMomentumBot:
                     AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
                     ORDER BY timestamp DESC;
                 """)
-                
+
                 # Convert to DataFrame
                 df = pd.DataFrame(rows, columns=['timestamp', 'price'])
-                
+
                 if not df.empty:
                     self.logger.info(f"Latest price: {df['price'].iloc[0]}")
                     self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
-                
+
                 return df
-                
+
         except Exception as e:
             self.logger.error(f"Error fetching tick data: {e}")
             return None
@@ -87,18 +87,18 @@ class CoinMomentumBot:
 
         current_price = float(ticks_df['price'].iloc[0])
         price_60s_ago = float(ticks_df['price'].iloc[-1])
-        
+
         # Get the timestamp from 15 seconds ago
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)
-        
+
         # Find price from 15 seconds ago
         ticks_15s_ago = ticks_df[ticks_df['timestamp'] >= cutoff_time]
         if len(ticks_15s_ago) == 0:
             return False
-        
+
         price_15s_ago = float(ticks_15s_ago['price'].iloc[-1])
-        
+
         # Debug logging
         self.logger.info(f"Current price: {current_price}")
         self.logger.info(f"15s ago price: {price_15s_ago}")
@@ -119,7 +119,7 @@ class CoinMomentumBot:
             self.highest_price = current_price
 
         stop_price = self.highest_price * (1 - self.trailing_stop)
-        
+
         if current_price <= stop_price:
             return True
         return False
@@ -132,24 +132,24 @@ class CoinMomentumBot:
                 self.entry_price = price
                 self.highest_price = price
                 self.logger.info(f"BUY executed at {price}")
-                
+
                 # Log trade entry to database
                 await self.log_trade_entry(price, timestamp)
-                
+
             elif action == "SELL":
                 pnl = (price - self.entry_price) / self.entry_price * 100
                 self.logger.info(f"SELL signal at {price}. PnL: {pnl:.2f}%")
-                
+
                 # First log the exit signal
                 await self.log_exit_signal(price, timestamp)
-                
+
                 # Then execute the actual exit (this might take some time in real trading)
                 actual_exit_price = price  # In real trading, this would be the actual fill price
                 actual_exit_time = timestamp  # In real trading, this would be the actual fill time
-                
+
                 # Log the actual exit
                 await self.log_trade_exit(actual_exit_price, actual_exit_time)
-                
+
                 self.position = None
                 self.highest_price = 0
                 self.entry_price = None
@@ -207,7 +207,7 @@ class CoinMomentumBot:
                     SET actual_exit_price = $1,
                         actual_exit_time = $2,
                         trade_duration = $2 - trade_timestamp,
-                        profit_loss = $1 - entry_price
+                        pnl = $1 - entry_price
                     WHERE id = $3
                 """, price, timestamp, self.current_trade_id)
         except Exception as e:
@@ -217,16 +217,16 @@ class CoinMomentumBot:
     async def run(self):
         """Main bot loop."""
         self.logger.info("Starting COIN Momentum Bot...")
-        
+
         # Connect to IB
         self.ib_client.connect('127.0.0.1', 4002, 1)  # Use 7496 for paper trading
-        
+
         # Wait for IB connection
         while not self.ib_client.connected:
             await asyncio.sleep(0.1)
-        
+
         self.logger.info("Connected to Interactive Brokers")
-        
+
         while True:
             try:
                 # Get latest tick data
@@ -260,7 +260,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
+
     async def main():
         # Create database pool
         db_pool = await asyncpg.create_pool(
@@ -269,13 +269,13 @@ if __name__ == "__main__":
             database='tick_data',
             host='localhost'
         )
-        
+
         # Initialize the IB client
         ib_client = IBClient()
-        
+
         # Create bot instance
-        bot = CoinMomentumBot(db_pool, ib_client, '1_bot')
-        
+        bot = CoinLongBot(db_pool, ib_client, '1_bot')
+
         try:
             await bot.run()
         except KeyboardInterrupt:

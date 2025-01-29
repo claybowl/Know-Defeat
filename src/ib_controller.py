@@ -10,8 +10,8 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.common import TickerId, BarData
-from bots.COIN_long_bot import CoinMomentumBot
-from bots.TSLA_long_bot import TSLAMomentumBot
+from bots.COIN_long_bot import CoinLongBot
+from bots.TSLA_long_bot import TSLALongBot
 from bots.COIN_short_bot import CoinShortBot
 from bots.TSLA_short_bot import TSLAShortBot
 
@@ -218,15 +218,15 @@ class DataIngestionManager:
             # Start processing the queue
             await self.process_queue()
             # Initialize and add the bots
-            coin_bot = CoinMomentumBot(self.db_pool)
+            coin_bot = CoinLongBot(self.db_pool, self.app, 'coin_long_bot') # TODO:     
             self.bot_manager.add_bot(coin_bot)
-            tsla_bot = TSLAMomentumBot(self.db_pool)
+            tsla_bot = TSLALongBot(self.db_pool, self.app, 'tsla_long_bot') # TODO: Add bot id
             self.bot_manager.add_bot(tsla_bot)
 
             # Add the new short bots
-            coin_short_bot = CoinShortBot(self.db_pool, self.app)
+            coin_short_bot = CoinShortBot(self.db_pool, self.app, 'coin_short_bot')
             self.bot_manager.add_bot(coin_short_bot)
-            tsla_short_bot = TSLAShortBot(self.db_pool, self.app)
+            tsla_short_bot = TSLAShortBot(self.db_pool, self.app, 'tsla_short_bot')
             self.bot_manager.add_bot(tsla_short_bot)
 
         except Exception as e:
