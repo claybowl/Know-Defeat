@@ -1,22 +1,41 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import time
+import asyncio
+import asyncpg
 import logging
+from datetime import datetime, timedelta
+import pandas as pd
 from decimal import Decimal
+from ibapi.client import EClient
+from ibapi.wrapper import EWrapper
+
+class IBClient(EWrapper, EClient):
+    def __init__(self):
+        EClient.__init__(self, self)
+        self.connected = False
+
+    def connectAck(self):
+        self.connected = True
+        logging.info("Connected to IB Gateway")
+
+    def error(self, reqId, errorCode, errorString):
+        logging.error(f"IB Error {errorCode}: {errorString}")
 
 class TSLAShortBot:
-    def __init__(self, db_pool):
+    def __init__(self, db_pool, ib_client, bot_id):
         """Initialize the trading bot with database connection and parameters."""
+        self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
-        self.db = db_pool  # Initialize the db attribute if needed
+        self.ib_client = ib_client
+        self.bot_id = bot_id
         self.position = None
-        # Convert trailing stop to Decimal for consistent calculations
-        self.trailing_stop = Decimal('0.002')  # 0.2%
-        self.lowest_price = Decimal('inf')
-        self.entry_price = Decimal('0')
+        self.trailing_stop = 0.002  # 0.2%
+        self.lowest_price = float('inf')
+        self.entry_price = None
         self.current_trade_id = None
-        self.logger = self.setup_logger()
+        self.trailing_stop_price = None
+        self.position_size = 10000  # $10,000 position size 
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
+        self.recent_prices = []
+        self.price_buffer_size = 2
 
     def setup_logger(self):
         """Configure logging for the bot."""
@@ -28,87 +47,66 @@ class TSLAShortBot:
         logger.addHandler(handler)
         return logger
 
-    def get_latest_ticks(self):
+    async def get_latest_ticks(self):
         """Fetch the last 60 seconds of tick data from the database."""
-        cursor = self.db.cursor()
         try:
-            query = """
-                WITH latest_tick AS (
-                    SELECT timestamp 
+            async with self.db_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    WITH latest_tick AS (
+                        SELECT timestamp 
+                        FROM tick_data 
+                        WHERE ticker = 'TSLA' 
+                        ORDER BY timestamp DESC 
+                        LIMIT 1
+                    )
+                    SELECT timestamp, price 
                     FROM tick_data 
                     WHERE ticker = 'TSLA' 
-                    ORDER BY timestamp DESC 
-                    LIMIT 1
-                )
-                SELECT timestamp::timestamp, price::float 
-                FROM tick_data 
-                WHERE ticker = 'TSLA' 
-                AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
-                ORDER BY timestamp DESC;
-            """
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            df = pd.DataFrame(rows, columns=['timestamp', 'price'])
-            self.logger.info(f"Query returned {len(df)} rows")
-            if not df.empty:
-                self.logger.info(f"Latest price: {df['price'].iloc[0]}")
-                self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
-            return df
+                    AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
+                    ORDER BY timestamp DESC;
+                """)
+                
+                df = pd.DataFrame(rows, columns=['timestamp', 'price'])
+                
+                if not df.empty:
+                    self.logger.info(f"Latest price: {df['price'].iloc[0]}")
+                    self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
+                
+                return df
+                
         except Exception as e:
             self.logger.error(f"Error fetching tick data: {e}")
             return None
-        finally:
-            cursor.close()
-
-    async def process_tick(self, ticker, price, timestamp):
-        """Process each tick and decide on trading actions."""
-        # Ensure price is a Decimal
-        if not isinstance(price, Decimal):
-            price = Decimal(str(price))
-
-        self.logger.info(f"Processing tick for {ticker} at {timestamp}: ${price:.2f}")
-
-        # If we have a position, check trailing stop
-        if self.position is not None:
-            if self.check_trailing_stop(price):
-                await self.execute_trade("BUY", price)
-        # If no position, check entry conditions
-        else:
-            if self.analyze_price_conditions(price):
-                await self.execute_trade("SELL", price)
 
     def analyze_price_conditions(self, ticks_df):
-        """Analyze if price conditions meet entry criteria."""
+        """Analyze if price conditions meet entry criteria for shorting."""
         if ticks_df is None or len(ticks_df) < 2:
             return False
 
         current_price = float(ticks_df['price'].iloc[0])
         price_60s_ago = float(ticks_df['price'].iloc[-1])
         
-        # Get the timestamp from 15 seconds ago
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)
         
-        # Find price from 15 seconds ago
         ticks_15s_ago = ticks_df[ticks_df['timestamp'] >= cutoff_time]
         if len(ticks_15s_ago) == 0:
             return False
         
         price_15s_ago = float(ticks_15s_ago['price'].iloc[-1])
         
-        # Debug logging
         self.logger.info(f"Current price: {current_price}")
         self.logger.info(f"15s ago price: {price_15s_ago}")
         self.logger.info(f"60s ago price: {price_60s_ago}")
 
-        # Check entry conditions
+        # Inverse logic for short entries
         if (price_60s_ago > current_price and 
             current_price <= price_15s_ago):
             return True
         return False
 
     def check_trailing_stop(self, current_price):
-        """Check if trailing stop has been hit."""
+        """Check if trailing stop has been hit for short position."""
         if self.position is None:
             return False
 
@@ -121,98 +119,147 @@ class TSLAShortBot:
             return True
         return False
 
-    def execute_trade(self, action, price):
-        """Execute a trade order."""
+    async def execute_trade(self, action, price, timestamp):
+        """Execute a trade order with enhanced exit tracking."""
         try:
-            if action == "BUY":
+            if action == "SELL":  # Opening short position
                 self.position = 1
                 self.entry_price = price
                 self.lowest_price = price
-                self.logger.info(f"BUY executed at {price}")
+                self.logger.info(f"SELL executed at {price}")
+                await self.log_trade_entry(price, timestamp)
                 
-                # Log trade to database
-                self.log_trade("BUY", price)
+            elif action == "BUY":  # Closing short position
+                pnl = (self.entry_price - price) / self.entry_price * 100
+                self.logger.info(f"BUY signal at {price}. PnL: {pnl:.2f}%")
                 
-            elif action == "SELL":
-                pnl = (price - self.entry_price) / self.entry_price * 100
-                self.logger.info(f"SELL executed at {price}. PnL: {pnl:.2f}%")
-                
-                # Log trade to database
-                self.log_trade("SELL", price)
+                await self.log_exit_signal(price, timestamp)
+                actual_exit_price = price
+                actual_exit_time = timestamp
+                await self.log_trade_exit(actual_exit_price, actual_exit_time)
                 
                 self.position = None
-                self.lowest_price = 0
-                self.entry_price = 0
-                
+                self.lowest_price = float('inf')
+                self.entry_price = None
+
         except Exception as e:
             self.logger.error(f"Error executing {action} trade: {e}")
+            raise
 
-    async def log_trade(self, action, price):
-        """Log trade to the database."""
-        async with self.db_pool.acquire() as conn:
-            try:
-                if action == "SELL":
-                    query = """
-                        INSERT INTO sim_bot_trades 
-                        (trade_timestamp, symbol, entry_price, trade_type, trade_direction, quantity)
-                        VALUES (NOW(), 'TSLA', $1, 'MARKET', 'SHORT', 1)
-                        RETURNING id, trade_id
-                    """
-                    result = await conn.fetchrow(query, price)
-                    self.current_trade_id = result['id']
-                else:  # BUY
-                    query = """
-                        UPDATE sim_bot_trades 
-                        SET exit_price = $1,
-                            trade_duration = NOW() - trade_timestamp,
-                            profit_loss = entry_price - $2
-                        WHERE id = $3
-                    """
-                    await conn.execute(query, price, price, self.current_trade_id)
-            except Exception as e:
-                self.logger.error(f"Error logging trade to database: {e}")
-                raise
+    async def log_trade_entry(self, price, timestamp):
+        """Log trade entry to the database."""
+        try:
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
 
-    def run(self):
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO sim_bot_trades 
+                    (trade_timestamp, symbol, entry_price, trade_type, trade_direction, quantity)
+                    VALUES ($1, 'TSLA', $2, 'MARKET', 'SHORT', 1)
+                    RETURNING id
+                """, timestamp, price)
+        except Exception as e:
+            self.logger.error(f"Error in log_trade_entry: {e}")
+            raise
+
+    async def log_exit_signal(self, price, timestamp):
+        """Log when exit conditions are first met."""
+        try:
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE sim_bot_trades 
+                    SET exit_signal_price = $1,
+                        exit_signal_time = $2
+                    WHERE id = $3
+                """, price, timestamp, self.current_trade_id)
+        except Exception as e:
+            self.logger.error(f"Error in log_exit_signal: {e}")
+            raise
+
+    async def log_trade_exit(self, price, timestamp):
+        """Log actual trade exit details."""
+        try:
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE sim_bot_trades 
+                    SET actual_exit_price = $1,
+                        actual_exit_time = $2,
+                        trade_duration = $2 - trade_timestamp,
+                        profit_loss = $1 - entry_price
+                    WHERE id = $3
+                """, price, timestamp, self.current_trade_id)
+        except Exception as e:
+            self.logger.error(f"Error in log_trade_exit: {e}")
+            raise
+
+    async def run(self):
         """Main bot loop."""
-        self.logger.info("Starting TSLA Momentum Bot...")
+        self.logger.info("Starting TSLA Short Bot...")
+        
+        self.ib_client.connect('127.0.0.1', 4002, 1)
+        
+        while not self.ib_client.connected:
+            await asyncio.sleep(0.1)
+        
+        self.logger.info("Connected to Interactive Brokers")
         
         while True:
             try:
-                # Get latest tick data
-                ticks_df = self.get_latest_ticks()
+                ticks_df = await self.get_latest_ticks()
                 if ticks_df is None or len(ticks_df) == 0:
-                    time.sleep(1)
+                    self.logger.info("No tick data available")
+                    await asyncio.sleep(1)
                     continue
 
                 current_price = float(ticks_df['price'].iloc[0])
+                self.logger.info(f"Processing price: {current_price}")
 
-                # If we have a position, check trailing stop
                 if self.position is not None:
                     if self.check_trailing_stop(current_price):
-                        self.execute_trade("SELL", current_price)
-                # If no position, check entry conditions
+                        await self.execute_trade("BUY", current_price, ticks_df['timestamp'].iloc[0])
                 else:
                     if self.analyze_price_conditions(ticks_df):
-                        self.execute_trade("BUY", current_price)
+                        await self.execute_trade("SELL", current_price, ticks_df['timestamp'].iloc[0])
 
-                time.sleep(1)  # Wait 1 second before next check
+                await asyncio.sleep(1)
 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
-                time.sleep(1)
+                await asyncio.sleep(1)
 
 if __name__ == "__main__":
-    import psycopg2
-
-    # Connect to your PostgreSQL database
-    db_conn = psycopg2.connect(
-        dbname="tick_data",
-        user="clayb",
-        password="musicman",
-        host="localhost"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
     )
+    
+    async def main():
+        db_pool = await asyncpg.create_pool(
+            user='clayb',
+            password='musicman',
+            database='tick_data',
+            host='localhost'
+        )
+        
+        ib_client = IBClient()
+        bot = TSLAShortBot(db_pool, ib_client, '4_bot')
+        
+        try:
+            await bot.run()
+        except KeyboardInterrupt:
+            logging.info("Shutting down bot...")
+        finally:
+            await db_pool.close()
+            ib_client.disconnect()
 
-    # Initialize and run the bot
-    bot = TSLAShortBot(db_conn)
-    bot.run()
+    asyncio.run(main())

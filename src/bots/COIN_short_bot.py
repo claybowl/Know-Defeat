@@ -1,20 +1,41 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import time
+import asyncio
+import asyncpg
 import logging
+from datetime import datetime, timedelta
+import pandas as pd
 from decimal import Decimal
+from ibapi.client import EClient
+from ibapi.wrapper import EWrapper
+
+class IBClient(EWrapper, EClient):
+    def __init__(self):
+        EClient.__init__(self, self)
+        self.connected = False
+
+    def connectAck(self):
+        self.connected = True
+        logging.info("Connected to IB Gateway")
+
+    def error(self, reqId, errorCode, errorString):
+        logging.error(f"IB Error {errorCode}: {errorString}")
 
 class CoinShortBot:
-    def __init__(self, db_connection):
+    def __init__(self, db_pool, ib_client, bot_id):
         """Initialize the trading bot with database connection and parameters."""
-        self.db = db_connection
+        self.logger = logging.getLogger(__name__)
+        self.db_pool = db_pool
+        self.ib_client = ib_client
+        self.bot_id = bot_id
         self.position = None
         self.trailing_stop = 0.002  # 0.2%
         self.lowest_price = float('inf')
-        self.entry_price = 0
+        self.entry_price = None
         self.current_trade_id = None
-        self.logger = self.setup_logger()
+        self.trailing_stop_price = None
+        self.position_size = 10000  # $10,000 position size 
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
+        self.recent_prices = []
+        self.price_buffer_size = 2
 
     def setup_logger(self):
         """Configure logging for the bot."""
@@ -26,54 +47,36 @@ class CoinShortBot:
         logger.addHandler(handler)
         return logger
 
-    def get_latest_ticks(self):
+    async def get_latest_ticks(self):
         """Fetch the last 60 seconds of tick data from the database."""
-        cursor = self.db.cursor()
         try:
-            query = """
-                WITH latest_tick AS (
-                    SELECT timestamp 
+            async with self.db_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    WITH latest_tick AS (
+                        SELECT timestamp 
+                        FROM tick_data 
+                        WHERE ticker = 'COIN' 
+                        ORDER BY timestamp DESC 
+                        LIMIT 1
+                    )
+                    SELECT timestamp, price 
                     FROM tick_data 
                     WHERE ticker = 'COIN' 
-                    ORDER BY timestamp DESC 
-                    LIMIT 1
-                )
-                SELECT timestamp::timestamp, price::float 
-                FROM tick_data 
-                WHERE ticker = 'COIN' 
-                AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
-                ORDER BY timestamp DESC;
-            """
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            df = pd.DataFrame(rows, columns=['timestamp', 'price'])
-            self.logger.info(f"Query returned {len(df)} rows")
-            if not df.empty:
-                self.logger.info(f"Latest price: {df['price'].iloc[0]}")
-                self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
-            return df
+                    AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
+                    ORDER BY timestamp DESC;
+                """)
+                
+                df = pd.DataFrame(rows, columns=['timestamp', 'price'])
+                
+                if not df.empty:
+                    self.logger.info(f"Latest price: {df['price'].iloc[0]}")
+                    self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
+                
+                return df
+                
         except Exception as e:
             self.logger.error(f"Error fetching tick data: {e}")
             return None
-        finally:
-            cursor.close()
-
-    async def process_tick(self, ticker, price, timestamp):
-        """Process each tick of data."""
-        # Ensure price is a Decimal
-        if not isinstance(price, Decimal):
-            price = Decimal(str(price))
-
-        self.logger.info(f"Processing tick for {ticker} at {timestamp}: ${price:.2f}")
-
-        # If we have a position, check trailing stop
-        if self.position is not None:
-            if self.check_trailing_stop(price):
-                await self.execute_trade("BUY", price)
-        # If no position, check entry conditions
-        else:
-            if await self.analyze_price_conditions(price):
-                await self.execute_trade("SELL", price)
 
     def analyze_price_conditions(self, ticks_df):
         """Analyze if price conditions meet entry criteria for shorting."""
@@ -96,6 +99,7 @@ class CoinShortBot:
         self.logger.info(f"15s ago price: {price_15s_ago}")
         self.logger.info(f"60s ago price: {price_60s_ago}")
 
+        # Inverse logic for short entries
         if (price_60s_ago > current_price and 
             current_price <= price_15s_ago):
             return True
@@ -115,88 +119,147 @@ class CoinShortBot:
             return True
         return False
 
-    def execute_trade(self, action, price):
-        """Execute a trade order."""
+    async def execute_trade(self, action, price, timestamp):
+        """Execute a trade order with enhanced exit tracking."""
         try:
-            if action == "SELL":
+            if action == "SELL":  # Opening short position
                 self.position = 1
                 self.entry_price = price
                 self.lowest_price = price
                 self.logger.info(f"SELL executed at {price}")
-                self.log_trade("SELL", price)
-            elif action == "BUY":
+                await self.log_trade_entry(price, timestamp)
+                
+            elif action == "BUY":  # Closing short position
                 pnl = (self.entry_price - price) / self.entry_price * 100
-                self.logger.info(f"BUY executed at {price}. PnL: {pnl:.2f}%")
-                self.log_trade("BUY", price)
+                self.logger.info(f"BUY signal at {price}. PnL: {pnl:.2f}%")
+                
+                await self.log_exit_signal(price, timestamp)
+                actual_exit_price = price
+                actual_exit_time = timestamp
+                await self.log_trade_exit(actual_exit_price, actual_exit_time)
+                
                 self.position = None
                 self.lowest_price = float('inf')
-                self.entry_price = 0
+                self.entry_price = None
+
         except Exception as e:
             self.logger.error(f"Error executing {action} trade: {e}")
+            raise
 
-    def log_trade(self, action, price):
-        """Log trade to the database."""
-        cursor = self.db.cursor()
+    async def log_trade_entry(self, price, timestamp):
+        """Log trade entry to the database."""
         try:
-            if action == "SELL":
-                query = """
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
                     INSERT INTO sim_bot_trades 
                     (trade_timestamp, symbol, entry_price, trade_type, trade_direction, quantity)
-                    VALUES (NOW(), 'COIN', %s, 'MARKET', 'SHORT', 1)
-                    RETURNING id, trade_id
-                """
-                cursor.execute(query, (price,))
-                self.current_trade_id = cursor.fetchone()[0]
-            else:  # BUY
-                query = """
-                    UPDATE sim_bot_trades 
-                    SET exit_price = %s,
-                        trade_duration = NOW() - trade_timestamp,
-                        profit_loss = entry_price - %s
-                    WHERE id = %s
-                """
-                cursor.execute(query, (price, price, self.current_trade_id))
-            self.db.commit()
+                    VALUES ($1, 'COIN', $2, 'MARKET', 'SHORT', 1)
+                    RETURNING id
+                """, timestamp, price)
         except Exception as e:
-            self.logger.error(f"Error logging trade to database: {e}")
-            self.db.rollback()
-        finally:
-            cursor.close()
+            self.logger.error(f"Error in log_trade_entry: {e}")
+            raise
 
-    def run(self):
+    async def log_exit_signal(self, price, timestamp):
+        """Log when exit conditions are first met."""
+        try:
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE sim_bot_trades 
+                    SET exit_signal_price = $1,
+                        exit_signal_time = $2
+                    WHERE id = $3
+                """, price, timestamp, self.current_trade_id)
+        except Exception as e:
+            self.logger.error(f"Error in log_exit_signal: {e}")
+            raise
+
+    async def log_trade_exit(self, price, timestamp):
+        """Log actual trade exit details."""
+        try:
+            # Convert timestamp to timezone-naive UTC
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE sim_bot_trades 
+                    SET actual_exit_price = $1,
+                        actual_exit_time = $2,
+                        trade_duration = $2 - trade_timestamp,
+                        profit_loss = entry_price - $1
+                    WHERE id = $3
+                """, price, timestamp, self.current_trade_id)
+        except Exception as e:
+            self.logger.error(f"Error in log_trade_exit: {e}")
+            raise
+
+    async def run(self):
         """Main bot loop."""
         self.logger.info("Starting COIN Short Bot...")
         
+        self.ib_client.connect('127.0.0.1', 4002, 1)
+        
+        while not self.ib_client.connected:
+            await asyncio.sleep(0.1)
+        
+        self.logger.info("Connected to Interactive Brokers")
+        
         while True:
             try:
-                ticks_df = self.get_latest_ticks()
+                ticks_df = await self.get_latest_ticks()
                 if ticks_df is None or len(ticks_df) == 0:
-                    time.sleep(1)
+                    self.logger.info("No tick data available")
+                    await asyncio.sleep(1)
                     continue
 
                 current_price = float(ticks_df['price'].iloc[0])
+                self.logger.info(f"Processing price: {current_price}")
 
                 if self.position is not None:
                     if self.check_trailing_stop(current_price):
-                        self.execute_trade("BUY", current_price)
+                        await self.execute_trade("BUY", current_price, ticks_df['timestamp'].iloc[0])
                 else:
                     if self.analyze_price_conditions(ticks_df):
-                        self.execute_trade("SELL", current_price)
+                        await self.execute_trade("SELL", current_price, ticks_df['timestamp'].iloc[0])
 
-                time.sleep(1)
+                await asyncio.sleep(1)
+
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
-                time.sleep(1)
+                await asyncio.sleep(1)
 
 if __name__ == "__main__":
-    import psycopg2
-    
-    db_conn = psycopg2.connect(
-        dbname="tick_data",
-        user="clayb",
-        password="musicman",
-        host="localhost"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
     )
     
-    bot = CoinShortBot(db_conn)
-    bot.run()
+    async def main():
+        db_pool = await asyncpg.create_pool(
+            user='clayb',
+            password='musicman',
+            database='tick_data',
+            host='localhost'
+        )
+        
+        ib_client = IBClient()
+        bot = CoinShortBot(db_pool, ib_client, '2_bot')
+        
+        try:
+            await bot.run()
+        except KeyboardInterrupt:
+            logging.info("Shutting down bot...")
+        finally:
+            await db_pool.close()
+            ib_client.disconnect()
+
+    asyncio.run(main())
