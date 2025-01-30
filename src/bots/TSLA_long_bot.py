@@ -8,6 +8,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 
 class IBClient(EWrapper, EClient):
+    """Interactive Brokers client implementation for handling market data and order execution."""
     def __init__(self):
         EClient.__init__(self, self)
         self.connected = False
@@ -20,6 +21,7 @@ class IBClient(EWrapper, EClient):
         logging.error(f"IB Error {errorCode}: {errorString}")
 
 class TSLALongBot:
+    """Trading bot implementing a momentum-based long strategy for TSLA stock with trailing stop loss."""
     def __init__(self, db_pool, ib_client, bot_id):
         """Initialize the trading bot with database connection and parameters."""
         self.logger = logging.getLogger(__name__)
