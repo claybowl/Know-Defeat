@@ -246,8 +246,8 @@ if __name__ == "__main__":
     
     async def main():
         db_pool = await asyncpg.create_pool(
-            user='clayb',
-            password='musicman',
+            user='postgres',
+            password='Fuckoff25',
             database='tick_data',
             host='localhost'
         )

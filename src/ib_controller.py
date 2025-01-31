@@ -142,7 +142,7 @@ class DataIngestionManager:
         try:
             self.db_pool = await asyncpg.create_pool(
                 user='postgres',
-                password='musicman',  # Replace with your actual password
+                password='Fuckoff25',  # Replace with your actual password
                 database='tick_data',
                 host='localhost',
                 port=5432,
