@@ -14,7 +14,10 @@ from bots.COIN_long_bot import CoinLongBot
 from bots.TSLA_long_bot import TSLALongBot
 from bots.COIN_short_bot import CoinShortBot
 from bots.TSLA_short_bot import TSLAShortBot
-
+from bots.COIN_long_bot2 import COINLongBot2
+from bots.TSLA_long_bot2 import TSLALongBot2    
+from bots.COIN_short_bot2 import COINShortBot2
+from bots.TSLA_short_bot2 import TSLAShortBot2
 
 # Configure logging
 logging.basicConfig(
@@ -218,16 +221,28 @@ class DataIngestionManager:
             # Start processing the queue
             await self.process_queue()
             # Initialize and add the bots
-            coin_bot = CoinLongBot(self.db_pool, self.app, 'coin_long_bot') # TODO:     
-            self.bot_manager.add_bot(coin_bot)
-            tsla_bot = TSLALongBot(self.db_pool, self.app, 'tsla_long_bot') # TODO: Add bot id
-            self.bot_manager.add_bot(tsla_bot)
+            coin_long_bot = CoinLongBot(self.db_pool, self.app, 'coin_long_bot')
+            self.bot_manager.add_bot(coin_long_bot)
+            tsla_long_bot = TSLALongBot(self.db_pool, self.app, 'tsla_long_bot')
+            self.bot_manager.add_bot(tsla_long_bot)
 
-            # Add the new short bots
+                        # Initialize and add the bots
             coin_short_bot = CoinShortBot(self.db_pool, self.app, 'coin_short_bot')
             self.bot_manager.add_bot(coin_short_bot)
             tsla_short_bot = TSLAShortBot(self.db_pool, self.app, 'tsla_short_bot')
             self.bot_manager.add_bot(tsla_short_bot)
+
+            # Add the new short bots
+            coin_short_bot2 = COINShortBot2(self.db_pool, self.app, 'coin_short_bot2')
+            self.bot_manager.add_bot(coin_short_bot2)
+            tsla_short_bot2 = TSLAShortBot2(self.db_pool, self.app, 'tsla_short_bot2')
+            self.bot_manager.add_bot(tsla_short_bot2)
+
+            # Add the new long bots
+            coin_long_bot2 = COINLongBot2(self.db_pool, self.app, 'coin_long_bot2')
+            self.bot_manager.add_bot(coin_long_bot2)
+            tsla_long_bot2 = TSLALongBot2(self.db_pool, self.app, 'tsla_long_bot2')
+            self.bot_manager.add_bot(tsla_long_bot2)
 
         except Exception as e:
             self.logger.error(f"Failed to start data ingestion: {e}")
