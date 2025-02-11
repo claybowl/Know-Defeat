@@ -98,7 +98,8 @@ class IBDataIngestion(EWrapper, EClient):
         contract.currency = currency
 
         # For NASDAQ stocks, set the primary exchange
-        if symbol in ['COIN','TSLA']:
+        nasdaq_symbols = ['COIN','TSLA','NVDA','FOUR','CEG','CVNA','VERA','CYTK','ROOT','JANX','LBPH','ARWR','FLYW']
+        if symbol in nasdaq_symbols:
             contract.primaryExchange = 'NASDAQ'
 
         # Store contract details for reference
@@ -261,7 +262,7 @@ class DataIngestionManager:
 
 async def main():
     # List of symbols to track
-    symbols = ['COIN', 'TSLA']
+    symbols = ['COIN', 'TSLA', 'NVDA', 'FOUR', 'CEG', 'CVNA', 'VERA', 'CYTK', 'ROOT', 'JANX', 'LBPH', 'ARWR', 'FLYW']
 
     # Create and start data ingestion manager
     manager = DataIngestionManager(symbols)
