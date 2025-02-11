@@ -160,3 +160,23 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 - **Log Levels**: Adjust log levels in the configuration file to control verbosity.
 
 -----------------------
+
+This update ensures that the `bot_id` is correctly handled—both in the code and in the database—by converting it to an integer if necessary.
+
+## Instructions for Future Development
+
+1. **Database Schema Management:**  
+   - Update the schema documentation in this README whenever changes are made to the `sim_bot_trades` or `tick_data` tables.
+   - Always back up the database before deploying any schema modifications.
+
+2. **Consistent Trade Logging:**  
+   - New bots must implement the unified logging pattern shown above.
+   - Ensure that the status transitions (`open` → `pending_exit` → `closed`) and PNL calculations are correct for both LONG and SHORT strategies.
+
+3. **Modular Development and Testing:**  
+   - Isolate changes to specific modules to reduce cross-dependencies.
+   - Validate updates with unit and integration tests utilizing the updated schema.
+
+## License
+
+*License details to be added.*
