@@ -275,7 +275,8 @@ if __name__ == "__main__":
         )
 
         ib_client = IBClient()
-        bot = COINShortBot2(db_pool, ib_client, 'coin_short_bot')
+        # Pass integer bot_id instead of string
+        bot = COINShortBot2(db_pool, ib_client, 2)
 
         try:
             await bot.run()
