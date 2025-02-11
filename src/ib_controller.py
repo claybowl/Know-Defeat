@@ -138,12 +138,29 @@ class DataIngestionManager:
         self.db_pool = None
         self.bot_manager = BotManager()
 
+    # async def init_db(self):
+    #     """Initialize database connection pool"""
+    #     try:
+    #         self.db_pool = await asyncpg.create_pool(
+    #             user='postgres',
+    #             password='Fuckoff25',  # Replace with your actual password
+    #             database='tick_data',
+    #             host='localhost',
+    #             port=5432,
+    #             min_size=5,
+    #             max_size=20
+    #         )
+    #         self.logger.info("Database connection pool initialized")
+    #     except Exception as e:
+    #         self.logger.error(f"Failed to initialize database pool: {e}")
+    #         raise
+
     async def init_db(self):
         """Initialize database connection pool"""
         try:
             self.db_pool = await asyncpg.create_pool(
-                user='postgres',
-                password='Fuckoff25',  # Replace with your actual password
+                user='clayb',
+                password='musicman',  # Replace with your actual password
                 database='tick_data',
                 host='localhost',
                 port=5432,
