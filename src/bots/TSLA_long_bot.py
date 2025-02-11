@@ -187,18 +187,17 @@ class TSLALongBot:
     async def log_trade_exit(self, price, timestamp):
         """Log actual trade exit details."""
         try:
-            # Convert timestamp to timezone-naive UTC
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
             async with self.db_pool.acquire() as conn:
                 await conn.execute("""
                     UPDATE sim_bot_trades 
-                    SET actual_exit_price = $1,
-                        actual_exit_time = $2,
-                        trade_duration = $2 - trade_timestamp,
-                        pnl = $1 - entry_price
-                    WHERE id = $3
+                    SET exit_price = $1,
+                        exit_time = $2,
+                        trade_pnl = $1 - entry_price,
+                        trade_status = 'closed'
+                    WHERE trade_id = $3
                 """, price, timestamp, self.current_trade_id)
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")

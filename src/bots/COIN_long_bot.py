@@ -161,17 +161,21 @@ class CoinLongBot:
     async def log_trade_entry(self, price, timestamp):
         """Log trade entry to the database."""
         try:
-            # Convert timestamp to timezone-naive UTC
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
             async with self.db_pool.acquire() as conn:
-                await conn.execute("""
+                result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
-                    (trade_timestamp, symbol, entry_price, trade_type, trade_direction, quantity)
-                    VALUES ($1, 'COIN', $2, 'MARKET', 'LONG', 1)
-                    RETURNING id
-                """, timestamp, price)
+                    (entry_time, ticker, entry_price, trade_direction,
+                     trade_size, trade_status, bot_id)
+                    VALUES ($1, 'COIN', $2, 'LONG', $3, 'open', $4)
+                    RETURNING trade_id
+                """, timestamp, price, self.position_size, self.bot_id)
+                
+                if result:
+                    self.current_trade_id = result['trade_id']
+
         except Exception as e:
             self.logger.error(f"Error in log_trade_entry: {e}")
             raise
@@ -179,16 +183,16 @@ class CoinLongBot:
     async def log_exit_signal(self, price, timestamp):
         """Log when exit conditions are first met."""
         try:
-            # Convert timestamp to timezone-naive UTC
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
             async with self.db_pool.acquire() as conn:
                 await conn.execute("""
-                    UPDATE sim_bot_trades 
-                    SET exit_signal_price = $1,
-                        exit_signal_time = $2
-                    WHERE id = $3
+                    UPDATE sim_bot_trades
+                    SET exit_trigger_price = $1,
+                        exit_trigger_time = $2,
+                        trade_status = 'pending_exit'
+                    WHERE trade_id = $3
                 """, price, timestamp, self.current_trade_id)
         except Exception as e:
             self.logger.error(f"Error in log_exit_signal: {e}")
@@ -197,18 +201,17 @@ class CoinLongBot:
     async def log_trade_exit(self, price, timestamp):
         """Log actual trade exit details."""
         try:
-            # Convert timestamp to timezone-naive UTC
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
             async with self.db_pool.acquire() as conn:
                 await conn.execute("""
                     UPDATE sim_bot_trades 
-                    SET actual_exit_price = $1,
-                        actual_exit_time = $2,
-                        trade_duration = $2 - trade_timestamp,
-                        pnl = $1 - entry_price
-                    WHERE id = $3
+                    SET exit_price = $1,
+                        exit_time = $2,
+                        trade_pnl = $1 - entry_price,
+                        trade_status = 'closed'
+                    WHERE trade_id = $3
                 """, price, timestamp, self.current_trade_id)
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
@@ -264,8 +267,8 @@ if __name__ == "__main__":
     async def main():
         # Create database pool
         db_pool = await asyncpg.create_pool(
-            user='postgres',
-            password='Fuckoff25',
+            user='clayb',
+            password='musicman',
             database='tick_data',
             host='localhost'
         )

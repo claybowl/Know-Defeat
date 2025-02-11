@@ -18,6 +18,14 @@ from bots.COIN_long_bot2 import COINLongBot2
 from bots.TSLA_long_bot2 import TSLALongBot2    
 from bots.COIN_short_bot2 import COINShortBot2
 from bots.TSLA_short_bot2 import TSLAShortBot2
+from src.utils.metric_utils import update_bot_metrics
+from src.utils.metric_utils import calculate_total_pnl
+from src.utils.metric_utils import calculate_win_rate
+from src.utils.db_utils import execute_db_query
+from src.utils.db_utils import fetch_rows
+from src.utils.db_utils import create_db_pool
+from src.utils.db_utils import execute_query
+from src.utils.db_utils import db_pool
 
 # Configure logging
 logging.basicConfig(
@@ -215,6 +223,39 @@ class DataIngestionManager:
                 self.logger.error(f"Error processing queue: {e}")
                 await asyncio.sleep(1)
 
+    async def update_periodic_metrics(self):
+        """Update time-based performance metrics every hour"""
+        while True:
+            try:
+                async with self.db_pool.acquire() as conn:
+                    # Update win rate calculation
+                    await conn.execute("""
+                        UPDATE bot_metrics SET
+                            win_rate = (
+                                SELECT COUNT(*) FILTER (WHERE trade_pnl > 0)::float /
+                                COUNT(*) FILTER (WHERE trade_status = 'closed')
+                                FROM sim_bot_trades
+                                WHERE bot_id = bot_metrics.bot_id
+                            )
+                    """)
+                    
+                    # Update hourly performance
+                    await conn.execute("""
+                        UPDATE bot_metrics SET
+                            one_hour_performance = total_pnl - COALESCE(
+                                (SELECT total_pnl 
+                                 FROM bot_metrics_history 
+                                 WHERE bot_id = bot_metrics.bot_id 
+                                 AND created_at >= NOW() - INTERVAL '1 hour'
+                                 ORDER BY created_at DESC 
+                                 LIMIT 1), 0)
+                    """)
+                    self.logger.info("Updated periodic metrics")
+            except Exception as e:
+                self.logger.error(f"Error updating metrics: {e}")
+
+            await asyncio.sleep(3600)  # Run hourly
+
     async def start(self):
         """Start the data ingestion process"""
         try:
@@ -261,6 +302,9 @@ class DataIngestionManager:
             self.bot_manager.add_bot(coin_long_bot2)
             tsla_long_bot2 = TSLALongBot2(self.db_pool, self.app, 'tsla_long_bot2')
             self.bot_manager.add_bot(tsla_long_bot2)
+
+            # Start metrics updater
+            asyncio.create_task(self.update_periodic_metrics())
 
         except Exception as e:
             self.logger.error(f"Failed to start data ingestion: {e}")

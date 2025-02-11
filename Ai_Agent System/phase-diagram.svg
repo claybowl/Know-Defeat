@@ -1,0 +1,80 @@
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="800" height="500" fill="#f8f9fa"/>
+    
+    <!-- Phase Boxes -->
+    <!-- Phase 1 -->
+    <g transform="translate(50, 50)">
+        <rect width="160" height="200" rx="5" fill="#e3f2fd" stroke="#2196f3" stroke-width="2"/>
+        <text x="80" y="30" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold" fill="#1976d2">Phase 1: Foundation</text>
+        <rect x="20" y="50" width="120" height="30" rx="3" fill="#bbdefb"/>
+        <text x="80" y="70" font-family="Arial" font-size="12" text-anchor="middle">Database Setup</text>
+        <rect x="20" y="90" width="120" height="30" rx="3" fill="#bbdefb"/>
+        <text x="80" y="110" font-family="Arial" font-size="12" text-anchor="middle">Market Connection</text>
+        <rect x="20" y="130" width="120" height="30" rx="3" fill="#bbdefb"/>
+        <text x="80" y="150" font-family="Arial" font-size="12" text-anchor="middle">Basic Infrastructure</text>
+    </g>
+
+    <!-- Phase 2 -->
+    <g transform="translate(240, 50)">
+        <rect width="160" height="200" rx="5" fill="#e8f5e9" stroke="#4caf50" stroke-width="2"/>
+        <text x="80" y="30" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold" fill="#2e7d32">Phase 2: Data Agents</text>
+        <rect x="20" y="50" width="120" height="30" rx="3" fill="#c8e6c9"/>
+        <text x="80" y="70" font-family="Arial" font-size="12" text-anchor="middle">Market Data Agent</text>
+        <rect x="20" y="90" width="120" height="30" rx="3" fill="#c8e6c9"/>
+        <text x="80" y="110" font-family="Arial" font-size="12" text-anchor="middle">Analysis Agent</text>
+        <rect x="20" y="130" width="120" height="30" rx="3" fill="#c8e6c9"/>
+        <text x="80" y="150" font-family="Arial" font-size="12" text-anchor="middle">State Management</text>
+    </g>
+
+    <!-- Phase 3 -->
+    <g transform="translate(430, 50)">
+        <rect width="160" height="200" rx="5" fill="#fff3e0" stroke="#ff9800" stroke-width="2"/>
+        <text x="80" y="30" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold" fill="#ef6c00">Phase 3: Trading</text>
+        <rect x="20" y="50" width="120" height="30" rx="3" fill="#ffe0b2"/>
+        <text x="80" y="70" font-family="Arial" font-size="12" text-anchor="middle">Strategy Agent</text>
+        <rect x="20" y="90" width="120" height="30" rx="3" fill="#ffe0b2"/>
+        <text x="80" y="110" font-family="Arial" font-size="12" text-anchor="middle">Execution Agent</text>
+        <rect x="20" y="130" width="120" height="30" rx="3" fill="#ffe0b2"/>
+        <text x="80" y="150" font-family="Arial" font-size="12" text-anchor="middle">Risk Management</text>
+    </g>
+
+    <!-- Phase 4 -->
+    <g transform="translate(620, 50)">
+        <rect width="160" height="200" rx="5" fill="#f3e5f5" stroke="#9c27b0" stroke-width="2"/>
+        <text x="80" y="30" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold" fill="#7b1fa2">Phase 4: Advanced</text>
+        <rect x="20" y="50" width="120" height="30" rx="3" fill="#e1bee7"/>
+        <text x="80" y="70" font-family="Arial" font-size="12" text-anchor="middle">Machine Learning</text>
+        <rect x="20" y="90" width="120" height="30" rx="3" fill="#e1bee7"/>
+        <text x="80" y="110" font-family="Arial" font-size="12" text-anchor="middle">Optimization</text>
+        <rect x="20" y="130" width="120" height="30" rx="3" fill="#e1bee7"/>
+        <text x="80" y="150" font-family="Arial" font-size="12" text-anchor="middle">Scaling Systems</text>
+    </g>
+
+    <!-- Flow Arrows -->
+    <g transform="translate(0, 150)">
+        <path d="M210 0 L240 0" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <path d="M400 0 L430 0" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <path d="M590 0 L620 0" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+    </g>
+
+    <!-- Arrow Marker -->
+    <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+        </marker>
+    </defs>
+
+    <!-- Status Line -->
+    <g transform="translate(50, 300)">
+        <line x1="0" y1="0" x2="730" y2="0" stroke="#ccc" stroke-width="2"/>
+        <circle cx="100" cy="0" r="8" fill="#4caf50"/>
+        <circle cx="290" cy="0" r="8" fill="#4caf50"/>
+        <circle cx="480" cy="0" r="8" fill="#ff9800"/>
+        <circle cx="670" cy="0" r="8" fill="#ccc"/>
+        <text x="100" y="25" font-family="Arial" font-size="12" text-anchor="middle">Completed</text>
+        <text x="290" y="25" font-family="Arial" font-size="12" text-anchor="middle">Completed</text>
+        <text x="480" y="25" font-family="Arial" font-size="12" text-anchor="middle">In Progress</text>
+        <text x="670" y="25" font-family="Arial" font-size="12" text-anchor="middle">Planned</text>
+    </g>
+</svg>
