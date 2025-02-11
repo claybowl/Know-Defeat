@@ -152,6 +152,9 @@ class CoinShortBot:
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
+            # Convert bot_id string to integer
+            numeric_bot_id = int(self.bot_id.split('_')[0])
+
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
@@ -159,7 +162,7 @@ class CoinShortBot:
                      trade_size, trade_status, bot_id)
                     VALUES ($1, 'COIN', $2, 'SHORT', $3, 'open', $4)
                     RETURNING trade_id
-                """, timestamp, price, self.position_size, self.bot_id)
+                """, timestamp, price, self.position_size, numeric_bot_id)
                 
                 if result:
                     self.current_trade_id = result['trade_id']
@@ -255,7 +258,7 @@ if __name__ == "__main__":
         )
  
         ib_client = IBClient()
-        bot = CoinShortBot(db_pool, ib_client, '2_bot')
+        bot = CoinShortBot(db_pool, ib_client, '2')
         
         try:
             await bot.run()

@@ -1,4 +1,6 @@
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 from datetime import datetime
 from threading import Thread
@@ -18,14 +20,13 @@ from bots.COIN_long_bot2 import COINLongBot2
 from bots.TSLA_long_bot2 import TSLALongBot2    
 from bots.COIN_short_bot2 import COINShortBot2
 from bots.TSLA_short_bot2 import TSLAShortBot2
-from src.utils.metric_utils import update_bot_metrics
-from src.utils.metric_utils import calculate_total_pnl
-from src.utils.metric_utils import calculate_win_rate
-from src.utils.db_utils import execute_db_query
-from src.utils.db_utils import fetch_rows
-from src.utils.db_utils import create_db_pool
-from src.utils.db_utils import execute_query
-from src.utils.db_utils import db_pool
+from utils.metric_utils import update_bot_metrics, calculate_total_pnl, calculate_win_rate
+from utils.db_utils import (
+    execute_db_query,
+    fetch_rows,
+    create_db_pool,
+    execute_query
+)
 
 # Configure logging
 logging.basicConfig(

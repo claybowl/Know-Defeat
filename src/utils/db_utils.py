@@ -1,9 +1,6 @@
 # db_utils.py
 import asyncpg
-from ib_controller import IBDataIngestion
-from src.utils.metric_utils import update_bot_metrics
-from src.utils.metric_utils import calculate_total_pnl
-from src.utils.metric_utils import calculate_win_rate
+import logging
 
 async def create_db_pool(user, password, database, host, port, min_size, max_size):
     """Create a connection pool to the database."""
@@ -41,3 +38,18 @@ async def fetch_rows(db_pool, query, *args):
     except Exception as e:
         print(f"Error fetching rows: {e}")
         raise
+
+async def create_db_pool():
+    return await asyncpg.create_pool(
+        user='clayb',
+        password='musicman',
+        database='tick_data',
+        host='localhost'
+    )
+
+async def execute_db_query(query, params=None):
+    pool = await create_db_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetch(query, *(params or []))
+    await pool.close()
+    return result

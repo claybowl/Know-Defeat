@@ -206,16 +206,20 @@ class COINShortBot2:
             raise
 
     async def log_trade_exit(self, price, timestamp):
-        """
-        Log the final execution details of closing the short position.
-        """
+        """Log actual trade exit details."""
         try:
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
             async with self.db_pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO sim_bot_trades 
-                    (trade_timestamp, symbol, exit_price, trade_type, trade_direction, quantity)
-                    VALUES ($1, 'COIN', $2, 'MARKET', 'SHORT', -1)
-                """, timestamp, price)
+                    UPDATE sim_bot_trades 
+                    SET exit_price = $1,
+                        exit_time = $2,
+                        trade_pnl = entry_price - $1,
+                        trade_status = 'closed'
+                    WHERE trade_id = $3
+                """, price, timestamp, self.current_trade_id)
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
             raise
