@@ -25,15 +25,13 @@ class TSLAShortBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = bot_id
+        self.bot_id = 6  # fixed bot id for TSLA_short_bot
         self.position = None
-        self.trailing_stop = 0.002  # 0.2%
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.lowest_price = float('inf')
         self.entry_price = None
         self.current_trade_id = None
-        self.trailing_stop_price = None
         self.position_size = 10000  # $10,000 position size 
-        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.recent_prices = []
         self.price_buffer_size = 2
 
@@ -107,18 +105,20 @@ class TSLAShortBot:
         return False
 
     def check_trailing_stop(self, current_price):
-        """Check if trailing stop has been hit for short position."""
+        """
+        Check if trailing stop has been hit for short position.
+        For a short position, if price rises by trailing_stop_pct from the lowest
+        recorded price, exit the position (buy to cover).
+        """
         if self.position is None:
             return False
 
         if current_price < self.lowest_price:
             self.lowest_price = current_price
 
-        stop_price = self.lowest_price * (1 + self.trailing_stop)
+        stop_price = self.lowest_price * (1 + self.trailing_stop_pct)
         
-        if current_price >= stop_price:
-            return True
-        return False
+        return current_price >= stop_price
 
     async def execute_trade(self, action, price, timestamp):
         """Execute a trade order with enhanced exit tracking."""
@@ -154,7 +154,7 @@ class TSLAShortBot:
                 timestamp = timestamp.replace(tzinfo=None)
 
             # Convert bot_id string to integer (e.g., '4_bot' -> 4)
-            numeric_bot_id = int(self.bot_id.split('_')[0])
+            numeric_bot_id = self.bot_id
 
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow("""

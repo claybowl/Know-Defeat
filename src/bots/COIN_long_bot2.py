@@ -37,15 +37,14 @@ class COINLongBot2:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = bot_id
+        self.bot_id = 3  # fixed bot id for COIN_long_bot2
         self.position = None
-        self.trailing_stop = 0.002  # 0.2%
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.highest_price = 0
         self.entry_price = None
         self.current_trade_id = None
-        self.trailing_stop_price = None
         self.position_size = 10000  # $10,000 position size 
-        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
+        self.trailing_stop_price = None
         self.recent_prices = []
         self.price_buffer_size = 2
 
@@ -78,38 +77,48 @@ class COINLongBot2:
             self.logger.error(f"Error fetching latest ticks: {e}")
             return None
 
-    def analyze_price_conditions(self, ticks_df):
-        """
-        Analyze if price conditions meet entry criteria for a COIN long trade.
-        This checks recent price momentum to see if a long position might be warranted.
+    async def analyze_price_conditions(self, ticks_df):
+        """Analyze if price conditions meet entry criteria for a long trade with a threshold.
+        
+        For a long trade, we require that the current price is at least 0.1% higher than the price 60 seconds ago
+        and that the current price is not lower than the price from 15 seconds ago. This extra threshold helps
+        to ensure that only meaningful upward movements trigger a trade.
         """
         if ticks_df is None or len(ticks_df) < 2:
             return False
-
+        
+        # Extract current price and the price from 60 seconds ago
         current_price = float(ticks_df['price'].iloc[0])
         price_60s_ago = float(ticks_df['price'].iloc[-1])
-
+        
+        # Define the threshold (0.1% increase)
+        threshold = 0.001
+        # Compute the minimum required price based on the price 60 seconds ago
+        required_price = price_60s_ago * (1 + threshold)
+        
+        # Log values for debugging purposes
+        self.logger.info(f"[COIN_long_bot2] Current price: {current_price}, Price 60s ago: {price_60s_ago}, Required minimum price: {required_price:.4f}")
+        
+        # Determine the price from approximately 15 seconds ago
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)
-
         ticks_15s_ago = ticks_df[ticks_df['timestamp'] >= cutoff_time]
         if len(ticks_15s_ago) == 0:
             return False
-
         price_15s_ago = float(ticks_15s_ago['price'].iloc[-1])
-
-        self.logger.info(f"Current price: {current_price}")
-        self.logger.info(f"15s ago price: {price_15s_ago}")
-        self.logger.info(f"60s ago price: {price_60s_ago}")
-
-        # Simple logic: go long if the current price is higher than it was 60s ago,
-        # and also higher than the price 15s ago, indicating upward momentum.
-        return (price_60s_ago < current_price and current_price >= price_15s_ago)
+        self.logger.info(f"[COIN_long_bot2] Price 15s ago: {price_15s_ago}")
+        
+        # Check if the current price meets both conditions: 
+        # 1. current price is at least the required minimum (reflecting a 0.1% upward gain over the price 60s ago)
+        # 2. current price is not lower than the price from 15 seconds ago
+        if current_price >= required_price and current_price >= price_15s_ago:
+            return True
+        return False
 
     def check_trailing_stop(self, current_price):
         """
         Check if trailing stop has been hit. For a long position, if price falls below
-        a certain percentage from the highest recorded price, exit the position.
+        a certain percentage (trailing_stop_pct) from the highest recorded price, exit the position.
         """
         if self.position is None:
             return False
@@ -117,7 +126,8 @@ class COINLongBot2:
         if current_price > self.highest_price:
             self.highest_price = current_price
 
-        stop_price = self.highest_price * (1 - self.trailing_stop)
+        stop_price = self.highest_price * (1 - self.trailing_stop_pct)
+
         return current_price <= stop_price
 
     async def execute_trade(self, action, price, timestamp):
@@ -161,7 +171,7 @@ class COINLongBot2:
                 timestamp = timestamp.replace(tzinfo=None)
 
             # Convert bot_id string to integer
-            numeric_bot_id = int(self.bot_id.split('_')[0])
+            numeric_bot_id = self.bot_id
 
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow("""
@@ -171,7 +181,7 @@ class COINLongBot2:
                     VALUES ($1, 'COIN', $2, 'LONG', $3, 'open', $4)
                     RETURNING trade_id
                 """, timestamp, price, self.position_size, numeric_bot_id)
-                
+
                 if result:
                     self.current_trade_id = result['trade_id']
 
@@ -222,14 +232,14 @@ class COINLongBot2:
     async def run(self):
         """Main bot loop."""
         self.logger.info("Starting COIN Long Bot...")
-        
+
         self.ib_client.connect('127.0.0.1', 4002, 1)
         
         while not self.ib_client.connected:
             await asyncio.sleep(0.1)
-        
+
         self.logger.info("Connected to Interactive Brokers")
-        
+
         while True:
             try:
                 ticks_df = await self.get_latest_ticks()
@@ -259,7 +269,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
+
     async def main():
         db_pool = await asyncpg.create_pool(
             user='clayb',
@@ -267,10 +277,10 @@ if __name__ == "__main__":
             database='tick_data',
             host='localhost'
         )
-        
+
         ib_client = IBClient()
         bot = COINLongBot2(db_pool, ib_client, '3')
-        
+
         try:
             await bot.run()
         except KeyboardInterrupt:

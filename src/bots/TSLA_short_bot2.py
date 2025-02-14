@@ -37,15 +37,19 @@ class TSLAShortBot2:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = bot_id
+        self.bot_id = 8  # fixed bot id for TSLA_short_bot2
         self.position = None
         self.lowest_price = float('inf')
         self.entry_price = None
         self.current_trade_id = None
-        # $10,000 position size for the short position
-        self.position_size = 10000
-        # Used to trigger a buy-to-cover if price rises a certain % from the lowest point
-        self.trailing_stop_pct = 0.002  # 0.2%
+        self.position_size = 10000  # $10,000 position size
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
+        # Add tracking for current price and minute OHLC
+        self.current_price = None
+        self.last_minute_open = None
+        self.last_minute_close = None
+        self.last_minute_high = float('-inf')
+        self.last_minute_low = float('inf')
 
     async def get_latest_ticks(self):
         """
@@ -137,6 +141,61 @@ class TSLAShortBot2:
         except Exception as e:
             self.logger.error(f"Error placing order: {e}")
 
+    async def process_tick(self, tick):
+        """
+        Handle a single tick of data. Updates current price and minute OHLC data.
+        Implements a simple momentum strategy based on minute close < open for shorts.
+        """
+        try:
+            # Update current price
+            self.current_price = float(tick['price'])
+            
+            # Update minute OHLC data
+            if tick['timestamp'].second == 0:  # Start of new minute
+                self.last_minute_open = self.current_price
+                self.last_minute_high = self.current_price
+                self.last_minute_low = self.current_price
+            else:
+                if self.current_price > self.last_minute_high:
+                    self.last_minute_high = self.current_price
+                if self.current_price < self.last_minute_low:
+                    self.last_minute_low = self.current_price
+                if tick['timestamp'].second == 59:  # End of minute
+                    self.last_minute_close = self.current_price
+
+            # Check trading conditions for short entry
+            if self.last_minute_close and self.last_minute_open:
+                if self.last_minute_close < self.last_minute_open and self.current_price < self.last_minute_open:
+                    quantity = self.position_size / self.current_price
+                    await self.place_order('TSLA', quantity, 'SELL')
+
+            # Check trailing stop if in position
+            if self.position is not None and self.check_trailing_stop(self.current_price):
+                quantity = self.position_size / self.current_price
+                await self.place_order('TSLA', quantity, 'BUY')
+
+            self.logger.debug(f"Processed tick: {tick['timestamp']} Price: {self.current_price:.2f} Volume: {tick['volume']}")
+
+        except Exception as e:
+            self.logger.error(f"Error processing tick: {e}")
+            raise
+
+    async def place_order(self, ticker, quantity, side):
+        """Place an order with the specified parameters."""
+        try:
+            if self.current_price is None:
+                self.logger.error("Cannot place order: current price is not set")
+                return
+
+            self.logger.info(f"Placing {side} order for {ticker}: {quantity:.4f} shares at {self.current_price:.2f}")
+            
+            # Execute the trade using our existing logic
+            await self.execute_trade(side, self.current_price, datetime.now())
+            
+        except Exception as e:
+            self.logger.error(f"Error placing order: {e}")
+            raise
+
     async def run(self):
         """
         Main bot loop: fetch new ticks, analyze conditions, and either open 
@@ -187,7 +246,7 @@ if __name__ == "__main__":
         )
         
         ib_client = IBClient()
-        bot = TSLAShortBot2(db_pool, ib_client, '3_bot')
+        bot = TSLAShortBot2(db_pool, ib_client, 8)
         
         try:
             await bot.run()

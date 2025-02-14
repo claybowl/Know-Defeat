@@ -9,11 +9,6 @@ from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
 
-# # Add the parent directory to sys.path to allow for module imports
-# current_dir = Path(__file__).parent
-# parent_dir = current_dir.parent
-# sys.path.append(str(parent_dir))
-# from ib_controller import IBController
 
 class IBClient(EWrapper, EClient):
     """Interactive Brokers client implementation for handling market data and order execution."""
@@ -31,24 +26,18 @@ class IBClient(EWrapper, EClient):
 
 class COINShortBot2:
     """Trading bot implementing a momentum-based short strategy for COIN with trailing stop loss."""
-    def __init__(self, db_pool, ib_client, bot_id, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, db_pool, ib_client, bot_id):
+        """Initialize the trading bot with database connection and parameters."""
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = bot_id
-
+        self.bot_id = 4  # fixed bot id for COIN_short_bot2
         self.position = None
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.lowest_price = float('inf')
         self.entry_price = None
         self.current_trade_id = None
-
-        # $10,000 position size for the short position
-        self.position_size = 10000
-        # This will trigger a buy-to-cover if price rises a certain % from the lowest point
-        self.trailing_stop_pct = 0.002  # 0.2%
-
-        # You can store recent prices for more complex analysis if you want
+        self.position_size = 10000  # $10,000 position size 
         self.recent_prices = []
         self.price_buffer_size = 2
 
@@ -84,54 +73,56 @@ class COINShortBot2:
             return None
 
     def analyze_price_conditions(self, ticks_df):
-        """
-        Analyze if price conditions meet entry criteria for a COIN short trade.
-        We check recent price momentum to see if a short position might be warranted.
-        Here, we'll short if current price is lower than it was 60s ago and also
-        lower or equal to the price 15s ago, indicating a downward momentum.
+        """Analyze if price conditions meet entry criteria for a short trade with a threshold.
+        
+        For a short trade, we require that the current price is at least 0.1% lower than the price 60s ago
+        and that the current price is not higher than the price from 15s ago.
         """
         if ticks_df is None or len(ticks_df) < 2:
             return False
-
+        
         current_price = float(ticks_df['price'].iloc[0])
         price_60s_ago = float(ticks_df['price'].iloc[-1])
-
+        
+        # Define a threshold of 0.1% (0.001) for a downward move
+        threshold = 0.001
+        # Calculate the required maximum price based on the price 60 seconds ago
+        required_price = price_60s_ago * (1 - threshold)
+        
+        # Log key values for debugging
+        self.logger.info(f"Current price: {current_price}, Price 60s ago: {price_60s_ago}, Required maximum price: {required_price:.4f}")
+        
+        # Determine the price from approximately 15 seconds ago
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)
-
         ticks_15s_ago = ticks_df[ticks_df['timestamp'] >= cutoff_time]
         if len(ticks_15s_ago) == 0:
             return False
-
         price_15s_ago = float(ticks_15s_ago['price'].iloc[-1])
-
-        self.logger.info(f"Current price: {current_price}")
-        self.logger.info(f"15s ago price: {price_15s_ago}")
-        self.logger.info(f"60s ago price: {price_60s_ago}")
-
-        # Simple logic: go short if the current price is lower than it was 60s ago,
-        # and also lower/equal than the price 15s ago, indicating downward momentum.
-        return (price_60s_ago > current_price and current_price <= price_15s_ago)
+        self.logger.info(f"Price 15s ago: {price_15s_ago}")
+        
+        # For a short trade, the entry condition is fulfilled if the current price is less than or equal to
+        # both the required maximum price (i.e., reflecting at least a 0.1% drop from 60s ago) and the
+        # price from 15 seconds ago.
+        if current_price <= required_price and current_price <= price_15s_ago:
+            return True
+        return False
 
     def check_trailing_stop(self, current_price):
         """
-        Check if trailing stop has been triggered.
-        For a short position, if the price rises by a certain percentage from the lowest
-        recorded price, we exit the position (buy to cover).
+        Check if trailing stop has been hit for short position.
+        For a short position, if price rises by trailing_stop_pct from the lowest
+        recorded price, exit the position (buy to cover).
         """
         if self.position is None:
             return False
 
-        # Update the lowest price if we see a new lower price
         if current_price < self.lowest_price:
             self.lowest_price = current_price
 
-        threshold_price = self.lowest_price * (1 + self.trailing_stop_pct)
-        if current_price > threshold_price:
-            self.logger.info(f"Trailing stop triggered at price: {current_price}. Lowest price: {self.lowest_price}")
-            return True
-
-        return False
+        stop_price = self.lowest_price * (1 + self.trailing_stop_pct)
+        
+        return current_price >= stop_price
 
     async def execute_trade(self, action, price, timestamp):
         """
@@ -276,7 +267,7 @@ if __name__ == "__main__":
 
         ib_client = IBClient()
         # Pass integer bot_id instead of string
-        bot = COINShortBot2(db_pool, ib_client, 2)
+        bot = COINShortBot2(db_pool, ib_client, 7)
 
         try:
             await bot.run()

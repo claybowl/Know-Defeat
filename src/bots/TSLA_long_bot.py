@@ -27,15 +27,14 @@ class TSLALongBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = bot_id
+        self.bot_id = 5  # fixed bot id for TSLA_long_bot
         self.position = None
-        self.trailing_stop = 0.002  # 0.2%
+        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.highest_price = 0
         self.entry_price = None
         self.current_trade_id = None
-        self.trailing_stop_price = None
         self.position_size = 10000  # $10,000 position size 
-        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
+        self.trailing_stop_price = None
         self.recent_prices = []
         self.price_buffer_size = 2
 
@@ -67,15 +66,15 @@ class TSLALongBot:
                     AND timestamp >= (SELECT timestamp - INTERVAL '60 seconds' FROM latest_tick)
                     ORDER BY timestamp DESC;
                 """)
-                
+
                 df = pd.DataFrame(rows, columns=['timestamp', 'price'])
-                
+
                 if not df.empty:
                     self.logger.info(f"Latest price: {df['price'].iloc[0]}")
                     self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
-                
+
                 return df
-                
+
         except Exception as e:
             self.logger.error(f"Error fetching tick data: {e}")
             return None
@@ -87,16 +86,16 @@ class TSLALongBot:
 
         current_price = float(ticks_df['price'].iloc[0])
         price_60s_ago = float(ticks_df['price'].iloc[-1])
-        
+
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)
-        
+
         ticks_15s_ago = ticks_df[ticks_df['timestamp'] >= cutoff_time]
         if len(ticks_15s_ago) == 0:
             return False
-        
+
         price_15s_ago = float(ticks_15s_ago['price'].iloc[-1])
-        
+
         self.logger.info(f"Current price: {current_price}")
         self.logger.info(f"15s ago price: {price_15s_ago}")
         self.logger.info(f"60s ago price: {price_60s_ago}")
@@ -108,18 +107,19 @@ class TSLALongBot:
         return False
 
     def check_trailing_stop(self, current_price):
-        """Check if trailing stop has been hit."""
+        """
+        Check if trailing stop has been hit. For a long position, if price falls below
+        a certain percentage (trailing_stop_pct) from the highest recorded price, exit the position.
+        """
         if self.position is None:
             return False
 
         if current_price > self.highest_price:
             self.highest_price = current_price
 
-        stop_price = self.highest_price * (1 - self.trailing_stop)
-        
-        if current_price <= stop_price:
-            return True
-        return False
+        stop_price = self.highest_price * (1 - self.trailing_stop_pct)
+
+        return current_price <= stop_price
 
     async def execute_trade(self, action, price, timestamp):
         """Execute a trade order with enhanced exit tracking."""
@@ -154,8 +154,8 @@ class TSLALongBot:
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
-            # Convert bot_id string to integer (e.g., '3_bot' -> 3)
-            numeric_bot_id = int(self.bot_id.split('_')[0])
+            # Directly use integer bot_id
+            numeric_bot_id = self.bot_id
 
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow("""
@@ -260,7 +260,7 @@ if __name__ == "__main__":
         )
         
         ib_client = IBClient()
-        bot = TSLALongBot(db_pool, ib_client, '3')
+        bot = TSLALongBot(db_pool, ib_client, 5)
         
         try:
             await bot.run()

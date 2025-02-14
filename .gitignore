@@ -1,3 +1,5 @@
 src/ib_controller.log
-src/ib_controller.log
-src/ib_controller.log
+ib_controller.log
+ib_controller.log
+*.log
+*.csv
