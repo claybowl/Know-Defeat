@@ -123,8 +123,8 @@ class TSLALongBot2:
         required_price = price_60s_ago * (1 + threshold)
         
         # Log key values for debugging
-        self.logger.info(f"Current price: {current_price}, Price 60s ago: {price_60s_ago}, Required minimum price: {required_price:.4f}")
-        
+        self.logger.info(f"Current price: {current_price}, Price 60s ago: {price_60s_ago}")
+
         # Get the price from approximately 15 seconds ago
         latest_time = ticks_df['timestamp'].iloc[0]
         cutoff_time = latest_time - timedelta(seconds=15)

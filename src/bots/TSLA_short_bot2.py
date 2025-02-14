@@ -9,12 +9,6 @@ from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
 
-# # Add the parent directory to sys.path to allow for module imports
-# current_dir = Path(__file__).parent
-# parent_dir = current_dir.parent
-# sys.path.append(str(parent_dir))
-# from ib_controller import IBController
-
 
 class IBClient(EWrapper, EClient):
     """Interactive Brokers client implementation for handling market data and order execution."""
@@ -83,6 +77,9 @@ class TSLAShortBot2:
             self.logger.error(f"Error fetching latest ticks: {e}")
             return None
 
+    # We need to add logging throughout the following functions so we can see the logic of the minute creation and the short entry logic.
+    # We need win rate and average PnL of bot_id. 
+
     def analyze_price_conditions(self, ticks_df):
         """
         Determine if we should initiate a short position based on simple 
@@ -149,28 +146,35 @@ class TSLAShortBot2:
         try:
             # Update current price
             self.current_price = float(tick['price'])
-            
+            self.logger.debug(f"Current price updated to: {self.current_price:.2f}")
+
             # Update minute OHLC data
             if tick['timestamp'].second == 0:  # Start of new minute
+                self.logger.debug("New minute started")
                 self.last_minute_open = self.current_price
                 self.last_minute_high = self.current_price
                 self.last_minute_low = self.current_price
             else:
                 if self.current_price > self.last_minute_high:
                     self.last_minute_high = self.current_price
+                    self.logger.debug(f"New minute high updated to: {self.last_minute_high:.2f}")
                 if self.current_price < self.last_minute_low:
                     self.last_minute_low = self.current_price
+                    self.logger.debug(f"New minute low updated to: {self.last_minute_low:.2f}")
                 if tick['timestamp'].second == 59:  # End of minute
                     self.last_minute_close = self.current_price
+                    self.logger.debug(f"Minute closed with price: {self.last_minute_close:.2f}")
 
             # Check trading conditions for short entry
             if self.last_minute_close and self.last_minute_open:
                 if self.last_minute_close < self.last_minute_open and self.current_price < self.last_minute_open:
+                    self.logger.info("Short entry condition met")
                     quantity = self.position_size / self.current_price
                     await self.place_order('TSLA', quantity, 'SELL')
 
             # Check trailing stop if in position
             if self.position is not None and self.check_trailing_stop(self.current_price):
+                self.logger.info("Trailing stop condition met")
                 quantity = self.position_size / self.current_price
                 await self.place_order('TSLA', quantity, 'BUY')
 
