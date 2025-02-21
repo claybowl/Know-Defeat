@@ -145,11 +145,8 @@ class COINLongBot2:
                 await self.log_trade_entry(price, timestamp)
 
             elif action == "SELL":
-                if self.entry_price is not None:
-                    pnl = (price - self.entry_price) / self.entry_price * 100
-                else:
-                    pnl = 0
-                self.logger.info(f"SELL signal at {price}. PnL: {pnl:.2f}%")
+                # Removed PnL calculation. Use a simpler log message instead.
+                self.logger.info(f"SELL signal at {price}.")
 
                 await self.log_exit_signal(price, timestamp)
                 actual_exit_price = price
