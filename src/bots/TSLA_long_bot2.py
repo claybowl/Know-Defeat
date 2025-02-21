@@ -226,6 +226,10 @@ class TSLALongBot2:
     async def log_trade_exit(self, exit_price, exit_time):
         """Log trade exit with proper Decimal handling."""
         try:
+            # Handle timezone information
+            if exit_time.tzinfo is not None:
+                exit_time = exit_time.replace(tzinfo=None)
+
             async with self.db_pool.acquire() as conn:
                 # Convert exit_price to Decimal if it isn't already
                 exit_price = Decimal(str(exit_price))
