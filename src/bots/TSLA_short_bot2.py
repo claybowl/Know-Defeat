@@ -235,6 +235,38 @@ class TSLAShortBot2:
                 self.logger.error(f"Error in main loop: {e}")
                 await asyncio.sleep(1)
 
+    async def log_trade_exit(self, price, timestamp):
+        """Log actual trade exit details."""
+        try:
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                # First get the entry price and trade size
+                trade = await conn.fetchrow("""
+                    SELECT entry_price, trade_size 
+                    FROM sim_bot_trades 
+                    WHERE trade_id = $1
+                """, self.current_trade_id)
+                
+                if trade:
+                    entry_price = trade['entry_price']
+                    trade_size = trade['trade_size']
+                    
+                    # Calculate number of shares based on trade size and entry price
+                    shares = trade_size / entry_price
+                    # For short positions, profit is when exit price is lower than entry
+                    pnl = shares * (entry_price - price)
+                    
+                    await conn.execute("""
+                        UPDATE sim_bot_trades 
+                        SET exit_price = $1,
+                            exit_time = $2,
+                            trade_pnl = $3,
+                            trade_status = 'closed'
+                        WHERE trade_id = $4
+                    """, price, timestamp, pnl, self.current_trade_id)
+
 if __name__ == "__main__":
     logging.basicConfig(    
         level=logging.INFO,

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import time
 from plotly.subplots import make_subplots
 
+
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
@@ -341,60 +342,30 @@ with tab_trades:
     async def fetch_trade_stats():
         try:
             async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                # First, let's verify the table exists and has data
-                table_check = await pool.fetchval("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'sim_bot_trades'
-                    );
-                """)
-                
-                if not table_check:
-                    raise Exception("Table 'sim_bot_trades' does not exist")
-
-                # Get the count of trades
-                trade_count = await pool.fetchval("""
-                    SELECT COUNT(*) FROM sim_bot_trades 
-                    WHERE trade_status = 'closed';
-                """)
-                
-                if trade_count == 0:
-                    raise Exception("No closed trades found in the database")
-
-                # Main statistics query
+                # Modify the stats query in fetch_trade_stats() to include more details
                 stats = await pool.fetch("""
                     SELECT 
                         bot_id,
                         ticker as symbol,
                         trade_direction,
                         COUNT(*) as trade_count,
-                        SUM(CASE 
-                            WHEN (trade_direction = 'LONG' AND exit_price > entry_price) OR 
-                                 (trade_direction = 'SHORT' AND entry_price > exit_price) 
-                            THEN 1 
-                            ELSE 0 
-                        END) as winning_trades,
-                        SUM(CASE 
-                            WHEN (trade_direction = 'LONG' AND exit_price < entry_price) OR 
-                                 (trade_direction = 'SHORT' AND entry_price < exit_price) 
-                            THEN 1 
-                            ELSE 0 
-                        END) as losing_trades,
+                        ROUND(AVG(trade_size)::numeric, 2) as avg_trade_size,
+                        ROUND(AVG(entry_price)::numeric, 2) as avg_entry_price,
+                        ROUND(AVG(exit_price)::numeric, 2) as avg_exit_price,
                         ROUND(AVG(
                             CASE 
-                                WHEN trade_direction = 'LONG' THEN (exit_price - entry_price)
-                                WHEN trade_direction = 'SHORT' THEN (entry_price - exit_price)
+                                WHEN trade_direction = 'LONG' THEN (exit_price - entry_price) * trade_size
+                                WHEN trade_direction = 'SHORT' THEN (entry_price - exit_price) * trade_size
                                 ELSE 0
                             END
                         )::numeric, 2) as avg_pnl,
                         ROUND(SUM(
                             CASE 
-                                WHEN trade_direction = 'LONG' THEN (exit_price - entry_price)
-                                WHEN trade_direction = 'SHORT' THEN (entry_price - exit_price)
+                                WHEN trade_direction = 'LONG' THEN (exit_price - entry_price) * trade_size
+                                WHEN trade_direction = 'SHORT' THEN (entry_price - exit_price) * trade_size
                                 ELSE 0
                             END
-                        )::numeric, 2) as total_pnl,
-                        ROUND(AVG(trade_size)::numeric, 2) as avg_trade_size
+                        )::numeric, 2) as total_pnl
                     FROM sim_bot_trades
                     WHERE trade_status = 'closed'
                       AND exit_price IS NOT NULL
@@ -407,33 +378,23 @@ with tab_trades:
                 if not stats:
                     raise Exception("No statistics could be calculated from the trades")
                     
-                return stats
+                return stats, columns  # Return both stats and columns
         except Exception as e:
             st.error(f"Database error: {str(e)}")
             print(f"Full error: {str(e)}")
-            return None
+            return None, None
 
     if st.button("Calculate Statistics", key="calc_stats_button"):
         try:
-            stats = asyncio.run(fetch_trade_stats())
+            stats, columns = asyncio.run(fetch_trade_stats())
+            
             if stats and len(stats) > 0:
-                # Create DataFrame with explicit column names
+                # Create DataFrame with explicit column names first
                 stats_df = pd.DataFrame(stats, columns=[
                     'bot_id', 'symbol', 'trade_direction', 'trade_count',
                     'winning_trades', 'losing_trades', 'avg_pnl',
                     'total_pnl', 'avg_trade_size'
                 ])
-                
-                # Convert numeric columns to float, replacing NULL/None with 0
-                numeric_cols = ['trade_count', 'winning_trades', 'losing_trades', 
-                              'avg_pnl', 'total_pnl', 'avg_trade_size']
-                for col in numeric_cols:
-                    stats_df[col] = pd.to_numeric(stats_df[col], errors='coerce').fillna(0)
-                
-                # Calculate win and loss rates
-                total_trades = stats_df['trade_count'].replace(0, 1)  # Avoid division by zero
-                stats_df['win_rate'] = ((stats_df['winning_trades'] / total_trades) * 100).round(1)
-                stats_df['loss_rate'] = ((stats_df['losing_trades'] / total_trades) * 100).round(1)
                 
                 # Display raw data for debugging
                 st.subheader("Raw Trade Statistics")
@@ -453,65 +414,12 @@ with tab_trades:
                 
                 with col2:
                     st.write("Bot Metrics:")
-                    
-                    # Create an empty DataFrame with the expected structure
-                    empty_metrics_df = pd.DataFrame(columns=[
-                        'Bot ID',
-                        'Total PnL',
-                        'Last Updated',
-                        'Win Rate',
-                        'Avg Trade Duration',
-                        'Active Status'
-                    ])
-                    
-                    # Add descriptions for each column
-                    st.write("Table Structure:")
-                    metrics_info = pd.DataFrame({
-                        'Column': empty_metrics_df.columns,
-                        'Description': [
-                            'Unique identifier for each bot (1-8)',
-                            'Cumulative profit/loss for the bot',
-                            'Timestamp of last metric update',
-                            'Percentage of winning trades',
-                            'Average duration of trades',
-                            'Whether bot is currently running'
-                        ],
-                        'Data Type': [
-                            'Integer',
-                            'Float',
-                            'Timestamp',
-                            'Float (%)',
-                            'Interval',
-                            'Boolean'
-                        ]
-                    })
-                    st.dataframe(metrics_info, hide_index=True)
-                    
-                    # Fetch and display actual bot metrics if available
-                    async def fetch_bot_metrics():
-                        try:
-                            async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                                metrics = await pool.fetch("""
-                                    SELECT bot_id,
-                                           total_pnl,
-                                           updated_at
-                                    FROM bot_metrics
-                                    ORDER BY bot_id ASC;
-                                """)
-                                return metrics
-                        except Exception as e:
-                            print(f"Error fetching bot metrics: {e}")
-                            return None
-
-                    # Run the async function
-                    metrics = asyncio.run(fetch_bot_metrics())
-                    if metrics:
-                        metrics_df = pd.DataFrame(metrics, columns=['Bot ID', 'Total PnL', 'Last Updated'])
-                        metrics_df['Last Updated'] = pd.to_datetime(metrics_df['Last Updated'])
-                        st.write("Current Data:")
-                        st.dataframe(metrics_df, hide_index=True)
+                    # Display bot_metrics table structure
+                    if columns:
+                        columns_df = pd.DataFrame(columns, columns=['Column Name', 'Data Type', 'Nullable'])
+                        st.dataframe(columns_df)
                     else:
-                        st.info("No current bot metrics data available")
+                        st.info("No bot metrics structure available")
                 
                 with col3:
                     st.write("Data types:")
@@ -521,6 +429,17 @@ with tab_trades:
                         'Type': stats_df.dtypes.astype(str)
                     })
                     st.dataframe(dtypes_df, hide_index=True)
+                
+                # Convert numeric columns to float, replacing NULL/None with 0
+                numeric_cols = ['trade_count', 'winning_trades', 'losing_trades', 
+                              'avg_pnl', 'total_pnl', 'avg_trade_size']
+                for col in numeric_cols:
+                    stats_df[col] = pd.to_numeric(stats_df[col], errors='coerce').fillna(0)
+                
+                # Calculate win and loss rates
+                total_trades = stats_df['trade_count'].replace(0, 1)  # Avoid division by zero
+                stats_df['win_rate'] = ((stats_df['winning_trades'] / total_trades) * 100).round(1)
+                stats_df['loss_rate'] = ((stats_df['losing_trades'] / total_trades) * 100).round(1)
                 
                 # Display statistics in a table
                 st.subheader("Trading Statistics")

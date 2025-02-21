@@ -27,7 +27,7 @@ class TSLALongBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 5  # fixed bot id for TSLA_long_bot
+        self.bot_id = bot_id  # Use the passed bot_id instead of hardcoding
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.highest_price = 0
@@ -198,14 +198,32 @@ class TSLALongBot:
                 timestamp = timestamp.replace(tzinfo=None)
 
             async with self.db_pool.acquire() as conn:
-                await conn.execute("""
-                    UPDATE sim_bot_trades 
-                    SET exit_price = $1,
-                        exit_time = $2,
-                        trade_pnl = ($1 - entry_price) * trade_size,
-                        trade_status = 'closed'
-                    WHERE trade_id = $3
-                """, price, timestamp, self.current_trade_id)
+                # First get the entry price and trade size
+                trade = await conn.fetchrow("""
+                    SELECT entry_price, trade_size 
+                    FROM sim_bot_trades 
+                    WHERE trade_id = $1
+                """, self.current_trade_id)
+                
+                if trade:
+                    entry_price = trade['entry_price']
+                    trade_size = trade['trade_size']
+                    
+                    # Calculate number of shares based on trade size and entry price
+                    shares = trade_size / entry_price
+                    # Calculate PnL based on price difference * number of shares
+                    pnl = shares * (price - entry_price)
+                    
+                    await conn.execute("""
+                        UPDATE sim_bot_trades 
+                        SET exit_price = $1,
+                            exit_time = $2,
+                            trade_pnl = $3,
+                            trade_status = 'closed'
+                        WHERE trade_id = $4
+                    """, price, timestamp, pnl, self.current_trade_id)
+                    
+                    self.logger.info(f"Trade exit logged - Shares: {shares:.2f}, PnL: ${pnl:.2f}")
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
             raise

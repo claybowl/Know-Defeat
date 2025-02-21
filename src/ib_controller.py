@@ -281,28 +281,25 @@ class DataIngestionManager:
             # Start processing the queue
             await self.process_queue()
             # Initialize and add the bots
-            coin_long_bot = CoinLongBot(self.db_pool, self.app, 'coin_long_bot')
+            coin_long_bot = CoinLongBot(self.db_pool, self.app, 1)
+            tsla_long_bot = TSLALongBot(self.db_pool, self.app, 5)
+            coin_short_bot = CoinShortBot(self.db_pool, self.app, 2)
+            tsla_short_bot = TSLAShortBot(self.db_pool, self.app, 6)
+            
+            # New bots with correct IDs
+            coin_long_bot2 = COINLongBot2(self.db_pool, self.app, 3)
+            tsla_long_bot2 = TSLALongBot2(self.db_pool, self.app, 7)
+            coin_short_bot2 = COINShortBot2(self.db_pool, self.app, 4)
+            tsla_short_bot2 = TSLAShortBot2(self.db_pool, self.app, 8)
+
             self.bot_manager.add_bot(coin_long_bot)
-            tsla_long_bot = TSLALongBot(self.db_pool, self.app, 'tsla_long_bot')
             self.bot_manager.add_bot(tsla_long_bot)
-
-                        # Initialize and add the bots
-            coin_short_bot = CoinShortBot(self.db_pool, self.app, 'coin_short_bot')
             self.bot_manager.add_bot(coin_short_bot)
-            tsla_short_bot = TSLAShortBot(self.db_pool, self.app, 'tsla_short_bot')
             self.bot_manager.add_bot(tsla_short_bot)
-
-            # Add the new short bots
-            coin_short_bot2 = COINShortBot2(self.db_pool, self.app, 'coin_short_bot2')
-            self.bot_manager.add_bot(coin_short_bot2)
-            tsla_short_bot2 = TSLAShortBot2(self.db_pool, self.app, 'tsla_short_bot2')
-            self.bot_manager.add_bot(tsla_short_bot2)
-
-            # Add the new long bots
-            coin_long_bot2 = COINLongBot2(self.db_pool, self.app, 'coin_long_bot2')
             self.bot_manager.add_bot(coin_long_bot2)
-            tsla_long_bot2 = TSLALongBot2(self.db_pool, self.app, 'tsla_long_bot2')
             self.bot_manager.add_bot(tsla_long_bot2)
+            self.bot_manager.add_bot(coin_short_bot2)
+            self.bot_manager.add_bot(tsla_short_bot2)
 
             # Start metrics updater
             asyncio.create_task(self.update_periodic_metrics())
