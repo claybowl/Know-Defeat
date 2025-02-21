@@ -38,6 +38,31 @@ logging.basicConfig(
     ]
 )
 
+# Priority tier - most liquid/important symbols
+TIER_1_SYMBOLS = [
+    'TSLA',  # Tesla
+    'COIN',  # Coinbase
+    'SPY',   # S&P 500 ETF
+    'QQQ',   # Nasdaq ETF
+    'AAPL',  # Apple
+]
+
+# Secondary tier - add if performance is good with Tier 1
+TIER_2_SYMBOLS = [
+    'MSFT',  # Microsoft
+    'NVDA',  # NVIDIA
+    'META'   # Meta
+]
+
+# Optional tier - only add if both Tier 1 and 2 are stable
+TIER_3_SYMBOLS = [
+    'GOOGL',  # Google
+    'AMD'     # AMD
+]
+
+# Start with Tier 1, then gradually add more if performance is good
+SYMBOLS_TO_STREAM = TIER_1_SYMBOLS  # Start with just Tier 1
+
 class IBDataIngestion(EWrapper, EClient):
     def __init__(self, data_queue):
         EClient.__init__(self, self)
@@ -320,11 +345,17 @@ class DataIngestionManager:
             self.logger.error(f"Error stopping data ingestion: {e}")
 
 async def main():
-    # List of symbols to track
-    symbols = ['COIN', 'TSLA', 'NVDA', 'FOUR', 'CEG', 'CVNA', 'VERA', 'CYTK', 'ROOT', 'JANX', 'LBPH', 'ARWR', 'FLYW']
+    """Initialize and run the data ingestion manager with Tier 1 symbols."""
+    TIER_1_SYMBOLS = [
+        'TSLA',  # Tesla
+        'COIN',  # Coinbase
+        'SPY',   # S&P 500 ETF
+        'QQQ',   # Nasdaq ETF
+        'AAPL'   # Apple
+    ]
 
     # Create and start data ingestion manager
-    manager = DataIngestionManager(symbols)
+    manager = DataIngestionManager(TIER_1_SYMBOLS)
 
     try:
         await manager.start()

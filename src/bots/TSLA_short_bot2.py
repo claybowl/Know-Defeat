@@ -201,39 +201,40 @@ class TSLAShortBot2:
             raise
 
     async def run(self):
-        """
-        Main bot loop: fetch new ticks, analyze conditions, and either open 
-        or close positions based on trailing stops and short signals.
-        """
-        while True:
-            try:
-                ticks_df = await self.get_latest_ticks()
-                if ticks_df is None or len(ticks_df) == 0:
-                    self.logger.info("No tick data available")
+        """Main bot loop."""
+        try:
+            while True:
+                try:
+                    ticks_df = await self.get_latest_ticks()
+                    if ticks_df is None or len(ticks_df) == 0:
+                        self.logger.info("No tick data available")
+                        await asyncio.sleep(1)
+                        continue
+
+                    current_price = float(ticks_df['price'].iloc[0])
+                    current_timestamp = ticks_df['timestamp'].iloc[0]
+                    self.logger.info(f"Processing price: {current_price}")
+
+                    if self.position is not None:
+                        # Update lowest_price if a new lower price is found
+                        if current_price < self.lowest_price:
+                            self.lowest_price = current_price
+
+                        if self.check_trailing_stop(current_price):
+                            # Buy to close the short
+                            await self.execute_trade("BUY", current_price, current_timestamp)
+                    else:
+                        # Evaluate if we should open a new short position
+                        if self.analyze_price_conditions(ticks_df):
+                            await self.execute_trade("SELL", current_price, current_timestamp)
+
                     await asyncio.sleep(1)
-                    continue
-
-                current_price = float(ticks_df['price'].iloc[0])
-                current_timestamp = ticks_df['timestamp'].iloc[0]
-                self.logger.info(f"Processing price: {current_price}")
-
-                if self.position is not None:
-                    # Update lowest_price if a new lower price is found
-                    if current_price < self.lowest_price:
-                        self.lowest_price = current_price
-
-                    if self.check_trailing_stop(current_price):
-                        # Buy to close the short
-                        await self.execute_trade("BUY", current_price, current_timestamp)
-                else:
-                    # Evaluate if we should open a new short position
-                    if self.analyze_price_conditions(ticks_df):
-                        await self.execute_trade("SELL", current_price, current_timestamp)
-
-                await asyncio.sleep(1)
-            except Exception as e:
-                self.logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(1)
+                except Exception as e:
+                    self.logger.error(f"Error in main loop: {e}")
+                    await asyncio.sleep(1)
+        except Exception as e:
+            self.logger.error(f"Error in run: {e}")
+            raise
 
     async def log_trade_exit(self, price, timestamp):
         """Log actual trade exit details."""
@@ -266,25 +267,27 @@ class TSLAShortBot2:
                             trade_status = 'closed'
                         WHERE trade_id = $4
                     """, price, timestamp, pnl, self.current_trade_id)
+        except Exception as e:
+            self.logger.error(f"Error in log_trade_exit: {e}")
+            raise
 
 if __name__ == "__main__":
-    logging.basicConfig(    
+    logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
     
     async def main():
-        db_pool = await asyncpg.create_pool(
-            user='clayb',
-            password='musicman',
-            database='tick_data',
-            host='localhost'
-        )
-        
-        ib_client = IBClient()
-        bot = TSLAShortBot2(db_pool, ib_client, 8)
-        
         try:
+            db_pool = await asyncpg.create_pool(
+                user='clayb',
+                password='musicman',
+                database='tick_data',
+                host='localhost'
+            )
+            
+            ib_client = IBClient()
+            bot = TSLAShortBot2(db_pool, ib_client, 8)
             await bot.run()
         except KeyboardInterrupt:
             logging.info("Shutting down bot...")
