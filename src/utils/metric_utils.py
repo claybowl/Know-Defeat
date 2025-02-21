@@ -10,6 +10,16 @@ import logging
 
 
 def calculate_total_pnl(bot_id, algo_id):
+    """
+    Calculate total profit and loss for a trading bot strategy.
+    
+    Args:
+        bot_id (int): Unique identifier for the trading bot
+        algo_id (int): Algorithm version identifier
+        
+    Returns:
+        float: Sum of all trade PNL values for the given bot/algorithm
+    """
     query = """
         SELECT SUM(trade_pnl) AS total_pnl
         FROM sim_bot_trades
@@ -19,7 +29,21 @@ def calculate_total_pnl(bot_id, algo_id):
     return total_pnl
 
 async def calculate_time_period_performance(db_pool, bot_id, ticker, hours=1):
-    """Calculate performance over a specific time period"""
+    """
+    Calculate normalized performance metric over a specified time window.
+    
+    Performance is calculated as average PNL per trade multiplied by 100,
+    providing a percentage-based performance indicator.
+    
+    Args:
+        db_pool (asyncpg.pool.Pool): Database connection pool
+        bot_id (int): Trading bot identifier
+        ticker (str): Financial instrument symbol (e.g., 'BTC-USD')
+        hours (int): Time window duration in hours (default: 1)
+        
+    Returns:
+        float: Normalized performance percentage
+    """
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow("""
             WITH period_trades AS (
@@ -72,7 +96,20 @@ async def calculate_win_rate(db_pool, bot_id, ticker):
         return 0.0
 
 async def calculate_drawdown(db_pool, bot_id, ticker):
-    """Calculate average drawdown for a bot"""
+    """
+    Calculate average capital loss during losing trades (drawdown).
+    
+    Drawdown is computed as the average absolute value of negative PNL trades,
+    providing insight into typical loss magnitudes.
+    
+    Args:
+        db_pool (asyncpg.pool.Pool): Database connection pool
+        bot_id (int): Trading bot identifier
+        ticker (str): Financial instrument symbol
+        
+    Returns:
+        float: Average drawdown amount (absolute value)
+    """
     try:
         async with db_pool.acquire() as conn:
             result = await conn.fetchrow("""
@@ -91,7 +128,20 @@ async def calculate_drawdown(db_pool, bot_id, ticker):
         return 0.0
 
 async def calculate_profit_per_second(db_pool, bot_id, ticker):
-    """Calculate profit per second"""
+    """
+    Calculate profit generation efficiency metric.
+    
+    Measures how much profit is generated per second of trading activity,
+    useful for comparing strategy efficiency across different timeframes.
+    
+    Args:
+        db_pool (asyncpg.pool.Pool): Database connection pool
+        bot_id (int): Trading bot identifier
+        ticker (str): Financial instrument symbol
+        
+    Returns:
+        float: Profit per second ratio (total PNL / total trade duration)
+    """
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow("""
             WITH trade_durations AS (
@@ -112,7 +162,15 @@ async def calculate_profit_per_second(db_pool, bot_id, ticker):
         return result['profit_per_second'] if result else 0.0
 
 async def calculate_win_streaks(db_pool, bot_id, ticker):
-    """Calculate various win streaks for a bot"""
+    """
+    Analyze consecutive winning trade sequences.
+    
+    Tracks occurrences of different win streak lengths (2-5 consecutive wins)
+    in the most recent 100 trades. Helps identify momentum patterns.
+    
+    Returns:
+        dict: Counts of streaks meeting different length thresholds
+    """
     try:
         async with db_pool.acquire() as conn:
             # Get the trades ordered by time
@@ -175,7 +233,26 @@ async def calculate_win_streaks(db_pool, bot_id, ticker):
         }
 
 async def update_bot_metrics(db_pool, bot_id, ticker):
-    """Update all metrics for a bot"""
+    """
+    Main metrics aggregation and persistence function.
+    
+    Orchestrates calculation of all key performance indicators and stores
+    them in the bot_metrics table. Implements upsert logic to maintain
+    a single record per bot with latest metrics.
+    
+    Metrics collected:
+    - Time-based performance (1h, 2h, 1d, 1w, 1m)
+    - Win rate percentage
+    - Average drawdown
+    - Profit generation efficiency
+    - Win streak probabilities
+    - Total accumulated PNL
+    
+    Args:
+        db_pool (asyncpg.pool.Pool): Database connection pool
+        bot_id (int): Trading bot identifier
+        ticker (str): Financial instrument symbol
+    """
     try:
         # Calculate existing metrics
         one_hour = await calculate_time_period_performance(db_pool, bot_id, ticker, 1)
