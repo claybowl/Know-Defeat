@@ -249,34 +249,26 @@ class DataIngestionManager:
                 self.logger.error(f"Error processing queue: {e}")
                 await asyncio.sleep(1)
 
+    async def update_all_bot_metrics(self):
+        """Update metrics for all active bots"""
+        async with self.db_pool.acquire() as conn:
+            # Get all active bots
+            active_bots = await conn.fetch("""
+                SELECT DISTINCT bot_id, ticker 
+                FROM sim_bot_trades 
+                WHERE entry_time >= NOW() - interval '24 hours'
+            """)
+            
+            for bot in active_bots:
+                await update_bot_metrics(self.db_pool, bot['bot_id'], bot['ticker'])
+
     async def update_periodic_metrics(self):
         """Update time-based performance metrics every hour"""
         while True:
             try:
-                async with self.db_pool.acquire() as conn:
-                    # Update win rate calculation
-                    await conn.execute("""
-                        UPDATE bot_metrics SET
-                            win_rate = (
-                                SELECT COUNT(*) FILTER (WHERE trade_pnl > 0)::float /
-                                COUNT(*) FILTER (WHERE trade_status = 'closed')
-                                FROM sim_bot_trades
-                                WHERE bot_id = bot_metrics.bot_id
-                            )
-                    """)
-                    
-                    # Update hourly performance
-                    await conn.execute("""
-                        UPDATE bot_metrics SET
-                            one_hour_performance = total_pnl - COALESCE(
-                                (SELECT total_pnl 
-                                 FROM bot_metrics_history 
-                                 WHERE bot_id = bot_metrics.bot_id 
-                                 AND created_at >= NOW() - INTERVAL '1 hour'
-                                 ORDER BY created_at DESC 
-                                 LIMIT 1), 0)
-                    """)
-                    self.logger.info("Updated periodic metrics")
+                # Update metrics for all bots
+                await self.update_all_bot_metrics()
+                self.logger.info("Updated periodic metrics for all bots")
             except Exception as e:
                 self.logger.error(f"Error updating metrics: {e}")
 

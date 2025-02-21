@@ -8,6 +8,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
+import time
 
 
 class IBClient(EWrapper, EClient):
@@ -202,39 +203,66 @@ class TSLAShortBot2:
 
     async def run(self):
         """Main bot loop."""
-        try:
-            while True:
-                try:
-                    ticks_df = await self.get_latest_ticks()
-                    if ticks_df is None or len(ticks_df) == 0:
-                        self.logger.info("No tick data available")
-                        await asyncio.sleep(1)
-                        continue
+        self.logger.info("Starting TSLA Short Bot...")
+        
+        # Add connection retry logic
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                self.ib_client.connect('127.0.0.1', 4002, 1)
+                
+                # Wait for connection with timeout
+                connection_timeout = 10  # seconds
+                start_time = time.time()
+                
+                while not self.ib_client.connected:
+                    if time.time() - start_time > connection_timeout:
+                        raise TimeoutError("Connection timeout to IB Gateway")
+                    await asyncio.sleep(0.1)
+                
+                self.logger.info("Connected to Interactive Brokers")
+                break  # Successfully connected
+                
+            except Exception as e:
+                retry_count += 1
+                self.logger.error(f"Connection attempt {retry_count} failed: {e}")
+                if retry_count < max_retries:
+                    await asyncio.sleep(5)  # Wait before retrying
+                else:
+                    raise RuntimeError("Failed to connect to IB Gateway after maximum retries")
 
-                    current_price = float(ticks_df['price'].iloc[0])
-                    current_timestamp = ticks_df['timestamp'].iloc[0]
-                    self.logger.info(f"Processing price: {current_price}")
-
-                    if self.position is not None:
-                        # Update lowest_price if a new lower price is found
-                        if current_price < self.lowest_price:
-                            self.lowest_price = current_price
-
-                        if self.check_trailing_stop(current_price):
-                            # Buy to close the short
-                            await self.execute_trade("BUY", current_price, current_timestamp)
-                    else:
-                        # Evaluate if we should open a new short position
-                        if self.analyze_price_conditions(ticks_df):
-                            await self.execute_trade("SELL", current_price, current_timestamp)
-
+        # Main trading loop
+        while True:
+            try:
+                ticks_df = await self.get_latest_ticks()
+                if ticks_df is None or len(ticks_df) == 0:
+                    self.logger.info("No tick data available")
                     await asyncio.sleep(1)
-                except Exception as e:
-                    self.logger.error(f"Error in main loop: {e}")
-                    await asyncio.sleep(1)
-        except Exception as e:
-            self.logger.error(f"Error in run: {e}")
-            raise
+                    continue
+
+                current_price = float(ticks_df['price'].iloc[0])
+                current_timestamp = ticks_df['timestamp'].iloc[0]
+                self.logger.info(f"Processing price: {current_price}")
+
+                if self.position is not None:
+                    # Update lowest_price if a new lower price is found
+                    if current_price < self.lowest_price:
+                        self.lowest_price = current_price
+
+                    if self.check_trailing_stop(current_price):
+                        # Buy to close the short
+                        await self.execute_trade("BUY", current_price, current_timestamp)
+                else:
+                    # Evaluate if we should open a new short position
+                    if self.analyze_price_conditions(ticks_df):
+                        await self.execute_trade("SELL", current_price, current_timestamp)
+
+                await asyncio.sleep(1)
+            except Exception as e:
+                self.logger.error(f"Error in main loop: {e}")
+                await asyncio.sleep(1)
 
     async def log_trade_exit(self, price, timestamp):
         """Log actual trade exit details."""

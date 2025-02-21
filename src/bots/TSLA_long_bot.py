@@ -285,46 +285,25 @@ class TSLALongBot:
         
         self.logger.info("Starting TSLA Long Bot...")
         
-        # Initial connection attempt
         self.ib_client.connect('127.0.0.1', 4002, 1)
         
-        # Wait for connection
-        connection_timeout = 30  # 30 seconds timeout
-        start_time = time.time()
         while not self.ib_client.connected:
             await asyncio.sleep(0.1)
-            if time.time() - start_time > connection_timeout:
-                self.logger.error("Failed to connect to IB Gateway within timeout period")
-                # Attempt to reconnect
-                self.ib_client.disconnect()
-                await asyncio.sleep(1)
-                self.ib_client.connect('127.0.0.1', 4002, 1)
-                start_time = time.time()
         
         self.logger.info("Connected to Interactive Brokers")
         
         while True:
             try:
-                # Check connection status
-                if not self.ib_client.connected:
-                    self.logger.error("IB Gateway connection lost. Attempting to reconnect...")
-                    self.ib_client.disconnect()
-                    await asyncio.sleep(1)
-                    self.ib_client.connect('127.0.0.1', 4002, 1)
-                    continue
-
                 # Get data - verify timeframe matches strategy needs
                 ticks_df = await self.get_latest_ticks()
                 
                 # Critical validation points
                 if ticks_df is None:
                     self.logger.warning("Null dataframe received")
-                    await asyncio.sleep(1)
                     continue
                     
                 if len(ticks_df) == 0:
                     self.logger.warning("Empty dataframe received")
-                    await asyncio.sleep(1)
                     continue
                 
                 # Check data freshness (FIX TIMEZONE COMPARISON)
@@ -364,11 +343,11 @@ class TSLALongBot:
 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(1)  # Wait before retrying
+                await asyncio.sleep(1)
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.DEBUG,  # Change to DEBUG level
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
     
