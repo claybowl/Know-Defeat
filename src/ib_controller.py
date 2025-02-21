@@ -172,6 +172,9 @@ class DataIngestionManager:
         self.db_pool = None
         self.bot_manager = BotManager()
 
+        # Add metrics update task to initialization
+        asyncio.create_task(self.update_periodic_metrics())
+
     # async def init_db(self):
     #     """Initialize database connection pool"""
     #     try:
@@ -251,28 +254,79 @@ class DataIngestionManager:
 
     async def update_all_bot_metrics(self):
         """Update metrics for all active bots"""
-        async with self.db_pool.acquire() as conn:
-            # Get all active bots
-            active_bots = await conn.fetch("""
-                SELECT DISTINCT bot_id, ticker 
-                FROM sim_bot_trades 
-                WHERE entry_time >= NOW() - interval '24 hours'
-            """)
-            
-            for bot in active_bots:
-                await update_bot_metrics(self.db_pool, bot['bot_id'], bot['ticker'])
+        try:
+            async with self.db_pool.acquire() as conn:
+                # Drop existing table to ensure clean schema
+                await conn.execute("DROP TABLE IF EXISTS bot_metrics;")
+                
+                # Create table with all columns needed by the UI
+                await conn.execute("""
+                    CREATE TABLE bot_metrics (
+                        bot_id INTEGER PRIMARY KEY,
+                        ticker TEXT NOT NULL,
+                        algo_id INTEGER,
+                        timestamp TIMESTAMP WITH TIME ZONE,
+                        one_hour_performance FLOAT,
+                        two_hour_performance FLOAT,
+                        one_day_performance FLOAT,
+                        one_week_performance FLOAT,
+                        one_month_performance FLOAT,
+                        win_rate FLOAT,
+                        avg_drawdown FLOAT,
+                        max_drawdown FLOAT,
+                        profit_factor FLOAT,
+                        avg_profit_per_trade FLOAT,
+                        total_pnl FLOAT,
+                        price_model_score FLOAT,
+                        volume_model_score FLOAT,
+                        price_wall_score FLOAT,
+                        two_win_streak_prob FLOAT,
+                        three_win_streak_prob FLOAT,
+                        four_win_streak_prob FLOAT,
+                        avg_trade_duration FLOAT,
+                        trade_frequency FLOAT,
+                        avg_trade_size FLOAT,
+                        market_participation_rate FLOAT,
+                        last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                
+                self.logger.info("Bot metrics table created successfully")
+                
+                # Get active bots from the last 24 hours
+                active_bots = await conn.fetch("""
+                    SELECT DISTINCT bot_id, ticker 
+                    FROM sim_bot_trades 
+                    WHERE entry_time >= NOW() - interval '24 hours'
+                """)
+                
+                self.logger.info(f"Found {len(active_bots)} active bots")
+                
+                for bot in active_bots:
+                    try:
+                        await update_bot_metrics(self.db_pool, bot['bot_id'], bot['ticker'])
+                        self.logger.info(f"Updated metrics for bot {bot['bot_id']}")
+                    except Exception as e:
+                        self.logger.error(f"Error updating bot {bot['bot_id']}: {str(e)}")
+
+        except Exception as e:
+            self.logger.error(f"Database error: {str(e)}")
+            raise
 
     async def update_periodic_metrics(self):
-        """Update time-based performance metrics every hour"""
+        """Update time-based performance metrics"""
         while True:
             try:
                 # Update metrics for all bots
                 await self.update_all_bot_metrics()
                 self.logger.info("Updated periodic metrics for all bots")
+                
+                # During testing, update every minute instead of every hour
+                await asyncio.sleep(60)  # Changed from 3600 to 60 for testing
+                
             except Exception as e:
                 self.logger.error(f"Error updating metrics: {e}")
-
-            await asyncio.sleep(3600)  # Run hourly
+                await asyncio.sleep(60)  # If there's an error, wait a minute before retrying
 
     async def start(self):
         """Start the data ingestion process"""

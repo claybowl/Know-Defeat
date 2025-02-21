@@ -8,6 +8,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
+import time
 
 # # Add the parent directory to sys.path to allow for module imports
 # current_dir = Path(__file__).parent
@@ -39,14 +40,16 @@ class TSLALongBot2:
         self.ib_client = ib_client
         self.bot_id = 7  # fixed bot id for TSLA_long_bot2
         self.position = None
-        self.trailing_stop_pct = 0.002  # 0.2% trailing stop
-        self.highest_price = 0
+        self.trailing_stop_pct = Decimal('0.002')  # Convert to Decimal
+        self.highest_price = Decimal('0')
         self.entry_price = None
         self.current_trade_id = None
-        self.position_size = 10000  # $10,000 position size 
+        self.position_size = Decimal('10000')  # Convert to Decimal
         self.trailing_stop_price = None
         self.recent_prices = []
         self.price_buffer_size = 2
+        self.last_log_time = time.time()
+        self.log_interval = 5  # Only log every 5 seconds
         # Add tracking for current price and minute OHLC
         self.current_price = None
         self.last_minute_open = None
@@ -74,10 +77,9 @@ class TSLALongBot2:
                 """)
 
                 df = pd.DataFrame(rows, columns=['timestamp', 'price'])
-
-                if not df.empty:
-                    self.logger.info(f"Latest price: {df['price'].iloc[0]}")
-                    self.logger.info(f"Oldest price: {df['price'].iloc[-1]}")
+                
+                # Convert prices to Decimal for consistent arithmetic
+                df['price'] = df['price'].apply(lambda x: Decimal(str(x)))
 
                 return df
         except Exception as e:
@@ -174,7 +176,7 @@ class TSLALongBot2:
                 await self.log_trade_exit(actual_exit_price, actual_exit_time)
 
                 self.position = None
-                self.highest_price = 0
+                self.highest_price = Decimal('0')
                 self.entry_price = None
 
         except Exception as e:
@@ -187,9 +189,6 @@ class TSLALongBot2:
             if timestamp.tzinfo is not None:
                 timestamp = timestamp.replace(tzinfo=None)
 
-            # Directly use integer bot_id
-            numeric_bot_id = self.bot_id
-
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
@@ -197,7 +196,7 @@ class TSLALongBot2:
                      trade_size, trade_status, bot_id)
                     VALUES ($1, 'TSLA', $2, 'LONG', $3, 'open', $4)
                     RETURNING trade_id
-                """, timestamp, price, self.position_size, numeric_bot_id)
+                """, timestamp, price, self.position_size, self.bot_id)
 
                 if result:
                     self.current_trade_id = result['trade_id']
@@ -224,37 +223,24 @@ class TSLALongBot2:
             self.logger.error(f"Error in log_exit_signal: {e}")
             raise
 
-    async def log_trade_exit(self, price, timestamp):
-        """Log actual trade exit details."""
+    async def log_trade_exit(self, exit_price, exit_time):
+        """Log trade exit with proper Decimal handling."""
         try:
-            if timestamp.tzinfo is not None:
-                timestamp = timestamp.replace(tzinfo=None)
-
             async with self.db_pool.acquire() as conn:
-                # First get the entry price and trade size
-                trade = await conn.fetchrow("""
-                    SELECT entry_price, trade_size 
-                    FROM sim_bot_trades 
-                    WHERE trade_id = $1
-                """, self.current_trade_id)
+                # Convert exit_price to Decimal if it isn't already
+                exit_price = Decimal(str(exit_price))
                 
-                if trade:
-                    entry_price = trade['entry_price']
-                    trade_size = trade['trade_size']
-                    
-                    # Calculate number of shares based on trade size and entry price
-                    shares = trade_size / entry_price
-                    # Calculate PnL based on price difference * number of shares
-                    pnl = shares * (price - entry_price)
-                    
-                    await conn.execute("""
-                        UPDATE sim_bot_trades 
-                        SET exit_price = $1,
-                            exit_time = $2,
-                            trade_pnl = $3,
-                            trade_status = 'closed'
-                        WHERE trade_id = $4
-                    """, price, timestamp, pnl, self.current_trade_id)
+                # Calculate PnL using Decimal arithmetic
+                entry_price = Decimal(str(self.entry_price))
+                pnl_value = ((exit_price - entry_price) / entry_price) * Decimal('100')
+                
+                await conn.execute("""
+                    UPDATE sim_bot_trades 
+                    SET exit_price = $1, exit_time = $2, trade_pnl = $3
+                    WHERE trade_id = $4
+                """, exit_price, exit_time, pnl_value, self.current_trade_id)
+                
+                self.logger.info(f"Trade exit logged - Price: {exit_price}, PnL: {pnl_value:.2f}%")
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
             raise
@@ -276,32 +262,32 @@ class TSLALongBot2:
             raise
 
     async def run(self):
-        """Main bot loop."""
-        self.logger.info("Starting TSLA Long Bot...")
-
-        self.ib_client.connect('127.0.0.1', 4002, 1)
-
-        while not self.ib_client.connected:
-            await asyncio.sleep(0.1)
-
-        self.logger.info("Connected to Interactive Brokers")
-
+        """Main loop with reduced logging."""
+        self.logger.info("Starting TSLA Long Bot 2...")
+        
         while True:
             try:
                 ticks_df = await self.get_latest_ticks()
                 if ticks_df is None or len(ticks_df) == 0:
-                    self.logger.info("No tick data available")
+                    self.logger.warning("No tick data available")
                     await asyncio.sleep(1)
                     continue
 
-                current_price = float(ticks_df['price'].iloc[0])
-                self.logger.info(f"Processing price: {current_price}")
+                current_price = ticks_df['price'].iloc[0]
+                
+                # Only log price updates every few seconds or on significant changes
+                current_time = time.time()
+                if current_time - self.last_log_time >= self.log_interval:
+                    self.logger.info(f"Current price: {current_price}")
+                    self.last_log_time = current_time
 
                 if self.position is not None:
                     if self.check_trailing_stop(current_price):
+                        self.logger.info(f"Stop triggered at {current_price}")
                         await self.execute_trade("SELL", current_price, ticks_df['timestamp'].iloc[0])
                 else:
                     if self.analyze_price_conditions(ticks_df):
+                        self.logger.info(f"Entry signal at {current_price}")
                         await self.execute_trade("BUY", current_price, ticks_df['timestamp'].iloc[0])
 
                 await asyncio.sleep(1)

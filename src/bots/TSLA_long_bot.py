@@ -261,7 +261,7 @@ class TSLALongBot:
                     # Calculate number of shares based on trade size and entry price
                     shares = trade_size / entry_price
                     # Calculate PnL based on price difference * number of shares
-                    pnl = shares * (float(price) - entry_price)
+                    pnl_value = shares * (float(price) - entry_price)
                     
                     await conn.execute("""
                         UPDATE sim_bot_trades 
@@ -270,9 +270,9 @@ class TSLALongBot:
                             trade_pnl = $3,
                             trade_status = 'closed'
                         WHERE trade_id = $4
-                    """, price, timestamp, pnl, self.current_trade_id)
+                    """, price, timestamp, pnl_value, self.current_trade_id)
                     
-                    self.logger.info(f"Trade exit logged - Shares: {shares:.2f}, PnL: ${pnl:.2f}")
+                    self.logger.info(f"Trade exit logged - Shares: {shares:.2f}, PnL: ${pnl_value:.2f}")
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
             raise

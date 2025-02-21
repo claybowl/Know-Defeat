@@ -285,7 +285,7 @@ class TSLAShortBot2:
                     # Calculate number of shares based on trade size and entry price
                     shares = trade_size / entry_price
                     # For short positions, profit is when exit price is lower than entry
-                    pnl = shares * (entry_price - price)
+                    trade_pnl = shares * (entry_price - price)
                     
                     await conn.execute("""
                         UPDATE sim_bot_trades 
@@ -294,7 +294,7 @@ class TSLAShortBot2:
                             trade_pnl = $3,
                             trade_status = 'closed'
                         WHERE trade_id = $4
-                    """, price, timestamp, pnl, self.current_trade_id)
+                    """, price, timestamp, trade_pnl, self.current_trade_id)
         except Exception as e:
             self.logger.error(f"Error in log_trade_exit: {e}")
             raise
