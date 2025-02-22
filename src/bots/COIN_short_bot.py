@@ -26,6 +26,7 @@ class CoinShortBot:
         self.db_pool = db_pool
         self.ib_client = ib_client
         self.bot_id = 2  # fixed bot id for COIN_short_bot
+        self.algo_id = 1  # This bot belongs to algo_id 1
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.lowest_price = float('inf')
@@ -165,10 +166,10 @@ class CoinShortBot:
                 result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
                     (entry_time, ticker, entry_price, trade_direction, 
-                     trade_size, trade_status, bot_id)
-                    VALUES ($1, 'COIN', $2, 'SHORT', $3, 'open', $4)
+                     trade_size, trade_status, bot_id, algo_id)
+                    VALUES ($1, 'COIN', $2, 'SHORT', $3, 'open', $4, $5)
                     RETURNING trade_id
-                """, timestamp, price, self.position_size, numeric_bot_id)
+                """, timestamp, price, self.position_size, numeric_bot_id, self.algo_id)
 
                 if result:
                     self.current_trade_id = result['trade_id']

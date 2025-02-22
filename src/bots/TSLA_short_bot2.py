@@ -33,6 +33,7 @@ class TSLAShortBot2:
         self.db_pool = db_pool
         self.ib_client = ib_client
         self.bot_id = 8  # fixed bot id for TSLA_short_bot2
+        self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.lowest_price = float('inf')
         self.entry_price = None
@@ -263,6 +264,27 @@ class TSLAShortBot2:
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
                 await asyncio.sleep(1)
+
+    async def log_trade_entry(self, price, timestamp):
+        """Log trade entry to the database."""
+        try:
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+
+            async with self.db_pool.acquire() as conn:
+                result = await conn.fetchrow("""
+                    INSERT INTO sim_bot_trades 
+                    (entry_time, ticker, entry_price, trade_direction, 
+                     trade_size, trade_status, bot_id, algo_id)
+                    VALUES ($1, 'TSLA', $2, 'SHORT', $3, 'open', $4, $5)
+                    RETURNING trade_id
+                """, timestamp, price, self.position_size, self.bot_id, self.algo_id)
+                
+                if result:
+                    self.current_trade_id = result['trade_id']
+        except Exception as e:
+            self.logger.error(f"Error in log_trade_entry: {e}")
+            raise
 
     async def log_trade_exit(self, price, timestamp):
         """Log actual trade exit details."""

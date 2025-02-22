@@ -38,6 +38,7 @@ class COINLongBot2:
         self.db_pool = db_pool
         self.ib_client = ib_client
         self.bot_id = 3  # fixed bot id for COIN_long_bot2
+        self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
         self.highest_price = 0
@@ -174,10 +175,10 @@ class COINLongBot2:
                 result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
                     (entry_time, ticker, entry_price, trade_direction, 
-                     trade_size, trade_status, bot_id)
-                    VALUES ($1, 'COIN', $2, 'LONG', $3, 'open', $4)
+                     trade_size, trade_status, bot_id, algo_id)
+                    VALUES ($1, 'COIN', $2, 'LONG', $3, 'open', $4, $5)
                     RETURNING trade_id
-                """, timestamp, price, self.position_size, numeric_bot_id)
+                """, timestamp, price, self.position_size, numeric_bot_id, self.algo_id)
 
                 if result:
                     self.current_trade_id = result['trade_id']

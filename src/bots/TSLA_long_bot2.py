@@ -39,6 +39,7 @@ class TSLALongBot2:
         self.db_pool = db_pool
         self.ib_client = ib_client
         self.bot_id = 7  # fixed bot id for TSLA_long_bot2
+        self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.trailing_stop_pct = Decimal('0.002')  # Convert to Decimal
         self.highest_price = Decimal('0')
@@ -193,10 +194,10 @@ class TSLALongBot2:
                 result = await conn.fetchrow("""
                     INSERT INTO sim_bot_trades 
                     (entry_time, ticker, entry_price, trade_direction, 
-                     trade_size, trade_status, bot_id)
-                    VALUES ($1, 'TSLA', $2, 'LONG', $3, 'open', $4)
+                     trade_size, trade_status, bot_id, algo_id)
+                    VALUES ($1, 'TSLA', $2, 'LONG', $3, 'open', $4, $5)
                     RETURNING trade_id
-                """, timestamp, price, self.position_size, self.bot_id)
+                """, timestamp, price, self.position_size, self.bot_id, self.algo_id)
 
                 if result:
                     self.current_trade_id = result['trade_id']
