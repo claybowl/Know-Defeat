@@ -8,7 +8,7 @@ class BotRanker:
                 SELECT bot_id, ticker, one_hour_performance, avg_win_rate
                 FROM bot_metrics;
             """)
-            
+
             # Example scoring logic
             ranked_bots = sorted(bots, key=lambda bot: bot['one_hour_performance'] + bot['avg_win_rate'], reverse=True)
             return ranked_bots

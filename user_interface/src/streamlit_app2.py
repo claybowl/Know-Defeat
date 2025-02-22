@@ -316,9 +316,8 @@ with tab_tables:
             # Display trade data
             st.subheader("Recent Trades")
             if trades and len(trades) > 0:
-                # Extract column names from the first row
-                column_names = [k for k in trades[0].keys()]
-                trades_df = pd.DataFrame(trades, columns=column_names)
+                # Convert the asyncpg records to dictionaries before building DataFrame
+                trades_df = pd.DataFrame([dict(t) for t in trades])
                 
                 # Format timestamps for better display
                 if 'entry_time' in trades_df.columns:
@@ -349,295 +348,181 @@ with tab_trades:
         async def fetch_trade_stats():
             try:
                 async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                    # Get bot_metrics table structure
-                    columns = await pool.fetch("""
-                        SELECT column_name, data_type, is_nullable
-                        FROM information_schema.columns
-                        WHERE table_name = 'bot_metrics'
-                        ORDER BY ordinal_position;
+                    # Debug: Check if table exists
+                    table_exists = await pool.fetchval("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = 'sim_bot_trades'
+                        );
                     """)
-
-                    # Get trade statistics
-                    stats = await pool.fetch("""
-                        SELECT 
-                            bot_id,
-                            ticker as symbol,
-                            trade_direction,
-                            COUNT(*) as trade_count,
-                            ROUND(AVG(trade_size)::numeric, 2) as avg_trade_size,
-                            ROUND(AVG(entry_price)::numeric, 2) as avg_entry_price,
-                            ROUND(AVG(exit_price)::numeric, 2) as avg_exit_price,
-                            ROUND(AVG(trade_pnl)::numeric, 2) as avg_pnl,
-                            ROUND(SUM(trade_pnl)::numeric, 2) as total_pnl,
-                            ROUND(COUNT(*) FILTER (WHERE trade_pnl > 0)::numeric * 100.0 / 
-                                NULLIF(COUNT(*), 0), 2) as win_rate
-                        FROM sim_bot_trades
-                        WHERE trade_status = 'closed'
-                          AND exit_price IS NOT NULL
-                          AND entry_price IS NOT NULL
-                          AND trade_size IS NOT NULL
-                        GROUP BY bot_id, ticker, trade_direction
-                        ORDER BY bot_id ASC, ticker ASC, trade_direction ASC;
-                    """)
+                    st.write(f"sim_bot_trades table exists: {table_exists}")
                     
-                    # Also fetch the latest bot metrics
-                    metrics = await pool.fetch("""
-                        SELECT 
-                            bot_id,
-                            ticker,
-                            algo_id,
-                            one_hour_performance,
-                            two_hour_performance,
-                            one_day_performance,
-                            one_week_performance,
-                            one_month_performance,
-                            win_rate,
-                            avg_drawdown,
-                            max_drawdown,
-                            profit_factor,
-                            avg_profit_per_trade,
-                            total_pnl,
-                            price_model_score,
-                            volume_model_score,
-                            price_wall_score,
-                            two_win_streak_prob,
-                            three_win_streak_prob,
-                            four_win_streak_prob,
-                            avg_trade_duration,
-                            trade_frequency,
-                            avg_trade_size,
-                            market_participation_rate
-                        FROM bot_metrics
+                    if not table_exists:
+                        st.error("sim_bot_trades table does not exist!")
+                        return None, None, None
+
+                    # Debug: Show table structure
+                    columns = await pool.fetch("""
+                        SELECT column_name, data_type 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'sim_bot_trades';
+                    """)
+                    st.write("Table structure:", [col['column_name'] for col in columns])
+
+                    # First check if there are any trades
+                    trades_count = await pool.fetchval("""
+                        SELECT COUNT(*) 
+                        FROM sim_bot_trades;
+                    """)
+                    st.write(f"Total trades in database: {trades_count}")
+                    
+                    closed_trades_count = await pool.fetchval("""
+                        SELECT COUNT(*) 
+                        FROM sim_bot_trades 
+                        WHERE trade_status = 'closed';
+                    """)
+                    st.write(f"Closed trades in database: {closed_trades_count}")
+                    
+                    if closed_trades_count == 0:
+                        st.warning("No closed trades found in the database.")
+                        return None, None, None
+
+                    # Get trade statistics with debug info
+                    stats = await pool.fetch("""
+                        WITH trade_stats AS (
+                            SELECT 
+                                bot_id,
+                                ticker,
+                                COUNT(*) as trade_count,
+                                COUNT(CASE WHEN trade_pnl > 0 THEN 1 END) as winning_trades,
+                                COUNT(CASE WHEN trade_pnl <= 0 THEN 1 END) as losing_trades,
+                                ROUND(AVG(CASE WHEN trade_pnl IS NOT NULL THEN trade_pnl ELSE 0 END)::numeric, 2) as avg_pnl,
+                                ROUND(SUM(CASE WHEN trade_pnl IS NOT NULL THEN trade_pnl ELSE 0 END)::numeric, 2) as total_pnl,
+                                ROUND(AVG(CASE 
+                                    WHEN exit_time IS NOT NULL AND entry_time IS NOT NULL 
+                                    THEN EXTRACT(EPOCH FROM (exit_time - entry_time)) 
+                                    ELSE 0 
+                                END)::numeric, 2) as avg_duration,
+                                ROUND(
+                                    (COUNT(CASE WHEN trade_pnl > 0 THEN 1 END)::float / 
+                                    NULLIF(COUNT(*), 0)::float * 100)::numeric, 
+                                    2
+                                ) as calculated_win_rate
+                            FROM sim_bot_trades
+                            WHERE trade_status = 'closed'
+                            GROUP BY bot_id, ticker
+                        )
+                        SELECT * FROM trade_stats
                         ORDER BY total_pnl DESC;
                     """)
                     
                     if not stats:
-                        raise Exception("No statistics could be calculated from the trades")
-                        
-                    return stats, columns, metrics
+                        st.warning("Query returned no results.")
+                        return None, None, None
 
+                    # Debug: Show what columns we got back
+                    if len(stats) > 0:
+                        st.write("Columns in result:", stats[0].keys())
+                        st.write(f"Number of bot/ticker combinations found: {len(stats)}")
+                    
+                    return stats, None, None
+                    
             except Exception as e:
                 st.error(f"Database error: {str(e)}")
-                print(f"Full error: {str(e)}")
+                st.error("Full error details:")
+                st.exception(e)
                 return None, None, None
 
         if st.button("Calculate Statistics", key="calc_stats_button"):
             try:
-                stats, columns, metrics = asyncio.run(fetch_trade_stats())
+                stats, _, _ = asyncio.run(fetch_trade_stats())
                 
                 if stats and len(stats) > 0:
-                    # Create DataFrame with explicit column names first
-                    stats_df = pd.DataFrame(stats, columns=[
-                        'bot_id', 'symbol', 'trade_direction', 'trade_count',
-                        'avg_trade_size', 'avg_entry_price', 'avg_exit_price',
-                        'avg_pnl', 'total_pnl', 'win_rate'
-                    ])
+                    # Debug: Show raw stats data
+                    st.write("Raw statistics data:", stats)
                     
-                    # Display raw data for debugging
-                    st.subheader("Raw Trade Statistics")
-                    st.write("Number of records:", stats_df.shape[0])
+                    # Create DataFrame with explicit column names
+                    stats_df = pd.DataFrame([dict(row) for row in stats])
                     
-                    # Create three columns for the metadata display
+                    # Debug: Show DataFrame info
+                    st.write("DataFrame columns:", stats_df.columns.tolist())
+                    st.write("DataFrame shape:", stats_df.shape)
+                    
+                    # Display summary statistics
+                    st.subheader("Trading Summary")
+                    total_trades = stats_df['trade_count'].sum()
+                    total_pnl = stats_df['total_pnl'].sum()
+                    avg_win_rate = stats_df['calculated_win_rate'].mean()
+                    
                     col1, col2, col3 = st.columns(3)
-                    
                     with col1:
-                        st.write("Columns:")
-                        columns_df = pd.DataFrame({
-                            'Index': range(len(stats_df.columns)),
-                            'Column Name': stats_df.columns
-                        })
-                        st.dataframe(columns_df, hide_index=True)
-                    
+                        st.metric("Total Trades", f"{total_trades:,}")
                     with col2:
-                        st.write("Bot Metrics:")
-                        if columns:
-                            columns_df = pd.DataFrame(columns, columns=['Column Name', 'Data Type', 'Nullable'])
-                            st.dataframe(columns_df)
-                        else:
-                            st.info("No bot metrics structure available")
-                    
+                        st.metric("Total PnL", f"${total_pnl:,.2f}")
                     with col3:
-                        st.write("Data types:")
-                        dtypes_df = pd.DataFrame({
-                            'Column': stats_df.columns,
-                            'Type': stats_df.dtypes.astype(str)
-                        })
-                        st.dataframe(dtypes_df, hide_index=True)
+                        st.metric("Average Win Rate", f"{avg_win_rate:.1f}%")
                     
-                    # Convert numeric columns to float, replacing NULL/None with 0
-                    numeric_cols = ['trade_count', 'avg_trade_size', 'avg_entry_price', 
-                                  'avg_exit_price', 'avg_pnl', 'total_pnl', 'win_rate']
-                    for col in numeric_cols:
-                        stats_df[col] = pd.to_numeric(stats_df[col], errors='coerce').fillna(0)
+                    # Display detailed statistics
+                    st.subheader("Detailed Statistics by Bot")
+                    st.dataframe(
+                        stats_df.style.format({
+                            'trade_count': '{:,}',
+                            'winning_trades': '{:,}',
+                            'losing_trades': '{:,}',
+                            'avg_pnl': '${:.2f}',
+                            'total_pnl': '${:.2f}',
+                            'calculated_win_rate': '{:.1f}%',
+                            'avg_duration': '{:.1f}'
+                        }),
+                        use_container_width=True
+                    )
                     
-                    # Display statistics in a table
-                    st.subheader("Trading Statistics")
-                    st.dataframe(stats_df)
-
-                    if not stats_df.empty:
-                        try:
-                            # Create visualizations
-                            fig = make_subplots(
-                                rows=2, cols=2,
-                                subplot_titles=(
-                                    "Average PnL by Symbol and Direction",
-                                    "Win Rate vs Average Trade Size",
-                                    "Trade Count by Symbol",
-                                    "PNL Distribution"
-                                )
-                            )
-                            
-                            # Plot 1: Bar chart for Average PnL
-                            try:
-                                symbols = stats_df['symbol'].unique()
-                                for symbol in symbols:
-                                    data = stats_df[stats_df['symbol'] == symbol]
-                                    if not data.empty and 'trade_direction' in data.columns and 'avg_pnl' in data.columns:
-                                        fig.add_trace(
-                                            go.Bar(
-                                                name=str(symbol),
-                                                x=data['trade_direction'].astype(str),
-                                                y=data['avg_pnl'].astype(float),
-                                                text=data['avg_pnl'].round(2),
-                                                textposition='auto',
-                                            ),
-                                            row=1, col=1
-                                        )
-                            except Exception as e:
-                                st.warning(f"Could not create Average PnL chart: {str(e)}")
-                            
-                            # Plot 2: Scatter plot for Win Rate vs Trade Size
-                            try:
-                                for symbol in symbols:
-                                    data = stats_df[stats_df['symbol'] == symbol]
-                                    if not data.empty and all(col in data.columns for col in ['avg_trade_size', 'win_rate', 'trade_count']):
-                                        fig.add_trace(
-                                            go.Scatter(
-                                                name=str(symbol),
-                                                x=data['avg_trade_size'].astype(float),
-                                                y=data['win_rate'].astype(float),
-                                                mode='markers',
-                                                marker=dict(
-                                                    size=data['trade_count'].astype(float) * 3,
-                                                    opacity=0.7
-                                                ),
-                                                text=data['trade_direction'],
-                                                hovertemplate=(
-                                                    "Symbol: %{text}<br>" +
-                                                    "Avg Trade Size: $%{x:.2f}<br>" +
-                                                    "Win Rate: %{y:.1f}%"
-                                                )
-                                            ),
-                                            row=1, col=2
-                                        )
-                            except Exception as e:
-                                st.warning(f"Could not create Win Rate vs Trade Size chart: {str(e)}")
-                            
-                            # Plot 3: Bar chart for Trade Count
-                            try:
-                                if 'symbol' in stats_df.columns and 'trade_count' in stats_df.columns:
-                                    trade_counts = stats_df.groupby('symbol')['trade_count'].sum().reset_index()
-                                    fig.add_trace(
-                                        go.Bar(
-                                            name="Trade Count",
-                                            x=trade_counts['symbol'].astype(str),
-                                            y=trade_counts['trade_count'].astype(float),
-                                            text=trade_counts['trade_count'],
-                                            textposition='auto',
-                                            marker_color='indianred'
-                                        ),
-                                        row=2, col=1
-                                    )
-                            except Exception as e:
-                                st.warning(f"Could not create Trade Count chart: {str(e)}")
-                            
-                            # Plot 4: Histogram for PnL Distribution
-                            try:
-                                if 'avg_pnl' in stats_df.columns:
-                                    pnl_data = stats_df['avg_pnl'].dropna().astype(float)
-                                    if not pnl_data.empty:
-                                        fig.add_trace(
-                                            go.Histogram(
-                                                x=pnl_data,
-                                                nbinsx=20,
-                                                name="PNL Distribution",
-                                                marker_color='lightslategray'
-                                            ),
-                                            row=2, col=2
-                                        )
-                            except Exception as e:
-                                st.warning(f"Could not create PnL Distribution chart: {str(e)}")
-                            
-                            # Update layout with error handling
-                            try:
-                                fig.update_layout(
-                                    height=800,
-                                    title_text="Overall Trade Analysis",
-                                    showlegend=True,
-                                    barmode='group',
-                                    margin=dict(l=40, r=40, t=80, b=40)
-                                )
-                                
-                                # Update axes labels
-                                fig.update_xaxes(title_text="Trade Direction", row=1, col=1)
-                                fig.update_yaxes(title_text="Average PnL ($)", row=1, col=1)
-                                fig.update_xaxes(title_text="Average Trade Size ($)", row=1, col=2)
-                                fig.update_yaxes(title_text="Win Rate (%)", row=1, col=2)
-                                fig.update_xaxes(title_text="Symbol", row=2, col=1)
-                                fig.update_yaxes(title_text="Number of Trades", row=2, col=1)
-                                fig.update_xaxes(title_text="PnL ($)", row=2, col=2)
-                                fig.update_yaxes(title_text="Frequency", row=2, col=2)
-                                
-                                st.plotly_chart(fig, use_container_width=True)
-                            except Exception as e:
-                                st.error(f"Error updating chart layout: {str(e)}")
-                                
-                        except Exception as viz_error:
-                            st.error(f"Error in visualization creation: {str(viz_error)}")
-                            # Display the raw data as a fallback
-                            st.write("Raw Statistics Data:")
-                            st.dataframe(stats_df)
-
-                    # Add Bot Metrics Display
-                    st.subheader("Bot Performance Metrics")
-                    if metrics and len(metrics) > 0:
-                        metrics_df = pd.DataFrame(metrics)
-                        
-                        # Format percentages
-                        pct_cols = ['one_hour_performance', 'two_hour_performance', 
-                                   'one_day_performance', 'one_week_performance', 
-                                   'one_month_performance', 'win_rate', 'avg_drawdown',
-                                   'max_drawdown', 'market_participation_rate',
-                                   'two_win_streak_prob', 'three_win_streak_prob', 
-                                   'four_win_streak_prob']
-                        
-                        # Format scores
-                        score_cols = ['price_model_score', 'volume_model_score', 
-                                     'price_wall_score', 'profit_factor']
-                        
-                        # Format money values
-                        money_cols = ['total_pnl', 'avg_profit_per_trade', 'avg_trade_size']
-                        
-                        # Apply formatting
-                        for col in pct_cols:
-                            if col in metrics_df.columns:
-                                metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.1f}%" if pd.notnull(x) else "N/A")
-                        
-                        for col in score_cols:
-                            if col in metrics_df.columns:
-                                metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
-                        
-                        for col in money_cols:
-                            if col in metrics_df.columns:
-                                metrics_df[col] = metrics_df[col].apply(lambda x: f"${x:.2f}" if pd.notnull(x) else "N/A")
-                        
-                        # Format time duration
-                        if 'avg_trade_duration' in metrics_df.columns:
-                            metrics_df['avg_trade_duration'] = metrics_df['avg_trade_duration'].apply(
-                                lambda x: f"{x:.0f}s" if pd.notnull(x) else "N/A"
-                            )
-                        
-                        st.dataframe(metrics_df)
+                    # Create visualizations
+                    st.subheader("Performance Visualization")
+                    
+                    # PnL Distribution
+                    fig = go.Figure()
+                    for bot_id in stats_df['bot_id'].unique():
+                        bot_data = stats_df[stats_df['bot_id'] == bot_id]
+                        fig.add_trace(go.Bar(
+                            name=f'Bot {bot_id}',
+                            x=bot_data['ticker'],
+                            y=bot_data['total_pnl'],
+                            text=bot_data['total_pnl'].apply(lambda x: f'${x:,.2f}'),
+                            textposition='auto',
+                        ))
+                    
+                    fig.update_layout(
+                        title='Total PnL by Bot and Ticker',
+                        xaxis_title='Ticker',
+                        yaxis_title='Total PnL ($)',
+                        barmode='group'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Win Rate vs PnL Scatter
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=stats_df['calculated_win_rate'],
+                        y=stats_df['avg_pnl'],
+                        mode='markers+text',
+                        text=stats_df.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
+                        textposition="top center",
+                        marker=dict(
+                            size=stats_df['trade_count'],
+                            sizeref=2.*max(stats_df['trade_count'])/(40.**2),
+                            sizemin=4
+                        )
+                    ))
+                    
+                    fig.update_layout(
+                        title='Win Rate vs Average PnL',
+                        xaxis_title='Win Rate (%)',
+                        yaxis_title='Average PnL ($)',
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
                 else:
                     st.warning("No trade statistics available. Please check if there are closed trades in the database.")
             except Exception as e:
@@ -647,204 +532,423 @@ with tab_trades:
     with analysis_tab2:
         st.subheader("Bot Metrics Management")
         
+        # Add tabs for different metric views
+        metric_tab1, metric_tab2, metric_tab3 = st.tabs([
+            "Performance Overview", "Advanced Metrics", "Real-time Monitor"
+        ])
+        
         async def fetch_bot_metrics():
             try:
                 async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                    # Fetch all bot metrics
-                    metrics = await pool.fetch("""
-                        SELECT 
-                            bot_id,
-                            ticker,
-                            algo_id,
-                            one_hour_performance,
-                            two_hour_performance,
-                            one_day_performance,
-                            one_week_performance,
-                            one_month_performance,
-                            win_rate,
-                            avg_drawdown,
-                            max_drawdown,
-                            profit_factor,
-                            avg_profit_per_trade,
-                            total_pnl,
-                            price_model_score,
-                            volume_model_score,
-                            price_wall_score,
-                            two_win_streak_prob,
-                            three_win_streak_prob,
-                            four_win_streak_prob,
-                            avg_trade_duration,
-                            trade_frequency,
-                            avg_trade_size,
-                            market_participation_rate,
-                            updated_at
-                        FROM bot_metrics
-                        ORDER BY bot_id, ticker, updated_at DESC;
-                    """)
-                    return metrics
-            except Exception as e:
-                st.error(f"Error fetching bot metrics: {str(e)}")
-                return None
-
-        if st.button("Refresh Bot Metrics"):
-            metrics = asyncio.run(fetch_bot_metrics())
-            if metrics:
-                metrics_df = pd.DataFrame(metrics)
-                
-                # Format numeric columns
-                numeric_cols = [
-                    'one_hour_performance', 'two_hour_performance', 'one_day_performance',
-                    'one_week_performance', 'one_month_performance', 'win_rate',
-                    'avg_drawdown', 'max_drawdown', 'profit_factor', 'avg_profit_per_trade',
-                    'total_pnl', 'price_model_score', 'volume_model_score', 'price_wall_score',
-                    'two_win_streak_prob', 'three_win_streak_prob', 'four_win_streak_prob',
-                    'avg_trade_size', 'market_participation_rate'
-                ]
-                
-                for col in numeric_cols:
-                    if col in metrics_df.columns:
-                        metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
-                        if 'rate' in col or 'prob' in col or 'performance' in col:
-                            metrics_df[col] = metrics_df[col].map('{:.2%}'.format)
-                        else:
-                            metrics_df[col] = metrics_df[col].map('{:.2f}'.format)
-                
-                # Format timestamp
-                if 'updated_at' in metrics_df.columns:
-                    metrics_df['updated_at'] = pd.to_datetime(metrics_df['updated_at'])
-                
-                st.dataframe(metrics_df)
-                
-                # Add visualization
-                st.subheader("Performance Visualization")
-                
-                # Select metrics to visualize
-                selected_metric = st.selectbox(
-                    "Select metric to visualize",
-                    ['one_hour_performance', 'one_day_performance', 'win_rate', 'total_pnl']
-                )
-                
-                # Create bar chart
-                fig = go.Figure()
-                for ticker in metrics_df['ticker'].unique():
-                    ticker_data = metrics_df[metrics_df['ticker'] == ticker]
-                    fig.add_trace(go.Bar(
-                        name=ticker,
-                        x=ticker_data['bot_id'],
-                        y=ticker_data[selected_metric].str.rstrip('%').astype('float'),
-                        text=ticker_data[selected_metric],
-                        textposition='auto',
-                    ))
-                
-                fig.update_layout(
-                    title=f"{selected_metric.replace('_', ' ').title()} by Bot and Ticker",
-                    xaxis_title="Bot ID",
-                    yaxis_title=selected_metric.replace('_', ' ').title(),
-                    barmode='group'
-                )
-                st.plotly_chart(fig)
-
-    with analysis_tab3:
-        st.subheader("Variable Weights Management")
-        
-        async def fetch_variable_weights():
-            try:
-                async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                    # Check if table exists
+                    # First check if the table exists
                     table_exists = await pool.fetchval("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables 
-                            WHERE table_name = 'variable_weights'
+                            WHERE table_name = 'bot_metrics'
                         );
                     """)
                     
                     if not table_exists:
-                        # Create table if it doesn't exist
-                        await pool.execute("""
-                            CREATE TABLE IF NOT EXISTS variable_weights (
-                                weight_id SERIAL PRIMARY KEY,
-                                variable_name VARCHAR(50) NOT NULL,
-                                weight DECIMAL(4,1) NOT NULL,
-                                last_updated TIMESTAMP DEFAULT NOW()
-                            );
-                        """)
-                        return []
+                        st.warning("Bot metrics table does not exist. Please run the metrics calculator first.")
+                        return None
                     
-                    # Fetch weights
-                    weights = await pool.fetch("""
-                        SELECT weight_id, variable_name, weight, last_updated
-                        FROM variable_weights
-                        ORDER BY variable_name;
+                    # Get the actual columns from the table
+                    columns = await pool.fetch("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'bot_metrics';
                     """)
-                    return weights
+                    column_names = [col['column_name'] for col in columns]
+                    
+                    # Build the query dynamically based on available columns
+                    base_columns = ['bot_id', 'ticker']
+                    metric_columns = [
+                        'one_hour_performance', 'two_hour_performance',
+                        'one_day_performance', 'one_week_performance',
+                        'one_month_performance', 'win_rate',
+                        'avg_drawdown', 'max_drawdown', 'profit_factor',
+                        'avg_profit_per_trade', 'total_pnl'
+                    ]
+                    
+                    # Only include columns that exist in the table
+                    select_columns = base_columns + [col for col in metric_columns if col in column_names]
+                    
+                    # Construct the query
+                    query = f"""
+                        SELECT {', '.join(select_columns)}
+                        FROM bot_metrics
+                        ORDER BY bot_id, ticker;
+                    """
+                    
+                    metrics = await pool.fetch(query)
+                    return [dict(m) for m in metrics]
             except Exception as e:
-                st.error(f"Error accessing variable weights: {str(e)}")
+                st.error(f"Error fetching bot metrics: {str(e)}")
                 return None
 
-        async def update_variable_weight(variable_name, weight):
-            try:
-                async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                    await pool.execute("""
-                        INSERT INTO variable_weights (variable_name, weight)
-                        VALUES ($1, $2)
-                        ON CONFLICT (variable_name)
-                        DO UPDATE SET 
-                            weight = $2,
-                            last_updated = NOW();
-                    """, variable_name, weight)
-                return True
-            except Exception as e:
-                st.error(f"Error updating weight: {str(e)}")
-                return False
+        with metric_tab1:
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                if st.button("Refresh Performance Metrics"):
+                    metrics = asyncio.run(fetch_bot_metrics())
+                    if metrics:
+                        metrics_df = pd.DataFrame(metrics)
+                        
+                        # Format numeric columns that we know exist
+                        numeric_cols = [col for col in metrics_df.columns if any(
+                            metric in col for metric in ['performance', 'rate', 'drawdown', 'factor', 'pnl']
+                        )]
+                        
+                        for col in numeric_cols:
+                            if col in metrics_df.columns:
+                                metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
+                                if any(metric in col for metric in ['performance', 'rate', 'drawdown']):
+                                    metrics_df[col] = metrics_df[col].map('{:.2%}'.format)
+                                else:
+                                    metrics_df[col] = metrics_df[col].map('{:.2f}'.format)
+                        
+                        st.dataframe(metrics_df)
+                        
+                        # Create performance heatmap for available performance metrics
+                        performance_cols = [col for col in metrics_df.columns if 'performance' in col]
+                        if performance_cols:
+                            heatmap_data = metrics_df[['bot_id', 'ticker'] + performance_cols].copy()
+                            for col in performance_cols:
+                                heatmap_data[col] = pd.to_numeric(heatmap_data[col].str.rstrip('%'), errors='coerce')
+                            
+                            fig = go.Figure(data=go.Heatmap(
+                                z=heatmap_data[performance_cols].values,
+                                x=performance_cols,
+                                y=heatmap_data.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
+                                colorscale='RdYlGn'
+                            ))
+                            fig.update_layout(title='Performance Heatmap Across Timeframes')
+                            st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                st.write("Quick Stats")
+                if 'metrics_df' in locals():
+                    try:
+                        # Calculate and display key statistics for available metrics
+                        if 'one_day_performance' in metrics_df.columns:
+                            best_performer = metrics_df.loc[pd.to_numeric(metrics_df['one_day_performance'].str.rstrip('%'), errors='coerce').idxmax()]
+                            st.metric("Best 24h Performer", 
+                                    f"Bot {best_performer['bot_id']} - {best_performer['ticker']}", 
+                                    best_performer['one_day_performance'])
+                        
+                        if 'win_rate' in metrics_df.columns:
+                            highest_win_rate = metrics_df.loc[pd.to_numeric(metrics_df['win_rate'].str.rstrip('%'), errors='coerce').idxmax()]
+                            st.metric("Highest Win Rate", 
+                                    f"Bot {highest_win_rate['bot_id']} - {highest_win_rate['ticker']}", 
+                                    highest_win_rate['win_rate'])
+                        
+                        if 'total_pnl' in metrics_df.columns:
+                            total_pnl = pd.to_numeric(metrics_df['total_pnl'], errors='coerce').sum()
+                            st.metric("Total System PnL", 
+                                    f"${total_pnl:.2f}")
+                    except Exception as e:
+                        st.warning(f"Could not calculate some statistics: {str(e)}")
 
-        # Fetch current weights
-        weights = asyncio.run(fetch_variable_weights())
-        
-        if weights is not None:
-            # Convert to DataFrame
-            if weights:
-                weights_df = pd.DataFrame(weights, columns=['weight_id', 'variable_name', 'weight', 'last_updated'])
-                # Debug information
-                st.write("DataFrame columns:", weights_df.columns)
-                st.write("DataFrame head:", weights_df.head())
-                
-                # Format timestamp
-                if 'last_updated' in weights_df.columns:
-                    weights_df['last_updated'] = pd.to_datetime(weights_df['last_updated'])
-                # Format weight as percentage
-                if 'weight' in weights_df.columns:
-                    weights_df['weight'] = weights_df['weight'].map('{:.1f}%'.format)
-                st.dataframe(weights_df)
-                
-                # Add visualization if there are weights
-                if not weights_df.empty:
-                    st.subheader("Weights Distribution")
-                    fig = go.Figure(data=[
-                        go.Bar(
-                            x=weights_df['variable_name'],  # Using variable_name for better readability
-                            y=weights_df['weight'].str.rstrip('%').astype('float'),
-                            text=weights_df['weight'],
-                            textposition='auto',
-                        )
-                    ])
+        with metric_tab2:
+            st.write("Advanced Performance Analytics")
+            
+            if st.button("Calculate Advanced Metrics"):
+                metrics = asyncio.run(fetch_bot_metrics())
+                if metrics:
+                    metrics_df = pd.DataFrame(metrics)
+                    
+                    # Create Sharpe Ratio vs Drawdown scatter plot
+                    fig = go.Figure()
+                    
+                    for ticker in metrics_df['ticker'].unique():
+                        ticker_data = metrics_df[metrics_df['ticker'] == ticker]
+                        
+                        # Convert string percentages to float
+                        profit_factor = pd.to_numeric(ticker_data['profit_factor'], errors='coerce')
+                        drawdown = pd.to_numeric(ticker_data['max_drawdown'].str.rstrip('%'), errors='coerce')
+                        
+                        fig.add_trace(go.Scatter(
+                            x=drawdown,
+                            y=profit_factor,
+                            mode='markers+text',
+                            name=ticker,
+                            text=ticker_data['bot_id'],
+                            textposition="top center"
+                        ))
+                    
                     fig.update_layout(
-                        title="Variable Weights Distribution",
-                        xaxis_title="Variable Name",
-                        yaxis_title="Weight (%)",
-                        yaxis_range=[0, 100]
+                        title='Risk-Reward Analysis',
+                        xaxis_title='Maximum Drawdown (%)',
+                        yaxis_title='Profit Factor',
+                        showlegend=True
                     )
-                    st.plotly_chart(fig)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Win Streak Analysis
+                    streak_cols = ['two_win_streak_prob', 'three_win_streak_prob', 'four_win_streak_prob']
+                    streak_data = metrics_df[['bot_id', 'ticker'] + streak_cols].copy()
+                    
+                    for col in streak_cols:
+                        streak_data[col] = pd.to_numeric(streak_data[col].str.rstrip('%'), errors='coerce')
+                    
+                    fig = go.Figure()
+                    for idx, row in streak_data.iterrows():
+                        fig.add_trace(go.Bar(
+                            name=f"Bot {row['bot_id']} - {row['ticker']}",
+                            x=['2 Wins', '3 Wins', '4 Wins'],
+                            y=[row[col] for col in streak_cols]
+                        ))
+                    
+                    fig.update_layout(
+                        title='Win Streak Probability Analysis',
+                        barmode='group',
+                        xaxis_title='Streak Length',
+                        yaxis_title='Probability (%)'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+        with metric_tab3:
+            st.write("Real-time Performance Monitor")
             
-            # Add weight update form
-            st.subheader("Update Variable Weight")
+            # Add auto-refresh functionality
+            auto_refresh = st.checkbox("Enable Auto-refresh (10s)")
             
-            variable_name = st.text_input("Variable Name")
-            weight = st.number_input("Weight (%)", min_value=0.0, max_value=100.0, value=50.0, step=0.1)
+            if auto_refresh:
+                st.write("Auto-refreshing every 10 seconds...")
+                time.sleep(10)  # Simple implementation - in production use async
             
+            if st.button("Refresh Monitor") or auto_refresh:
+                metrics = asyncio.run(fetch_bot_metrics())
+                if metrics:
+                    metrics_df = pd.DataFrame(metrics)
+                    
+                    # Create real-time performance gauge charts
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        # Hour Performance Gauge
+                        hour_perf = pd.to_numeric(metrics_df['one_hour_performance'].str.rstrip('%'), errors='coerce').mean()
+                        fig = go.Figure(go.Indicator(
+                            mode = "gauge+number",
+                            value = hour_perf,
+                            title = {'text': "1h Performance"},
+                            gauge = {'axis': {'range': [-5, 5]},
+                                    'bar': {'color': "darkblue"},
+                                    'steps' : [
+                                        {'range': [-5, 0], 'color': "lightgray"},
+                                        {'range': [0, 5], 'color': "gray"}]}))
+                        st.plotly_chart(fig)
+                    
+                    with col2:
+                        # Win Rate Gauge
+                        win_rate = pd.to_numeric(metrics_df['win_rate'].str.rstrip('%'), errors='coerce').mean()
+                        fig = go.Figure(go.Indicator(
+                            mode = "gauge+number",
+                            value = win_rate,
+                            title = {'text': "Win Rate"},
+                            gauge = {'axis': {'range': [0, 100]},
+                                    'bar': {'color': "darkgreen"}}))
+                        st.plotly_chart(fig)
+                    
+                    with col3:
+                        # Profit Factor Gauge
+                        profit_factor = pd.to_numeric(metrics_df['profit_factor'], errors='coerce').mean()
+                        fig = go.Figure(go.Indicator(
+                            mode = "gauge+number",
+                            value = profit_factor,
+                            title = {'text': "Profit Factor"},
+                            gauge = {'axis': {'range': [0, 3]},
+                                    'bar': {'color': "darkorange"}}))
+                        st.plotly_chart(fig)
+                    
+                    # Add real-time trade frequency chart
+                    trade_freq = pd.to_numeric(metrics_df['trade_frequency'], errors='coerce')
+                    fig = go.Figure(go.Bar(
+                        x=metrics_df.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
+                        y=trade_freq,
+                        marker_color='lightblue'
+                    ))
+                    fig.update_layout(
+                        title='Current Trade Frequency by Bot',
+                        xaxis_title='Bot',
+                        yaxis_title='Trades per Hour'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+    with analysis_tab3:
+        st.subheader("Variable Weights Management")
+        
+        # Create two columns for the layout
+        weight_col1, weight_col2 = st.columns([2, 1])
+        
+        with weight_col1:
+            # Current Weights Visualization
+            st.write("Current Variable Weights Distribution")
+            
+            # Define the default weights for all variables
+            default_weights = {
+                'avg_drawdown': 8.0,
+                'avg_win_rate': 10.0,
+                'one_day_performance': 10.0,
+                'one_hour_performance': 15.0,
+                'one_month_performance': 5.0,
+                'one_week_performance': 7.5,
+                'price_model_score': 5.0,
+                'price_wall_score': 3.0,
+                'profit_per_second': 12.0,
+                'two_hour_performance': 12.5,
+                'volume_model_score': 5.0,
+                'win_streak_2': 2.0,
+                'win_streak_3': 1.5,
+                'win_streak_4': 1.5,
+                'win_streak_5': 1.0
+            }
+
+            async def fetch_variable_weights():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        # Check if weights table exists
+                        table_exists = await pool.fetchval("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'variable_weights'
+                            );
+                        """)
+                        
+                        if not table_exists:
+                            # Create table if it doesn't exist
+                            await pool.execute("""
+                                CREATE TABLE IF NOT EXISTS variable_weights (
+                                    weight_id SERIAL PRIMARY KEY,
+                                    variable_name VARCHAR(50) NOT NULL,
+                                    weight DECIMAL(4,1) NOT NULL,
+                                    last_updated TIMESTAMP DEFAULT NOW()
+                                );
+                            """)
+                            
+                            # Insert default weights
+                            for var_name, weight in default_weights.items():
+                                await pool.execute("""
+                                    INSERT INTO variable_weights (variable_name, weight)
+                                    VALUES ($1, $2)
+                                    ON CONFLICT (variable_name) DO NOTHING;
+                                """, var_name, weight)
+                        
+                        # Fetch current weights
+                        weights = await pool.fetch("""
+                            SELECT variable_name, weight, last_updated
+                            FROM variable_weights
+                            ORDER BY weight DESC;
+                        """)
+                        return weights
+                except Exception as e:
+                    st.error(f"Error fetching variable weights: {str(e)}")
+                    return None
+
+            if st.button("Refresh Variable Weights"):
+                weights = asyncio.run(fetch_variable_weights())
+                if weights:
+                    # Convert to DataFrame and ensure column names are correct
+                    weights_df = pd.DataFrame(weights, columns=['variable_name', 'weight', 'last_updated'])
+                    
+                    # Create bar chart of weights
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=weights_df['weight'],
+                        y=weights_df['variable_name'],
+                        orientation='h',
+                        text=weights_df['weight'].apply(lambda x: f'{x:.1f}%'),
+                        textposition='auto',
+                    ))
+                    
+                    fig.update_layout(
+                        title='Variable Weights Distribution',
+                        xaxis_title='Weight (%)',
+                        yaxis_title='Variable Name',
+                        height=600,
+                        showlegend=False,
+                        xaxis=dict(range=[0, 100])
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display weights table
+                    st.dataframe(
+                        weights_df.style.format({
+                            'weight': '{:.1f}%',
+                            'last_updated': '{:%Y-%m-%d %H:%M:%S}'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No variable weights data available")
+
+        with weight_col2:
+            # Weight Update Form
+            st.write("Update Variable Weight")
+            
+            # Variable selection
+            variable_name = st.selectbox(
+                "Select Variable",
+                list(default_weights.keys())
+            )
+            
+            # Weight input
+            weight = st.number_input(
+                "Weight (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=default_weights.get(variable_name, 5.0),
+                step=0.1,
+                help="Enter the weight percentage for this variable (0-100)"
+            )
+            
+            # Update button
             if st.button("Update Weight"):
-                if asyncio.run(update_variable_weight(variable_name, weight)):
-                    st.success("Weight updated successfully!")
-                    st.experimental_rerun()
+                try:
+                    async def update_variable_weight():
+                        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                            await pool.execute("""
+                                INSERT INTO variable_weights (variable_name, weight, last_updated)
+                                VALUES ($1, $2, NOW())
+                                ON CONFLICT (variable_name) 
+                                DO UPDATE SET 
+                                    weight = $2,
+                                    last_updated = NOW();
+                            """, variable_name, weight)
+                    
+                    asyncio.run(update_variable_weight())
+                    st.success(f"Weight for {variable_name} updated to {weight:.1f}%")
+                except Exception as e:
+                    st.error(f"Error updating weight: {str(e)}")
+            
+            # Show total weight info
+            st.write("---")
+            st.write("Weight Distribution Info")
+            
+            async def get_total_weight():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        total = await pool.fetchval("""
+                            SELECT SUM(weight) FROM variable_weights;
+                        """)
+                        return total or 0
+                except Exception as e:
+                    st.error(f"Error calculating total weight: {str(e)}")
+                    return 0
+            
+            total_weight = asyncio.run(get_total_weight())
+            st.metric(
+                "Total Weight",
+                f"{total_weight:.1f}%",
+                delta=f"{total_weight - 100:.1f}%" if total_weight != 100 else None,
+                delta_color="inverse"
+            )
+            
+            if abs(total_weight - 100) > 0.1:
+                st.warning("⚠️ Total weight should sum to 100%")
+            else:
+                st.success("✅ Weights are properly distributed")
 
 # Parameters Section
 with tab_params:
@@ -994,6 +1098,59 @@ def trade_analysis():
             use_container_width=True
         )
 
+    # Today's Trading Statistics Section
+    st.subheader("Today's Trading Statistics")
+    
+    with st.container():
+        col1, col2 = st.columns(2)
+        show_today = col1.button("Show Today's Trades")
+        export_today = col2.button("Export Today's Trades")
+        
+        if show_today or export_today:
+            async def fetch_todays_trades():
+                async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                    # Use CURRENT_DATE to filter trades from today (based on entry_time)
+                    sql = "SELECT * FROM sim_bot_trades WHERE entry_time::date = CURRENT_DATE;"
+                    result = await pool.fetch(sql)
+                    return [dict(r) for r in result]
+            
+            todays_trades = asyncio.run(fetch_todays_trades())
+            if todays_trades:
+                todays_df = pd.DataFrame(todays_trades)
+                st.markdown("### Today's Trades Table")
+                st.dataframe(todays_df)
+                
+                # Detailed Summary Calculation
+                total_trades = todays_df.shape[0]
+                total_pnl = todays_df['trade_pnl'].sum() if 'trade_pnl' in todays_df.columns else 0
+                avg_pnl = todays_df['trade_pnl'].mean() if 'trade_pnl' in todays_df.columns else 0
+                
+                # Convert datetime columns in case they are not already datetime objects
+                if 'entry_time' in todays_df.columns and 'exit_time' in todays_df.columns:
+                    todays_df['entry_time'] = pd.to_datetime(todays_df['entry_time'], errors='coerce')
+                    todays_df['exit_time'] = pd.to_datetime(todays_df['exit_time'], errors='coerce')
+                    valid_durations = (todays_df['exit_time'] - todays_df['entry_time']).dt.total_seconds().dropna()
+                    avg_duration = valid_durations.mean() if not valid_durations.empty else 0
+                else:
+                    avg_duration = 0
+                
+                st.markdown("### Today's Trading Summary")
+                st.write("Total Trades:", total_trades)
+                st.write("Total PNL: $", f"{total_pnl:.2f}")
+                st.write("Average PNL: $", f"{avg_pnl:.2f}")
+                st.write("Average Trade Duration (sec):", f"{avg_duration:.1f} seconds")
+                
+                if export_today:
+                    csv_data = todays_df.to_csv(index=False)
+                    st.download_button(
+                        label="Download Today's Trades CSV",
+                        data=csv_data,
+                        file_name="todays_trades.csv",
+                        mime="text/csv"
+                    )
+            else:
+                st.info("No trades found for today.")
+
     # Single unified Bot Metrics section
     st.subheader("Bot Performance Metrics")
     try:
@@ -1029,7 +1186,7 @@ def trade_analysis():
                         FROM bot_metrics
                         ORDER BY bot_id;
                     """)
-                    return metrics
+                    return [dict(m) for m in metrics]
                 return None
 
         metrics = asyncio.run(fetch_bot_metrics())
