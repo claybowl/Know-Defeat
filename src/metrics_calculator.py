@@ -27,8 +27,8 @@ class MetricsCalculator:
             """, bot_id, ticker)
             return result or 0.0
 
-    async def calculate_total_pnl(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as conn:
+    async def calculate_total_pnl(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as conn:
             result = await conn.fetchval("""
                 SELECT SUM(trade_pnl) AS total_pnl
                 FROM sim_bot_trades
@@ -36,8 +36,8 @@ class MetricsCalculator:
             """, bot_id, algo_id)
         return result
 
-    async def calculate_avg_profit_per_trade(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as conn:
+    async def calculate_avg_profit_per_trade(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as conn:
             result = await conn.fetchval("""
                 SELECT AVG(trade_pnl) AS avg_profit_per_trade
                 FROM sim_bot_trades
@@ -45,8 +45,8 @@ class MetricsCalculator:
             """, bot_id, algo_id)
         return result
 
-    async def calculate_total_trades(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as conn:
+    async def calculate_total_trades(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as conn:
             result = await conn.fetchval("""
                 SELECT COUNT(*) AS total_trades
                 FROM sim_bot_trades
@@ -54,8 +54,8 @@ class MetricsCalculator:
             """, bot_id, algo_id)
         return result
 
-    async def calculate_profit_factor(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as conn:
+    async def calculate_profit_factor(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as conn:
             result = await conn.fetchval("""
                 SELECT SUM(CASE WHEN trade_pnl > 0 THEN trade_pnl ELSE 0 END) /
                     ABS(SUM(CASE WHEN trade_pnl < 0 THEN trade_pnl ELSE 0 END)) AS profit_factor
@@ -64,8 +64,8 @@ class MetricsCalculator:
             """, bot_id, algo_id)
         return result
 
-    async def calculate_two_hour_performance(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as conn:
+    async def calculate_two_hour_performance(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as conn:
             result = await conn.fetchval("""
                 SELECT 
                     (SUM(CASE WHEN timestamp >= NOW() - INTERVAL '2 hours' THEN trade_pnl ELSE 0 END) /
@@ -75,8 +75,8 @@ class MetricsCalculator:
             """, bot_id, algo_id)
         return result
 
-    async def calculate_performance_over_period(db_pool, bot_id, algo_id, period):
-        async with db_pool.acquire() as connection:
+    async def calculate_performance_over_period(self, bot_id, algo_id, period):
+        async with self.db_pool.acquire() as connection:
             end_time = datetime.now()
             start_time = end_time - period
             result = await connection.fetchval("""
@@ -89,18 +89,18 @@ class MetricsCalculator:
             # Return formatted value if result is not None, else return 0
             return round(result, 2) if result else 0
 
-    async def calculate_one_day_performance(db_pool, bot_id, algo_id):
-        return await calculate_performance_over_period(db_pool, bot_id, algo_id, timedelta(days=1))
+    async def calculate_one_day_performance(self, bot_id, algo_id):
+        return await self.calculate_performance_over_period(bot_id, algo_id, timedelta(days=1))
 
-    async def calculate_one_week_performance(db_pool, bot_id, algo_id):
-        return await calculate_performance_over_period(db_pool, bot_id, algo_id, timedelta(weeks=1))
+    async def calculate_one_week_performance(self, bot_id, algo_id):
+        return await self.calculate_performance_over_period(bot_id, algo_id, timedelta(weeks=1))
 
-    async def calculate_one_month_performance(db_pool, bot_id, algo_id):
+    async def calculate_one_month_performance(self, bot_id, algo_id):
         # Assuming a month of 30 days
-        return await calculate_performance_over_period(db_pool, bot_id, algo_id, timedelta(days=30))
+        return await self.calculate_performance_over_period(bot_id, algo_id, timedelta(days=30))
 
-    async def calculate_profit_per_second(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as connection:
+    async def calculate_profit_per_second(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as connection:
             # Calculate total PnL and total time span
             total_pnl = await connection.fetchval("""
                 SELECT SUM(trade_pnl)
@@ -122,8 +122,8 @@ class MetricsCalculator:
             else:
                 return 0
 
-    async def calculate_trade_frequency(db_pool, bot_id, algo_id, period):
-        async with db_pool.acquire() as connection:
+    async def calculate_trade_frequency(self, bot_id, algo_id, period):
+        async with self.db_pool.acquire() as connection:
             start_time = datetime.now() - period
             count = await connection.fetchval("""
                 SELECT COUNT(*)
@@ -133,8 +133,8 @@ class MetricsCalculator:
             """, bot_id, algo_id, start_time)
             return count
 
-    async def calculate_drawdowns(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as connection:
+    async def calculate_drawdowns(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as connection:
             # Fetch trades and calculate drawdowns
             trades = await connection.fetch("""
                 SELECT timestamp, trade_pnl
@@ -255,8 +255,8 @@ class MetricsCalculator:
             
             return round(atr, 4)
 
-    async def calculate_and_insert_execution_metrics(db_pool, bot_id, algo_id):
-        async with db_pool.acquire() as connection:
+    async def calculate_and_insert_execution_metrics(self, bot_id, algo_id):
+        async with self.db_pool.acquire() as connection:
             # Fetch all required trade data
             trades = await connection.fetch("""
                 SELECT entry_price, exit_price, entry_time, exit_time
@@ -277,9 +277,9 @@ class MetricsCalculator:
                 WHERE bot_id = $1 AND algo_id = $2
             """, bot_id, algo_id, price_slippage, avg_trade_duration)
 
-    async def calculate_and_insert_win_streaks(db_pool, bot_id, algo_id):
+    async def calculate_and_insert_win_streaks(self, bot_id, algo_id):
         """Analyze trades to find win streaks and update the database with these metrics."""
-        async with db_pool.acquire() as connection:
+        async with self.db_pool.acquire() as connection:
             trades = await connection.fetch("""
                 SELECT trade_pnl
                 FROM sim_bot_trades

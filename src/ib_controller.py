@@ -27,6 +27,10 @@ from utils.db_utils import (
     create_db_pool,
     execute_query
 )
+from metrics_calculator import MetricsCalculator
+from metrics_updater import MetricsUpdater
+from trade_listener import TradeListener
+from bot_ranker import BotRanker
 
 # Configure logging
 logging.basicConfig(
@@ -171,6 +175,10 @@ class DataIngestionManager:
         self.logger = logging.getLogger(__name__)
         self.db_pool = None
         self.bot_manager = BotManager()
+        self.metrics_calculator = MetricsCalculator(self.db_pool)
+        self.metrics_updater = MetricsUpdater(self.db_pool, self.metrics_calculator)
+        self.trade_listener = TradeListener(self.db_pool, self.metrics_updater)
+        self.bot_ranker = BotRanker(self.db_pool)
 
         # Add metrics update task to initialization
         asyncio.create_task(self.update_periodic_metrics())
@@ -257,41 +265,7 @@ class DataIngestionManager:
         try:
             async with self.db_pool.acquire() as conn:
                 # Drop existing table to ensure clean schema
-                await conn.execute("DROP TABLE IF EXISTS bot_metrics;")
-                
-                # Create table with all columns needed by the UI
-                await conn.execute("""
-                    CREATE TABLE bot_metrics (
-                        bot_id INTEGER PRIMARY KEY,
-                        ticker TEXT NOT NULL,
-                        algo_id INTEGER,
-                        timestamp TIMESTAMP WITH TIME ZONE,
-                        one_hour_performance FLOAT,
-                        two_hour_performance FLOAT,
-                        one_day_performance FLOAT,
-                        one_week_performance FLOAT,
-                        one_month_performance FLOAT,
-                        win_rate FLOAT,
-                        avg_drawdown FLOAT,
-                        max_drawdown FLOAT,
-                        profit_factor FLOAT,
-                        avg_profit_per_trade FLOAT,
-                        total_pnl FLOAT,
-                        price_model_score FLOAT,
-                        volume_model_score FLOAT,
-                        price_wall_score FLOAT,
-                        two_win_streak_prob FLOAT,
-                        three_win_streak_prob FLOAT,
-                        four_win_streak_prob FLOAT,
-                        avg_trade_duration FLOAT,
-                        trade_frequency FLOAT,
-                        avg_trade_size FLOAT,
-                        market_participation_rate FLOAT,
-                        last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-                
-                self.logger.info("Bot metrics table created successfully")
+
                 
                 # Get active bots from the last 24 hours
                 active_bots = await conn.fetch("""
@@ -374,6 +348,9 @@ class DataIngestionManager:
 
             # Start metrics updater
             asyncio.create_task(self.update_periodic_metrics())
+
+            # Start trade listener and metrics components
+            asyncio.create_task(self.trade_listener.listen_for_trade_completion())
 
         except Exception as e:
             self.logger.error(f"Failed to start data ingestion: {e}")
