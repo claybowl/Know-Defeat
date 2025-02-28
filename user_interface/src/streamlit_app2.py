@@ -565,7 +565,7 @@ with tab_trades:
                     metric_columns = [
                         'one_hour_performance', 'two_hour_performance',
                         'one_day_performance', 'one_week_performance',
-                        'one_month_performance', 'win_rate',
+                        'one_month_performance', 'avg_win_rate',
                         'avg_drawdown', 'max_drawdown', 'profit_factor',
                         'avg_profit_per_trade', 'total_pnl'
                     ]
@@ -637,11 +637,11 @@ with tab_trades:
                                     f"Bot {best_performer['bot_id']} - {best_performer['ticker']}", 
                                     best_performer['one_day_performance'])
                         
-                        if 'win_rate' in metrics_df.columns:
-                            highest_win_rate = metrics_df.loc[pd.to_numeric(metrics_df['win_rate'].str.rstrip('%'), errors='coerce').idxmax()]
+                        if 'avg_win_rate' in metrics_df.columns:
+                            highest_win_rate = metrics_df.loc[pd.to_numeric(metrics_df['avg_win_rate'].str.rstrip('%'), errors='coerce').idxmax()]
                             st.metric("Highest Win Rate", 
                                     f"Bot {highest_win_rate['bot_id']} - {highest_win_rate['ticker']}", 
-                                    highest_win_rate['win_rate'])
+                                    highest_win_rate['avg_win_rate'])
                         
                         if 'total_pnl' in metrics_df.columns:
                             total_pnl = pd.to_numeric(metrics_df['total_pnl'], errors='coerce').sum()
@@ -686,7 +686,7 @@ with tab_trades:
                     st.plotly_chart(fig, use_container_width=True)
                     
                     # Win Streak Analysis
-                    streak_cols = ['two_win_streak_prob', 'three_win_streak_prob', 'four_win_streak_prob']
+                    streak_cols = ['win_streak_2', 'win_streak_3', 'win_streak_4', 'win_streak_5']
                     streak_data = metrics_df[['bot_id', 'ticker'] + streak_cols].copy()
                     
                     for col in streak_cols:
@@ -742,7 +742,7 @@ with tab_trades:
                     
                     with col2:
                         # Win Rate Gauge
-                        win_rate = pd.to_numeric(metrics_df['win_rate'].str.rstrip('%'), errors='coerce').mean()
+                        win_rate = pd.to_numeric(metrics_df['avg_win_rate'].str.rstrip('%'), errors='coerce').mean()
                         fig = go.Figure(go.Indicator(
                             mode = "gauge+number",
                             value = win_rate,
