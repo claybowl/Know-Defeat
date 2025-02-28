@@ -37,6 +37,21 @@ class TradeListener:
         
         # Trigger metric recalculation
         await self.recalculate_metrics(trade['bot_id'], trade['ticker'])
+        
+        # NEW: Trigger bot ranking update
+        await self.update_bot_rankings(trade['bot_id'])
+
+    # Add this new method to TradeListener class:
+
+    async def update_bot_rankings(self, bot_id):
+        try:
+            # Create a BotRanker instance and rank the bots
+            from bot_ranker import BotRanker
+            ranker = BotRanker(self.db_pool)
+            await ranker.rank_bots()
+            logging.info(f"Updated bot rankings after processing trade for bot {bot_id}")
+        except Exception as e:
+            logging.error(f"Error updating bot rankings: {str(e)}")
 
     async def recalculate_metrics(self, bot_id, ticker):
         # Placeholder for metric recalculation logic

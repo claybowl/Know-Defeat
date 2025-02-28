@@ -10,10 +10,11 @@ from datetime import datetime, timedelta
 import time
 from plotly.subplots import make_subplots
 import psycopg2
-
-
+import logging
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+from ai_weight_adjuster import AIWeightAdjuster
+
 
 # Set page config
 st.set_page_config(page_title="Trading System Dashboard", layout="wide")
@@ -1224,3 +1225,36 @@ def trade_analysis():
             }),
             use_container_width=True
         ) 
+
+    async def main():
+        # Set up logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('scheduled_tasks.log'),
+                logging.StreamHandler()
+            ]
+        )
+        
+        # Create a database pool
+        pool = await asyncpg.create_pool(**DB_CONFIG)
+        
+        try:
+            # Create an AI weight adjuster
+            adjuster = AIWeightAdjuster(pool)
+            
+            # Run the adjuster once
+            success = await adjuster.adjust_weights()
+            if success:
+                logging.info("Successfully adjusted weights")
+            else:
+                logging.error("Failed to adjust weights")
+            
+            # Run scheduled adjustment (runs in a continuous loop)
+            # await adjuster.run_scheduled_adjustment(hours=24)
+        finally:
+            await pool.close()
+
+    if __name__ == "__main__":
+        asyncio.run(main())
