@@ -1258,3 +1258,26 @@ def trade_analysis():
 
     if __name__ == "__main__":
         asyncio.run(main())
+
+# Add this function near your other database functions
+async def check_database_schema():
+    try:
+        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+            # Check bot_metrics table structure
+            columns = await pool.fetch("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'bot_metrics';
+            """)
+            st.write("Bot Metrics Table Columns:", [col['column_name'] for col in columns])
+            
+            # Check if specific columns exist
+            for col in ['algo_id', 'bot_id', 'ticker']:
+                exists = any(c['column_name'] == col for c in columns)
+                st.write(f"Column '{col}' exists: {exists}")
+    except Exception as e:
+        st.error(f"Error checking schema: {e}")
+
+# Add this button in your app
+if st.button("Check Database Schema"):
+    asyncio.run(check_database_schema())
