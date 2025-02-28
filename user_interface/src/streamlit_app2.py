@@ -57,8 +57,7 @@ DB_CONFIG = {
     'user': 'clayb',
     'password': 'musicman',
     'database': 'tick_data',
-    'host': '192.168.0.114',  # Use your actual PostgreSQL server IP
-    'port': 5432
+    'host': 'localhost'
 }
 
 def start_ib_controller():

@@ -40,7 +40,7 @@ class BotRanker:
                     SELECT DISTINCT ON (bot_id) 
                         bot_id, 
                         ticker,
-                        algorithm_id,
+                        algo_id,
                         one_hour_performance,
                         two_hour_performance,
                         one_day_performance,
