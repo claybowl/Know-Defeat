@@ -6,6 +6,11 @@ import asyncio
 import asyncpg
 from datetime import datetime
 import numpy as np
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+from bot_ranker import BotRanker
+
 
 class WeightsManagementUI:
     """
@@ -39,9 +44,9 @@ class WeightsManagementUI:
                 
                 # Fetch weights
                 weights = await connection.fetch("""
-                    SELECT weight_id, variable_name, weight, description, last_updated
+                    SELECT variable_name, weight, description, last_updated
                     FROM variable_weights
-                    ORDER BY variable_name;
+                    ORDER BY weight DESC;
                 """)
                 
                 return weights
@@ -97,7 +102,7 @@ class WeightsManagementUI:
                 await connection.execute("""
                     CREATE TABLE IF NOT EXISTS variable_weights (
                         weight_id SERIAL PRIMARY KEY,
-                        variable_name VARCHAR(50) NOT NULL UNIQUE,
+                        variable_name VARCHAR(50) NOT NULL,
                         weight DECIMAL(4,1) NOT NULL,
                         description TEXT,
                         last_updated TIMESTAMP DEFAULT NOW()
@@ -205,7 +210,6 @@ class WeightsManagementUI:
                 else:
                     # Fallback: Use BotRanker directly
                     st.warning("Using fallback ranking method. Database function not found.")
-                    from bot_ranker import BotRanker
                     ranker = BotRanker(pool)
                     await ranker.rank_bots()
                 
@@ -246,7 +250,7 @@ class WeightsManagementUI:
             
             if weights is not None and len(weights) > 0:
                 # Convert to a more user-friendly format for editing
-                weights_df = pd.DataFrame(weights)
+                weights_df = pd.DataFrame(weights, columns=['variable_name', 'weight', 'description', 'last_updated'])
                 
                 # Extract just the variable_name and weight columns
                 editable_weights = pd.DataFrame({
@@ -310,13 +314,13 @@ class WeightsManagementUI:
                     success = asyncio.run(self.initialize_default_weights())
                     if success:
                         st.success("Default weights initialized!")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Failed to initialize weights.")
         
         with col2:
             if weights is not None and len(weights) > 0:
-                weights_df = pd.DataFrame(weights)
+                weights_df = pd.DataFrame(weights, columns=['variable_name', 'weight', 'description', 'last_updated'])
                 
                 # Create a visualization of the weight distribution
                 fig = px.bar(
@@ -412,13 +416,13 @@ class WeightsManagementUI:
                                 success = asyncio.run(self.toggle_bot_active(selected_bot_id, False))
                                 if success:
                                     st.success(f"Bot {selected_bot_id} deactivated!")
-                                    st.experimental_rerun()
+                                    st.rerun()
                         else:
                             if st.button("Activate Bot"):
                                 success = asyncio.run(self.toggle_bot_active(selected_bot_id, True))
                                 if success:
                                     st.success(f"Bot {selected_bot_id} activated!")
-                                    st.experimental_rerun()
+                                    st.rerun()
                 
                 # Create rank visualization
                 st.subheader("Ranking Visualization")
@@ -450,7 +454,7 @@ class WeightsManagementUI:
                 success = asyncio.run(self.update_bot_rankings())
                 if success:
                     st.success("Bot rankings initialized!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Failed to initialize rankings.")
     
@@ -468,39 +472,38 @@ class WeightsManagementUI:
             self.render_bot_rankings()
 
 # Example usage in a Streamlit app:
-# 
-# import streamlit as st
-# from weights_management_ui import WeightsManagementUI
-# 
-# DB_CONFIG = {
-#     'user': 'clayb',
-#     'password': 'musicman',
-#     'database': 'tick_data',
-#     'host': 'localhost'
-# }
-# 
-# def main():
-#     st.title("KnowDefeat Trading System")
-#     
-#     # Create tabs
-#     tab1, tab2, tab3, tab4 = st.tabs(["Dashboard", "Bot Control", "Rankings", "Settings"])
-#     
-#     with tab1:
-#         st.header("Trading System Dashboard")
-#         # Your existing dashboard code here...
-#     
-#     with tab2:
-#         st.header("Bot Control")
-#         # Your existing bot control code here...
-#     
-#     with tab3:
-#         # Render the ranking system UI
-#         weights_ui = WeightsManagementUI(DB_CONFIG)
-#         weights_ui.render()
-#     
-#     with tab4:
-#         st.header("System Settings")
-#         # Your existing settings code here...
-# 
-# if __name__ == "__main__":
-#     main()
+
+
+
+DB_CONFIG = {
+    'user': 'clayb',
+    'password': 'musicman',
+    'database': 'tick_data',
+    'host': 'localhost'
+}
+
+def main():
+    st.title("KnowDefeat Trading System")
+    
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["Dashboard", "Bot Control", "Rankings", "Settings"])
+    
+    with tab1:
+        st.header("Trading System Dashboard")
+        # Your existing dashboard code here...
+    
+    with tab2:
+        st.header("Bot Control")
+        # Your existing bot control code here...
+    
+    with tab3:
+        # Render the ranking system UI
+        weights_ui = WeightsManagementUI(DB_CONFIG)
+        weights_ui.render()
+    
+    with tab4:
+        st.header("System Settings")
+        # Your existing settings code here...
+
+if __name__ == "__main__":
+    main()

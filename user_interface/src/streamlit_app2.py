@@ -13,8 +13,7 @@ import psycopg2
 import logging
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-from ai_weight_adjuster import AIWeightAdjuster
-
+from weights_management_ui import WeightsManagementUI
 
 # Set page config
 st.set_page_config(page_title="Trading System Dashboard", layout="wide")
