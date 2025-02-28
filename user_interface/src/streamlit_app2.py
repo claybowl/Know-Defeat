@@ -60,6 +60,40 @@ DB_CONFIG = {
     'host': 'localhost'
 }
 
+# Helper function to safely convert percentage strings to numeric values
+def safe_pct_to_numeric(series):
+    """
+    Safely convert a pandas Series containing percentage strings or numeric values to numeric.
+    
+    Args:
+        series: Pandas Series that might contain percentage strings or numeric values
+        
+    Returns:
+        Pandas Series containing only numeric values
+    """
+    # First try to convert directly to numeric
+    try:
+        return pd.to_numeric(series, errors='coerce')
+    except:
+        pass
+    
+    # If the above fails, try string processing only if we have strings
+    try:
+        # Try to check if the first non-null value is a string
+        for val in series.dropna():
+            if isinstance(val, str):
+                # We have at least one string, use string processing
+                return pd.to_numeric(series.astype(str).str.rstrip('%'), errors='coerce')
+            else:
+                # First non-null value is not a string, just use to_numeric
+                return pd.to_numeric(series, errors='coerce')
+        
+        # If we get here, series might be empty or all null
+        return pd.to_numeric(series, errors='coerce')
+    except:
+        # Fallback to direct conversion
+        return pd.to_numeric(series, errors='coerce')
+
 def start_ib_controller():
     """Start the IB Controller process"""
     try:
@@ -612,38 +646,58 @@ with tab_trades:
                         
                         # Create performance heatmap for available performance metrics
                         performance_cols = [col for col in metrics_df.columns if 'performance' in col]
-                        if performance_cols:
-                            heatmap_data = metrics_df[['bot_id', 'ticker'] + performance_cols].copy()
-                            for col in performance_cols:
-                                heatmap_data[col] = pd.to_numeric(heatmap_data[col].str.rstrip('%'), errors='coerce')
-                            
-                            fig = go.Figure(data=go.Heatmap(
-                                z=heatmap_data[performance_cols].values,
-                                x=performance_cols,
-                                y=heatmap_data.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
-                                colorscale='RdYlGn'
-                            ))
-                            fig.update_layout(title='Performance Heatmap Across Timeframes')
-                            st.plotly_chart(fig, use_container_width=True)
+                        if performance_cols and 'bot_id' in metrics_df.columns and 'ticker' in metrics_df.columns:
+                            try:
+                                heatmap_data = metrics_df[['bot_id', 'ticker'] + performance_cols].copy()
+                                
+                                # Check for empty dataframe
+                                if not heatmap_data.empty:
+                                    for col in performance_cols:
+                                        # Convert percentage strings to numeric values safely
+                                        heatmap_data[col] = safe_pct_to_numeric(heatmap_data[col])
+                                    
+                                    # Create heatmap
+                                    fig = go.Figure(data=go.Heatmap(
+                                        z=heatmap_data[performance_cols].values,
+                                        x=performance_cols,
+                                        y=heatmap_data.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
+                                        colorscale='RdYlGn'
+                                    ))
+                                    fig.update_layout(title='Performance Heatmap Across Timeframes')
+                                    st.plotly_chart(fig, use_container_width=True)
+                                else:
+                                    st.info("No data available for performance heatmap visualization.")
+                            except Exception as e:
+                                st.warning(f"Error creating performance heatmap: {str(e)}")
+                        else:
+                            st.info("Performance heatmap data is not available. Required performance columns are missing.")
             
             with col2:
                 st.write("Quick Stats")
                 if 'metrics_df' in locals():
                     try:
                         # Calculate and display key statistics for available metrics
-                        if 'one_day_performance' in metrics_df.columns:
-                            best_performer = metrics_df.loc[pd.to_numeric(metrics_df['one_day_performance'].str.rstrip('%'), errors='coerce').idxmax()]
-                            st.metric("Best 24h Performer", 
-                                    f"Bot {best_performer['bot_id']} - {best_performer['ticker']}", 
-                                    best_performer['one_day_performance'])
+                        if 'one_day_performance' in metrics_df.columns and not metrics_df['one_day_performance'].empty:
+                            # Convert to numeric safely and find the max
+                            perf_values = safe_pct_to_numeric(metrics_df['one_day_performance'])
+                            if not perf_values.empty and not perf_values.isna().all():
+                                idx = perf_values.idxmax()
+                                best_performer = metrics_df.loc[idx]
+                                st.metric("Best 24h Performer", 
+                                        f"Bot {best_performer['bot_id']} - {best_performer['ticker']}", 
+                                        best_performer['one_day_performance'])
                         
-                        if 'avg_win_rate' in metrics_df.columns:
-                            highest_win_rate = metrics_df.loc[pd.to_numeric(metrics_df['avg_win_rate'].str.rstrip('%'), errors='coerce').idxmax()]
-                            st.metric("Highest Win Rate", 
-                                    f"Bot {highest_win_rate['bot_id']} - {highest_win_rate['ticker']}", 
-                                    highest_win_rate['avg_win_rate'])
+                        if 'avg_win_rate' in metrics_df.columns and not metrics_df['avg_win_rate'].empty:
+                            # Convert to numeric safely and find the max
+                            win_values = safe_pct_to_numeric(metrics_df['avg_win_rate'])
+                            if not win_values.empty and not win_values.isna().all():
+                                idx = win_values.idxmax()
+                                highest_win_rate = metrics_df.loc[idx]
+                                st.metric("Highest Win Rate", 
+                                        f"Bot {highest_win_rate['bot_id']} - {highest_win_rate['ticker']}", 
+                                        highest_win_rate['avg_win_rate'])
                         
-                        if 'total_pnl' in metrics_df.columns:
+                        if 'total_pnl' in metrics_df.columns and not metrics_df['total_pnl'].empty:
                             total_pnl = pd.to_numeric(metrics_df['total_pnl'], errors='coerce').sum()
                             st.metric("Total System PnL", 
                                     f"${total_pnl:.2f}")
@@ -661,52 +715,64 @@ with tab_trades:
                     # Create Sharpe Ratio vs Drawdown scatter plot
                     fig = go.Figure()
                     
-                    for ticker in metrics_df['ticker'].unique():
-                        ticker_data = metrics_df[metrics_df['ticker'] == ticker]
+                    # Check if required columns exist
+                    if all(col in metrics_df.columns for col in ['profit_factor', 'max_drawdown', 'ticker', 'bot_id']):
+                        for ticker in metrics_df['ticker'].unique():
+                            ticker_data = metrics_df[metrics_df['ticker'] == ticker]
+                            
+                            # Convert string percentages to float
+                            profit_factor = safe_pct_to_numeric(ticker_data['profit_factor'])
+                            drawdown = safe_pct_to_numeric(ticker_data['max_drawdown'])
+                            
+                            fig.add_trace(go.Scatter(
+                                x=drawdown,
+                                y=profit_factor,
+                                mode='markers+text',
+                                name=ticker,
+                                text=ticker_data['bot_id'],
+                                textposition="top center"
+                            ))
                         
-                        # Convert string percentages to float
-                        profit_factor = pd.to_numeric(ticker_data['profit_factor'], errors='coerce')
-                        drawdown = pd.to_numeric(ticker_data['max_drawdown'].str.rstrip('%'), errors='coerce')
-                        
-                        fig.add_trace(go.Scatter(
-                            x=drawdown,
-                            y=profit_factor,
-                            mode='markers+text',
-                            name=ticker,
-                            text=ticker_data['bot_id'],
-                            textposition="top center"
-                        ))
-                    
-                    fig.update_layout(
-                        title='Risk-Reward Analysis',
-                        xaxis_title='Maximum Drawdown (%)',
-                        yaxis_title='Profit Factor',
-                        showlegend=True
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                        fig.update_layout(
+                            title='Risk-Reward Analysis',
+                            xaxis_title='Maximum Drawdown (%)',
+                            yaxis_title='Profit Factor',
+                            showlegend=True
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Risk-reward analysis data is not available. Some required columns (profit_factor, max_drawdown) are missing from the metrics.")
                     
                     # Win Streak Analysis
                     streak_cols = ['win_streak_2', 'win_streak_3', 'win_streak_4', 'win_streak_5']
-                    streak_data = metrics_df[['bot_id', 'ticker'] + streak_cols].copy()
                     
-                    for col in streak_cols:
-                        streak_data[col] = pd.to_numeric(streak_data[col].str.rstrip('%'), errors='coerce')
+                    # Check if at least some of the streak columns exist
+                    available_streak_cols = [col for col in streak_cols if col in metrics_df.columns]
                     
-                    fig = go.Figure()
-                    for idx, row in streak_data.iterrows():
-                        fig.add_trace(go.Bar(
-                            name=f"Bot {row['bot_id']} - {row['ticker']}",
-                            x=['2 Wins', '3 Wins', '4 Wins'],
-                            y=[row[col] for col in streak_cols]
-                        ))
-                    
-                    fig.update_layout(
-                        title='Win Streak Probability Analysis',
-                        barmode='group',
-                        xaxis_title='Streak Length',
-                        yaxis_title='Probability (%)'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                    if available_streak_cols and 'bot_id' in metrics_df.columns and 'ticker' in metrics_df.columns:
+                        streak_data = metrics_df[['bot_id', 'ticker'] + available_streak_cols].copy()
+                        
+                        for col in available_streak_cols:
+                            # Convert percentage strings to numeric values safely
+                            streak_data[col] = safe_pct_to_numeric(streak_data[col])
+                        
+                        fig = go.Figure()
+                        for idx, row in streak_data.iterrows():
+                            fig.add_trace(go.Bar(
+                                name=f"Bot {row['bot_id']} - {row['ticker']}",
+                                x=[col.replace('win_streak_', '') + ' Wins' for col in available_streak_cols],
+                                y=[row[col] for col in available_streak_cols]
+                            ))
+                        
+                        fig.update_layout(
+                            title='Win Streak Probability Analysis',
+                            barmode='group',
+                            xaxis_title='Streak Length',
+                            yaxis_title='Probability (%)'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Win streak data is not available. Some required columns are missing from the metrics.")
 
         with metric_tab3:
             st.write("Real-time Performance Monitor")
@@ -728,53 +794,65 @@ with tab_trades:
                     
                     with col1:
                         # Hour Performance Gauge
-                        hour_perf = pd.to_numeric(metrics_df['one_hour_performance'].str.rstrip('%'), errors='coerce').mean()
-                        fig = go.Figure(go.Indicator(
-                            mode = "gauge+number",
-                            value = hour_perf,
-                            title = {'text': "1h Performance"},
-                            gauge = {'axis': {'range': [-5, 5]},
-                                    'bar': {'color': "darkblue"},
-                                    'steps' : [
-                                        {'range': [-5, 0], 'color': "lightgray"},
-                                        {'range': [0, 5], 'color': "gray"}]}))
-                        st.plotly_chart(fig)
+                        if 'one_hour_performance' in metrics_df.columns:
+                            hour_perf = safe_pct_to_numeric(metrics_df['one_hour_performance']).mean()
+                            fig = go.Figure(go.Indicator(
+                                mode = "gauge+number",
+                                value = hour_perf,
+                                title = {'text': "1h Performance"},
+                                gauge = {'axis': {'range': [-5, 5]},
+                                        'bar': {'color': "darkblue"},
+                                        'steps' : [
+                                            {'range': [-5, 0], 'color': "lightgray"},
+                                            {'range': [0, 5], 'color': "gray"}]}))
+                            st.plotly_chart(fig)
+                        else:
+                            st.info("1h performance data is not available.")
                     
                     with col2:
                         # Win Rate Gauge
-                        win_rate = pd.to_numeric(metrics_df['avg_win_rate'].str.rstrip('%'), errors='coerce').mean()
-                        fig = go.Figure(go.Indicator(
-                            mode = "gauge+number",
-                            value = win_rate,
-                            title = {'text': "Win Rate"},
-                            gauge = {'axis': {'range': [0, 100]},
-                                    'bar': {'color': "darkgreen"}}))
-                        st.plotly_chart(fig)
+                        if 'avg_win_rate' in metrics_df.columns:
+                            win_rate = safe_pct_to_numeric(metrics_df['avg_win_rate']).mean()
+                            fig = go.Figure(go.Indicator(
+                                mode = "gauge+number",
+                                value = win_rate,
+                                title = {'text': "Win Rate"},
+                                gauge = {'axis': {'range': [0, 100]},
+                                        'bar': {'color': "darkgreen"}}))
+                            st.plotly_chart(fig)
+                        else:
+                            st.info("Win rate data is not available.")
                     
                     with col3:
                         # Profit Factor Gauge
-                        profit_factor = pd.to_numeric(metrics_df['profit_factor'], errors='coerce').mean()
-                        fig = go.Figure(go.Indicator(
-                            mode = "gauge+number",
-                            value = profit_factor,
-                            title = {'text': "Profit Factor"},
-                            gauge = {'axis': {'range': [0, 3]},
-                                    'bar': {'color': "darkorange"}}))
-                        st.plotly_chart(fig)
+                        if 'profit_factor' in metrics_df.columns:
+                            profit_factor = safe_pct_to_numeric(metrics_df['profit_factor']).mean()
+                            fig = go.Figure(go.Indicator(
+                                mode = "gauge+number",
+                                value = profit_factor,
+                                title = {'text': "Profit Factor"},
+                                gauge = {'axis': {'range': [0, 3]},
+                                        'bar': {'color': "darkorange"}}))
+                            st.plotly_chart(fig)
+                        else:
+                            st.info("Profit factor data is not available.")
                     
                     # Add real-time trade frequency chart
-                    trade_freq = pd.to_numeric(metrics_df['trade_frequency'], errors='coerce')
-                    fig = go.Figure(go.Bar(
-                        x=metrics_df.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
-                        y=trade_freq,
-                        marker_color='lightblue'
-                    ))
-                    fig.update_layout(
-                        title='Current Trade Frequency by Bot',
-                        xaxis_title='Bot',
-                        yaxis_title='Trades per Hour'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                    if 'trade_frequency' in metrics_df.columns:
+                        trade_freq = pd.to_numeric(metrics_df['trade_frequency'], errors='coerce')
+                        fig = go.Figure(go.Bar(
+                            x=metrics_df.apply(lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1),
+                            y=trade_freq,
+                            marker_color='lightblue'
+                        ))
+                        fig.update_layout(
+                            title='Current Trade Frequency by Bot',
+                            xaxis_title='Bot',
+                            yaxis_title='Trades per Hour'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Trade frequency data is not available. The 'trade_frequency' column is missing from the metrics.")
 
     with analysis_tab3:
         st.subheader("Variable Weights Management")
