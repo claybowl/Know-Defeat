@@ -20,7 +20,6 @@ from bots.COIN_long_bot2 import COINLongBot2
 from bots.TSLA_long_bot2 import TSLALongBot2    
 from bots.COIN_short_bot2 import COINShortBot2
 from bots.TSLA_short_bot2 import TSLAShortBot2
-from utils.metric_utils import update_bot_metrics, calculate_total_pnl, calculate_win_rate
 from utils.db_utils import (
     execute_db_query,
     fetch_rows,
@@ -261,12 +260,9 @@ class DataIngestionManager:
                 await asyncio.sleep(1)
 
     async def update_all_bot_metrics(self):
-        """Update metrics for all active bots"""
+        """Update comprehensive metrics for all active bots"""
         try:
             async with self.db_pool.acquire() as conn:
-                # Drop existing table to ensure clean schema
-
-                
                 # Get active bots from the last 24 hours
                 active_bots = await conn.fetch("""
                     SELECT DISTINCT bot_id, ticker 
@@ -278,13 +274,77 @@ class DataIngestionManager:
                 
                 for bot in active_bots:
                     try:
-                        await update_bot_metrics(self.db_pool, bot['bot_id'], bot['ticker'])
-                        self.logger.info(f"Updated metrics for bot {bot['bot_id']}")
+                        bot_id = bot['bot_id']
+                        ticker = bot['ticker']
+                        
+                        # Calculate all performance metrics
+                        one_hour_perf = await self.metrics_calculator.calculate_one_hour_performance(bot_id, ticker)
+                        two_hour_perf = await self.metrics_calculator.calculate_performance_over_period(bot_id, ticker, hours=2)
+                        one_day_perf = await self.metrics_calculator.calculate_performance_over_period(bot_id, ticker, hours=24)
+                        one_week_perf = await self.metrics_calculator.calculate_performance_over_period(bot_id, ticker, hours=168)  # 7*24
+                        one_month_perf = await self.metrics_calculator.calculate_performance_over_period(bot_id, ticker, hours=720)  # 30*24
+                        
+                        # Calculate trading statistics
+                        win_rate = await self.metrics_calculator.calculate_avg_win_rate(bot_id, ticker)
+                        drawdown = await self.metrics_calculator.calculate_max_drawdown(bot_id, ticker)
+                        sharpe = await self.metrics_calculator.calculate_and_store_sharpe_ratio(bot_id, ticker)
+                        win_streaks = await self.metrics_calculator.calculate_and_insert_win_streaks(bot_id, ticker)
+                        profit_factor = await self.metrics_calculator.calculate_profit_factor(bot_id, ticker)
+                        total_pnl = await self.metrics_calculator.calculate_total_pnl(bot_id, ticker)
+                        
+                        # Update bot_metrics table with all metrics
+                        await conn.execute("""
+                            INSERT INTO bot_metrics (
+                                bot_id, ticker, timestamp,
+                                one_hour_performance, two_hour_performance,
+                                one_day_performance, one_week_performance,
+                                one_month_performance, avg_win_rate,
+                                avg_drawdown, total_pnl,
+                                win_streak_2, win_streak_3,
+                                win_streak_4, win_streak_5,
+                                sharpe_ratio, profit_factor,
+                                last_updated
+                            ) VALUES ($1, $2, CURRENT_TIMESTAMP, 
+                                $3, $4, $5, $6, $7, $8, $9, $10, 
+                                $11, $12, $13, $14, $15, $16,
+                                CURRENT_TIMESTAMP)
+                            ON CONFLICT (bot_id) DO UPDATE SET
+                                ticker = EXCLUDED.ticker,
+                                timestamp = CURRENT_TIMESTAMP,
+                                one_hour_performance = EXCLUDED.one_hour_performance,
+                                two_hour_performance = EXCLUDED.two_hour_performance,
+                                one_day_performance = EXCLUDED.one_day_performance,
+                                one_week_performance = EXCLUDED.one_week_performance,
+                                one_month_performance = EXCLUDED.one_month_performance,
+                                avg_win_rate = EXCLUDED.avg_win_rate,
+                                avg_drawdown = EXCLUDED.avg_drawdown,
+                                total_pnl = EXCLUDED.total_pnl,
+                                win_streak_2 = EXCLUDED.win_streak_2,
+                                win_streak_3 = EXCLUDED.win_streak_3,
+                                win_streak_4 = EXCLUDED.win_streak_4,
+                                win_streak_5 = EXCLUDED.win_streak_5,
+                                sharpe_ratio = EXCLUDED.sharpe_ratio,
+                                profit_factor = EXCLUDED.profit_factor,
+                                last_updated = CURRENT_TIMESTAMP;
+                        """, 
+                        bot_id, ticker,
+                        one_hour_perf, two_hour_perf, one_day_perf, 
+                        one_week_perf, one_month_perf,
+                        win_rate, drawdown['max_drawdown'], total_pnl,
+                        win_streaks['streak_2'], win_streaks['streak_3'],
+                        win_streaks['streak_4'], win_streaks['streak_5'],
+                        sharpe, profit_factor)
+
+                        self.logger.info(f"Updated all metrics for bot {bot_id}")
+                        
                     except Exception as e:
-                        self.logger.error(f"Error updating bot {bot['bot_id']}: {str(e)}")
+                        self.logger.error(f"Error updating metrics for bot {bot['bot_id']}: {str(e)}")
+                        continue  # Continue with next bot if one fails
+
+            self.logger.info("Completed metrics update for all bots")
 
         except Exception as e:
-            self.logger.error(f"Database error: {str(e)}")
+            self.logger.error(f"Database error in update_all_bot_metrics: {str(e)}")
             raise
 
     async def update_periodic_metrics(self):

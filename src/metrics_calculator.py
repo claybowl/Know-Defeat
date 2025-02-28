@@ -20,7 +20,7 @@ class MetricsCalculator:
     async def calculate_avg_win_rate(self, bot_id, ticker):
         async with self.db_pool.acquire() as connection:
             result = await connection.fetchval("""
-                SELECT AVG(win_rate)
+                SELECT AVG(avg_win_rate)
                 FROM trades
                 WHERE bot_id = $1 AND ticker = $2
                 AND timestamp >= NOW() - INTERVAL '1 hour';
@@ -310,14 +310,3 @@ class MetricsCalculator:
                 SET win_streak_2 = $3, win_streak_3 = $4, win_streak_4 = $5, win_streak_5 = $6
                 WHERE bot_id = $1 AND algo_id = $2
             """, bot_id, algo_id, streaks['win_streak_2'], streaks['win_streak_3'], streaks['win_streak_4'], streaks['win_streak_5'])
-
-# CREATE TABLE bot_metrics (
-#     -- Identifiers
-#     -- Model Scores
-#     price_model_score DECIMAL(6,2),
-#     volume_model_score DECIMAL(6,2),
-#     price_wall_score DECIMAL(6,2),
-#     -- Final Rankings
-#     current_rank DECIMAL(6,2),
-#     last_updated TIMESTAMP DEFAULT NOW()
-# );

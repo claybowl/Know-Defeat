@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS variable_weights (
     weight_id SERIAL PRIMARY KEY,
     variable_name VARCHAR(50) NOT NULL UNIQUE,
     weight DECIMAL(4,1) NOT NULL,
-    description TEXT,
     last_updated TIMESTAMP DEFAULT NOW()
 );
 
