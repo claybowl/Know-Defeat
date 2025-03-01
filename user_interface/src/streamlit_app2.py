@@ -1,16 +1,20 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 import subprocess
+import os
+import time
+import sys
+import logging
+import pickle
+import psycopg2
 import asyncio
 import asyncpg
-import sys
-import os
 from datetime import datetime, timedelta
-import time
+from collections import defaultdict
 from plotly.subplots import make_subplots
-import psycopg2
-import logging
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from weights_management_ui import WeightsManagementUI
@@ -50,6 +54,10 @@ if 'ib_controller_process' not in st.session_state:
 if 'risk_per_trade' not in st.session_state:
     st.session_state.risk_per_trade = 1.0
 
+# Dashboard state management
+if 'logs' not in st.session_state:
+    st.session_state.logs = []
+
 st.title("Trading System Dashboard")
 
 # Database connection parameters
@@ -74,7 +82,7 @@ def safe_pct_to_numeric(series):
     # First try to convert directly to numeric
     try:
         return pd.to_numeric(series, errors='coerce')
-    except:
+    except Exception as e:
         pass
     
     # If the above fails, try string processing only if we have strings
@@ -90,7 +98,7 @@ def safe_pct_to_numeric(series):
         
         # If we get here, series might be empty or all null
         return pd.to_numeric(series, errors='coerce')
-    except:
+    except Exception as e:
         # Fallback to direct conversion
         return pd.to_numeric(series, errors='coerce')
 
@@ -183,8 +191,8 @@ def update_logs():
         st.error(f"Error updating logs: {e}")
 
 # Create main sections using tabs
-tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_export = st.tabs([
-    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Data Export"
+tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_export = st.tabs([
+    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Bot Rankings", "Data Export"
 ])
 
 # Controls Section
@@ -496,7 +504,7 @@ with tab_trades:
                     with col3:
                         st.metric("Average Win Rate", f"{avg_win_rate:.1f}%")
                     
-                    # Display detailed statistics
+                    # Display detailed statistics by bot
                     st.subheader("Detailed Statistics by Bot")
                     st.dataframe(
                         stats_df.style.format({
@@ -638,6 +646,12 @@ with tab_trades:
                             if col in metrics_df.columns:
                                 metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
                                 if any(metric in col for metric in ['performance', 'rate', 'drawdown']):
+                                    # Normalize percentage values - divide by 100 for large values and cap at +/- 100%
+                                    # This fixes the unusually large percentage values
+                                    metrics_df[col] = metrics_df[col].apply(
+                                        lambda x: max(min(x, 100), -100) if abs(x) <= 100 
+                                        else max(min(x/100, 100), -100)
+                                    )
                                     metrics_df[col] = metrics_df[col].map('{:.2%}'.format)
                                 else:
                                     metrics_df[col] = metrics_df[col].map('{:.2f}'.format)
@@ -655,6 +669,11 @@ with tab_trades:
                                     for col in performance_cols:
                                         # Convert percentage strings to numeric values safely
                                         heatmap_data[col] = safe_pct_to_numeric(heatmap_data[col])
+                                        # Normalize percentage values for visualization
+                                        heatmap_data[col] = heatmap_data[col].apply(
+                                            lambda x: max(min(x, 100), -100) if abs(x) <= 100 
+                                            else max(min(x/100, 100), -100)
+                                        )
                                     
                                     # Create heatmap
                                     fig = go.Figure(data=go.Heatmap(
@@ -681,21 +700,34 @@ with tab_trades:
                             # Convert to numeric safely and find the max
                             perf_values = safe_pct_to_numeric(metrics_df['one_day_performance'])
                             if not perf_values.empty and not perf_values.isna().all():
+                                # Normalize percentage values
+                                perf_values = perf_values.apply(
+                                    lambda x: max(min(x, 100), -100) if abs(x) <= 100 
+                                    else max(min(x/100, 100), -100)
+                                )
                                 idx = perf_values.idxmax()
                                 best_performer = metrics_df.loc[idx]
+                                # Format the value as percentage
+                                perf_display = f"{perf_values[idx]:.2%}"
                                 st.metric("Best 24h Performer", 
                                         f"Bot {best_performer['bot_id']} - {best_performer['ticker']}", 
-                                        best_performer['one_day_performance'])
+                                        perf_display)
                         
                         if 'avg_win_rate' in metrics_df.columns and not metrics_df['avg_win_rate'].empty:
                             # Convert to numeric safely and find the max
                             win_values = safe_pct_to_numeric(metrics_df['avg_win_rate'])
                             if not win_values.empty and not win_values.isna().all():
+                                # Normalize percentage values
+                                win_values = win_values.apply(
+                                    lambda x: max(min(x, 100), 0) if x <= 100 else x/100
+                                )
                                 idx = win_values.idxmax()
                                 highest_win_rate = metrics_df.loc[idx]
+                                # Format the value as percentage
+                                win_rate_display = f"{win_values[idx]:.2%}"
                                 st.metric("Highest Win Rate", 
                                         f"Bot {highest_win_rate['bot_id']} - {highest_win_rate['ticker']}", 
-                                        highest_win_rate['avg_win_rate'])
+                                        win_rate_display)
                         
                         if 'total_pnl' in metrics_df.columns and not metrics_df['total_pnl'].empty:
                             total_pnl = pd.to_numeric(metrics_df['total_pnl'], errors='coerce').sum()
@@ -795,7 +827,9 @@ with tab_trades:
                     with col1:
                         # Hour Performance Gauge
                         if 'one_hour_performance' in metrics_df.columns:
-                            hour_perf = safe_pct_to_numeric(metrics_df['one_hour_performance']).mean()
+                            # Normalize the performance value
+                            hour_perf_raw = safe_pct_to_numeric(metrics_df['one_hour_performance']).mean()
+                            hour_perf = max(min(hour_perf_raw, 100), -100) if abs(hour_perf_raw) <= 100 else max(min(hour_perf_raw/100, 100), -100)
                             fig = go.Figure(go.Indicator(
                                 mode = "gauge+number",
                                 value = hour_perf,
@@ -812,7 +846,9 @@ with tab_trades:
                     with col2:
                         # Win Rate Gauge
                         if 'avg_win_rate' in metrics_df.columns:
-                            win_rate = safe_pct_to_numeric(metrics_df['avg_win_rate']).mean()
+                            # Normalize the win rate value
+                            win_rate_raw = safe_pct_to_numeric(metrics_df['avg_win_rate']).mean()
+                            win_rate = max(min(win_rate_raw, 100), 0) if win_rate_raw <= 100 else win_rate_raw/100
                             fig = go.Figure(go.Indicator(
                                 mode = "gauge+number",
                                 value = win_rate,
@@ -826,7 +862,9 @@ with tab_trades:
                     with col3:
                         # Profit Factor Gauge
                         if 'profit_factor' in metrics_df.columns:
-                            profit_factor = safe_pct_to_numeric(metrics_df['profit_factor']).mean()
+                            # Normalize profit factor to a reasonable range (0-10)
+                            profit_factor_raw = safe_pct_to_numeric(metrics_df['profit_factor']).mean()
+                            profit_factor = min(profit_factor_raw, 10) if profit_factor_raw <= 10 else profit_factor_raw/10
                             fig = go.Figure(go.Indicator(
                                 mode = "gauge+number",
                                 value = profit_factor,
@@ -899,7 +937,7 @@ with tab_trades:
                             await pool.execute("""
                                 CREATE TABLE IF NOT EXISTS variable_weights (
                                     weight_id SERIAL PRIMARY KEY,
-                                    variable_name VARCHAR(50) NOT NULL,
+                                    variable_name VARCHAR(50) NOT NULL UNIQUE,
                                     weight DECIMAL(4,1) NOT NULL,
                                     last_updated TIMESTAMP DEFAULT NOW()
                                 );
@@ -936,13 +974,13 @@ with tab_trades:
                         x=weights_df['weight'],
                         y=weights_df['variable_name'],
                         orientation='h',
-                        text=weights_df['weight'].apply(lambda x: f'{x:.1f}%'),
+                        text=weights_df['weight'].apply(lambda x: f'{x/100:.2f}'),
                         textposition='auto',
                     ))
                     
                     fig.update_layout(
                         title='Variable Weights Distribution',
-                        xaxis_title='Weight (%)',
+                        xaxis_title='Weight (Decimal)',
                         yaxis_title='Variable Name',
                         height=600,
                         showlegend=False,
@@ -950,10 +988,11 @@ with tab_trades:
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Display weights table
+                    # Display weights table with decimal format
+                    weights_df['weight_decimal'] = weights_df['weight'] / 100
                     st.dataframe(
-                        weights_df.style.format({
-                            'weight': '{:.1f}%',
+                        weights_df[['variable_name', 'weight_decimal', 'last_updated']].style.format({
+                            'weight_decimal': '{:.2f}',
                             'last_updated': '{:%Y-%m-%d %H:%M:%S}'
                         }),
                         use_container_width=True
@@ -973,12 +1012,12 @@ with tab_trades:
             
             # Weight input
             weight = st.number_input(
-                "Weight (%)",
+                "Weight (Decimal)",
                 min_value=0.0,
-                max_value=100.0,
-                value=default_weights.get(variable_name, 5.0),
-                step=0.1,
-                help="Enter the weight percentage for this variable (0-100)"
+                max_value=1.0,
+                value=default_weights.get(variable_name, 5.0)/100,
+                step=0.01,
+                help="Enter the weight as a decimal (0-1)"
             )
             
             # Update button
@@ -986,17 +1025,31 @@ with tab_trades:
                 try:
                     async def update_variable_weight():
                         async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                            await pool.execute("""
-                                INSERT INTO variable_weights (variable_name, weight, last_updated)
-                                VALUES ($1, $2, NOW())
-                                ON CONFLICT (variable_name) 
-                                DO UPDATE SET 
-                                    weight = $2,
-                                    last_updated = NOW();
-                            """, variable_name, weight)
+                            # First check if the variable exists
+                            var_exists = await pool.fetchval("""
+                                SELECT EXISTS (
+                                    SELECT 1 FROM variable_weights WHERE variable_name = $1
+                                )
+                            """, variable_name)
+                            
+                            if var_exists:
+                                # Update existing record
+                                await pool.execute("""
+                                    UPDATE variable_weights
+                                    SET weight = $2, last_updated = NOW()
+                                    WHERE variable_name = $1
+                                """, variable_name, weight)
+                            else:
+                                # Insert new record
+                                await pool.execute("""
+                                    INSERT INTO variable_weights (variable_name, weight, last_updated)
+                                    VALUES ($1, $2, NOW())
+                                """, variable_name, weight)
+                            
+                            return True
                     
                     asyncio.run(update_variable_weight())
-                    st.success(f"Weight for {variable_name} updated to {weight:.1f}%")
+                    st.success(f"Weight for {variable_name} updated to {weight:.2f}")
                 except Exception as e:
                     st.error(f"Error updating weight: {str(e)}")
             
@@ -1010,7 +1063,7 @@ with tab_trades:
                         total = await pool.fetchval("""
                             SELECT SUM(weight) FROM variable_weights;
                         """)
-                        return total or 0
+                        return (total or 0) / 100  # Convert to decimal
                 except Exception as e:
                     st.error(f"Error calculating total weight: {str(e)}")
                     return 0
@@ -1018,13 +1071,13 @@ with tab_trades:
             total_weight = asyncio.run(get_total_weight())
             st.metric(
                 "Total Weight",
-                f"{total_weight:.1f}%",
-                delta=f"{total_weight - 100:.1f}%" if total_weight != 100 else None,
+                f"{total_weight:.2f}",
+                delta=f"{total_weight - 1:.2f}" if abs(total_weight - 1) > 0.001 else None,
                 delta_color="inverse"
             )
             
-            if abs(total_weight - 100) > 0.1:
-                st.warning("⚠️ Total weight should sum to 100%")
+            if abs(total_weight - 1) > 0.001:
+                st.warning("⚠️ Total weight should sum to 1.0")
             else:
                 st.success("✅ Weights are properly distributed")
 
@@ -1092,6 +1145,818 @@ with tab_export:
                 )
         except FileNotFoundError:
             st.warning("The tick_data.csv file is not available for download.")
+
+# Bot Rankings Section
+with tab_rankings:
+    st.header("Bot Rankings and Fund Allocation")
+    
+    # Create sub-tabs for different ranking views
+    rank_tab1, rank_tab2, rank_tab3, rank_tab4 = st.tabs([
+        "Current Rankings", "Historical Performance", "Weight Management", "Database Diagnostics"
+    ])
+    
+    # Function to fetch bot rankings
+    async def fetch_bot_rankings():
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # Check if table exists
+                table_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'bot_rankings'
+                    );
+                """)
+                
+                if not table_exists:
+                    return None
+                    
+                # Get current rankings
+                rankings = await pool.fetch("""
+                    SELECT br.*, bm.ticker, bm.one_day_performance, bm.avg_win_rate, bm.profit_factor
+                    FROM bot_rankings br
+                    LEFT JOIN bot_metrics bm ON br.bot_id = bm.bot_id
+                    WHERE bm.timestamp = (
+                        SELECT MAX(timestamp) FROM bot_metrics WHERE bot_id = br.bot_id
+                    )
+                    ORDER BY br.rank ASC;
+                """)
+                return rankings
+        except Exception as e:
+            st.error(f"Error fetching bot rankings: {str(e)}")
+            return None
+    
+    # Function to fetch historical ranking data
+    async def fetch_historical_rankings(days=30):
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # Get historical rankings with daily resolution
+                rankings = await pool.fetch("""
+                    WITH daily_rankings AS (
+                        SELECT 
+                            bot_id, 
+                            DATE(timestamp) as date,
+                            rank_position,
+                            ROW_NUMBER() OVER (PARTITION BY bot_id, DATE(timestamp) ORDER BY timestamp DESC) as rn
+                        FROM bot_rankings
+                        WHERE timestamp >= CURRENT_DATE - INTERVAL '$1 days'
+                    )
+                    SELECT 
+                        dr.bot_id, 
+                        dr.date, 
+                        dr.rank_position,
+                        bm.ticker
+                    FROM daily_rankings dr
+                    LEFT JOIN bot_metrics bm ON dr.bot_id = bm.bot_id
+                    WHERE dr.rn = 1
+                    ORDER BY dr.date, dr.rank_position
+                """, days)
+                return rankings
+        except Exception as e:
+            st.error(f"Error fetching historical rankings: {str(e)}")
+            return None
+    
+    # Function to fetch fund allocation
+    async def fetch_fund_allocation(total_funds=10000):
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # First check if we can import the BotRanker
+                try:
+                    # Add the parent directory to the path to find the src module
+                    import sys
+                    import os
+                    # Get the current directory
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    # Go up two levels (from user_interface/src to the project root)
+                    project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+                    # Add to path if not already there
+                    if project_root not in sys.path:
+                        sys.path.insert(0, project_root)
+                    
+                    # Now import the BotRanker
+                    from src.bot_ranker import BotRanker
+                    
+                    # Create a bot ranker instance
+                    ranker = BotRanker(pool)
+                    
+                    # Get fund allocation
+                    allocations = await ranker.get_fund_allocation(total_funds)
+                    return allocations
+                except ImportError as e:
+                    st.error(f"Error importing BotRanker: {str(e)}")
+                    
+                    # Fallback: calculate a simple allocation based on rank position
+                    rankings = await pool.fetch("""
+                        SELECT bot_id, rank as rank_position, rank_score, is_active
+                        FROM bot_rankings
+                        WHERE is_active = true
+                        ORDER BY rank ASC;
+                    """)
+                    
+                    if not rankings:
+                        return None
+                        
+                    total_score = sum(row['rank_score'] for row in rankings)
+                    
+                    allocations = []
+                    for row in rankings:
+                        allocation = (row['rank_score'] / total_score) * total_funds if total_score > 0 else total_funds / len(rankings)
+                        allocations.append({
+                            'bot_id': row['bot_id'],
+                            'allocation_amount': allocation,
+                            'allocation_percentage': (allocation / total_funds) * 100,
+                            'rank': row['rank_position']
+                        })
+                    
+                    return allocations
+        except Exception as e:
+            st.error(f"Error calculating fund allocation: {str(e)}")
+            return None
+    
+    # Function to update variable weights
+    async def update_weight(variable_name, weight):
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # First check if the variable exists
+                var_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM variable_weights WHERE variable_name = $1
+                    )
+                """, variable_name)
+                
+                if var_exists:
+                    # Update existing record
+                    await pool.execute("""
+                        UPDATE variable_weights
+                        SET weight = $2, last_updated = NOW()
+                        WHERE variable_name = $1
+                    """, variable_name, weight)
+                else:
+                    # Insert new record
+                    await pool.execute("""
+                        INSERT INTO variable_weights (variable_name, weight, last_updated)
+                        VALUES ($1, $2, NOW())
+                    """, variable_name, weight)
+                
+                return True
+        except Exception as e:
+            st.error(f"Error updating weight: {str(e)}")
+            return False
+    
+    with rank_tab1:
+        st.subheader("Current Bot Rankings")
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            if st.button("Refresh Rankings"):
+                rankings = asyncio.run(fetch_bot_rankings())
+                if rankings:
+                    # Convert to DataFrame
+                    rankings_df = pd.DataFrame([dict(r) for r in rankings])
+                    
+                    # Create visualization of current rankings
+                    fig = go.Figure()
+                    
+                    # Get ticker and bot_id for labels
+                    labels = [f"Bot {row['bot_id']} - {row['ticker']}" for i, row in rankings_df.iterrows()]
+                    
+                    # Create bar chart of rank scores
+                    fig.add_trace(go.Bar(
+                        x=labels,
+                        y=rankings_df['rank_score'],
+                        text=rankings_df['rank_score'].apply(lambda x: f"{x:.2f}"),
+                        textposition='auto',
+                        marker_color='lightblue'
+                    ))
+                    
+                    fig.update_layout(
+                        title='Bot Ranking Scores',
+                        xaxis_title='Bot',
+                        yaxis_title='Rank Score',
+                        height=400
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display rankings table
+                    st.dataframe(
+                        rankings_df[[
+                            'bot_id', 'ticker', 'rank_position', 'rank_score', 
+                            'one_day_performance', 'avg_win_rate', 'profit_factor', 
+                            'is_active', 'timestamp'
+                        ]].style.format({
+                            'rank_score': '{:.2f}',
+                            'one_day_performance': '{:.2f}%',
+                            'avg_win_rate': '{:.2f}%',
+                            'profit_factor': '{:.2f}',
+                            'timestamp': '{:%Y-%m-%d %H:%M:%S}'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No ranking data available. Please make sure the bot_rankings table exists and contains data.")
+        
+        with col2:
+            # Fund allocation
+            st.subheader("Fund Allocation")
+            
+            # Input for total funds
+            total_funds = st.number_input("Total Funds ($)", min_value=1000, max_value=1000000, value=10000, step=1000)
+            
+            if st.button("Calculate Allocation"):
+                allocations = asyncio.run(fetch_fund_allocation(total_funds))
+                if allocations:
+                    # Convert to DataFrame
+                    alloc_df = pd.DataFrame(allocations)
+                    
+                    # Create pie chart of allocations
+                    fig = go.Figure(data=[go.Pie(
+                        labels=[f"Bot {row['bot_id']}" for i, row in alloc_df.iterrows()],
+                        values=alloc_df['allocation_amount'],
+                        textinfo='label+percent',
+                        hoverinfo='label+value+percent',
+                        marker=dict(
+                            # Define colors based on rank for visual differentiation
+                            colors=['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880']
+                        )
+                    )])
+                    
+                    fig.update_layout(
+                        title=f'Fund Allocation (${total_funds:,})',
+                        height=300
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display allocation table
+                    alloc_df_display = alloc_df.copy()
+                    if 'ticker' in alloc_df_display.columns:
+                        alloc_df_display['bot'] = alloc_df_display.apply(
+                            lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1
+                        )
+                    else:
+                        alloc_df_display['bot'] = alloc_df_display['bot_id'].apply(lambda x: f"Bot {x}")
+                    
+                    st.dataframe(
+                        alloc_df_display[[
+                            'bot', 'allocation_amount', 'allocation_percentage', 'rank'
+                        ]].style.format({
+                            'allocation_amount': '${:.2f}',
+                            'allocation_percentage': '{:.2f}%'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No allocation data available. Please make sure the bot_rankings table exists and contains data.")
+            
+            # Toggle bot active status
+            st.subheader("Bot Status Management")
+            
+            async def fetch_bot_ids():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        bot_ids = await pool.fetch("""
+                            SELECT DISTINCT bot_id, is_active 
+                            FROM bot_rankings
+                            ORDER BY bot_id
+                        """)
+                        return bot_ids
+                except Exception as e:
+                    st.error(f"Error fetching bot IDs: {str(e)}")
+                    return None
+            
+            bot_ids = asyncio.run(fetch_bot_ids())
+            
+            if bot_ids:
+                bot_id = st.selectbox(
+                    "Select Bot ID",
+                    [row['bot_id'] for row in bot_ids]
+                )
+                
+                # Find current status
+                current_status = next((row['is_active'] for row in bot_ids if row['bot_id'] == bot_id), True)
+                
+                status = st.checkbox("Active", value=current_status)
+                
+                if st.button("Update Status"):
+                    async def toggle_status():
+                        try:
+                            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                                # Try to import BotRanker to use its method
+                                try:
+                                    from src.bot_ranker import BotRanker
+                                    ranker = BotRanker(pool)
+                                    success = await ranker.toggle_bot_active_status(bot_id, status)
+                                except ImportError:
+                                    # Fallback: Update directly in database
+                                    await pool.execute("""
+                                        UPDATE bot_rankings
+                                        SET is_active = $2
+                                        WHERE bot_id = $1
+                                    """, bot_id, status)
+                                    success = True
+                                return success
+                        except Exception as e:
+                            st.error(f"Error updating bot status: {str(e)}")
+                            return False
+                    
+                    success = asyncio.run(toggle_status())
+                    if success:
+                        st.success(f"Bot {bot_id} status updated to {'Active' if status else 'Inactive'}")
+            else:
+                st.info("No bots found in the rankings table.")
+    
+    with rank_tab2:
+        st.subheader("Historical Ranking Performance")
+        
+        # Date range selection
+        days = st.slider("Days to Display", min_value=7, max_value=90, value=30, step=1)
+        
+        if st.button("Show Historical Rankings"):
+            historical_rankings = asyncio.run(fetch_historical_rankings(days))
+            if historical_rankings:
+                # Convert to DataFrame
+                hist_df = pd.DataFrame([dict(r) for r in historical_rankings])
+                
+                # Create line chart of rank position over time
+                fig = go.Figure()
+                
+                for bot_id in hist_df['bot_id'].unique():
+                    bot_data = hist_df[hist_df['bot_id'] == bot_id]
+                    
+                    # Get ticker for this bot if available
+                    ticker = bot_data['ticker'].iloc[0] if 'ticker' in bot_data.columns and not bot_data['ticker'].empty else 'Unknown'
+                    
+                    fig.add_trace(go.Scatter(
+                        x=bot_data['date'],
+                        y=bot_data['rank_position'],
+                        mode='lines+markers',
+                        name=f"Bot {bot_id} - {ticker}",
+                        hovertemplate='Date: %{x}<br>Rank: %{y}'
+                    ))
+                
+                # Invert y-axis so rank 1 is at the top
+                fig.update_layout(
+                    title='Bot Ranking History',
+                    xaxis_title='Date',
+                    yaxis_title='Rank Position',
+                    yaxis=dict(
+                        autorange="reversed",
+                        tickmode='linear',
+                        tick0=1,
+                        dtick=1
+                    ),
+                    hovermode='closest',
+                    height=500
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Heat map visualization of rankings over time
+                if len(hist_df['date'].unique()) > 1:
+                    # Pivot the data for the heatmap
+                    pivot_df = hist_df.pivot(index='bot_id', columns='date', values='rank_position')
+                    
+                    # Replace bot_id with bot_id - ticker
+                    bot_labels = []
+                    for bot_id in pivot_df.index:
+                        ticker = hist_df[hist_df['bot_id'] == bot_id]['ticker'].iloc[0] if 'ticker' in hist_df.columns else 'Unknown'
+                        bot_labels.append(f"Bot {bot_id} - {ticker}")
+                    
+                    fig = go.Figure(data=go.Heatmap(
+                        z=pivot_df.values,
+                        x=pivot_df.columns,
+                        y=bot_labels,
+                        colorscale='Viridis',
+                        reversescale=True,  # Reverse so rank 1 (best) is dark color
+                        zmin=1,
+                        zmax=len(pivot_df.index)
+                    ))
+                    
+                    fig.update_layout(
+                        title='Bot Ranking Heatmap',
+                        xaxis_title='Date',
+                        yaxis_title='Bot',
+                        height=400
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No historical ranking data available for the selected time period.")
+    
+    # Function to check and update the variable_weights table schema
+    async def ensure_variable_weights_schema():
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # Check if table exists
+                table_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'variable_weights'
+                    );
+                """)
+                
+                if table_exists:
+                    # Check if the unique constraint exists
+                    constraint_exists = await pool.fetchval("""
+                        SELECT COUNT(*) FROM information_schema.table_constraints 
+                        WHERE table_name = 'variable_weights' 
+                        AND constraint_type = 'UNIQUE'
+                        AND constraint_name LIKE '%variable_name%';
+                    """)
+                    
+                    if not constraint_exists:
+                        # Add the unique constraint
+                        try:
+                            await pool.execute("""
+                                ALTER TABLE variable_weights 
+                                ADD CONSTRAINT variable_weights_variable_name_key UNIQUE (variable_name);
+                            """)
+                            st.success("Added missing UNIQUE constraint to variable_weights table.")
+                        except Exception as e:
+                            st.warning(f"Could not add UNIQUE constraint: {str(e)}")
+                
+                return True
+        except Exception as e:
+            st.error(f"Error checking variable_weights schema: {str(e)}")
+            return False
+    
+    with rank_tab3:
+        st.subheader("Weight Management")
+        
+        # Ensure the variable_weights table has the necessary constraints
+        asyncio.run(ensure_variable_weights_schema())
+        
+        # Get the hardcoded weights for comparison
+        async def get_hardcoded_weights():
+            try:
+                # Try to import the BotRanker to get its hardcoded weights
+                try:
+                    # Add the project root to the Python path
+                    import sys
+                    import os
+                    
+                    # Get the current directory and project root
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
+                    
+                    # Add to path if not already there
+                    if project_root not in sys.path:
+                        sys.path.append(project_root)
+                    
+                    # Now import the BotRanker
+                    from src.bot_ranker import BotRanker
+                    
+                    # Create a temporary pool for initialization
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        ranker = BotRanker(pool)
+                        return await ranker.get_variable_weights()
+                except ImportError as e:
+                    st.error(f"Error importing BotRanker: {str(e)}")
+                    
+                    # Return default weights if import fails
+                    return {
+                        'one_hour_performance': 15.0,
+                        'two_hour_performance': 10.0,
+                        'one_day_performance': 12.0,
+                        'one_week_performance': 8.0,
+                        'one_month_performance': 5.0,
+                        'avg_win_rate': 12.0,
+                        'profit_per_second': 10.0,
+                        'total_pnl': 8.0,
+                        'profit_factor': 8.0,
+                        'avg_profit_per_trade': 6.0,
+                        'avg_drawdown': -5.0,
+                        'max_drawdown': -7.0,
+                        'sharpe_ratio': 8.0,
+                        'price_model_score': 9.0,
+                        'volume_model_score': 7.0,
+                        'price_wall_score': 6.0,
+                        'win_streak_2': 3.0,
+                        'win_streak_3': 4.0,
+                        'win_streak_4': 5.0,
+                        'win_streak_5': 6.0,
+                    }
+            except Exception as e:
+                st.error(f"Error getting hardcoded weights: {str(e)}")
+                return {}
+        
+        weights = asyncio.run(get_hardcoded_weights())
+        
+        if weights:
+            # Convert weights to DataFrame for display
+            weights_df = pd.DataFrame({
+                'variable_name': list(weights.keys()),
+                'weight': list(weights.values())
+            })
+            
+            # Categorize variables for better organization
+            categories = {
+                'Performance Periods': [var for var in weights.keys() if 'performance' in var],
+                'Core Metrics': ['avg_win_rate', 'profit_per_second', 'total_pnl', 
+                                'profit_factor', 'avg_profit_per_trade'],
+                'Risk Metrics': ['avg_drawdown', 'max_drawdown', 'sharpe_ratio'],
+                'Model Scores': ['price_model_score', 'volume_model_score', 'price_wall_score'],
+                'Win Streaks': [var for var in weights.keys() if 'win_streak' in var]
+            }
+            
+            # Display weights by category
+            for category, vars in categories.items():
+                st.write(f"### {category}")
+                
+                category_weights = weights_df[weights_df['variable_name'].isin(vars)].copy()
+                
+                if not category_weights.empty:
+                    # Add abs_weight for visualization (absolute value for negative weights)
+                    category_weights['abs_weight'] = category_weights['weight'].abs()
+                    
+                    # Create horizontal bar chart
+                    fig = go.Figure()
+                    
+                    # Add bars with different colors based on positive/negative weight
+                    fig.add_trace(go.Bar(
+                        x=category_weights['abs_weight'],
+                        y=category_weights['variable_name'],
+                        orientation='h',
+                        text=category_weights['weight'].apply(lambda x: f"{x:.1f}"),
+                        textposition='auto',
+                        marker=dict(
+                            color=category_weights['weight'].apply(
+                                lambda x: 'rgb(26, 118, 255)' if x >= 0 else 'rgb(255, 50, 50)'
+                            )
+                        )
+                    ))
+                    
+                    fig.update_layout(
+                        xaxis_title='Weight Value (Absolute)',
+                        yaxis_title='Variable Name',
+                        height=max(50 + 30 * len(category_weights), 200),  # Dynamic height based on number of variables
+                        margin=dict(l=10, r=10, t=20, b=10),
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Allow editing weights in this category
+                    for i, row in category_weights.iterrows():
+                        var_name = row['variable_name']
+                        current_weight = row['weight']
+                        
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            new_weight = st.slider(
+                                f"Weight for {var_name}",
+                                min_value=-20.0 if current_weight < 0 else 0.0,  # Allow negative only if already negative
+                                max_value=20.0,
+                                value=float(current_weight),
+                                step=0.5,
+                                key=f"weight_{var_name}"
+                            )
+                        with col2:
+                            if st.button("Update", key=f"update_{var_name}"):
+                                # Here we would ideally update the weights in the bot_ranker.py file
+                                # Since that's not directly possible, we'll update the variable_weights table
+                                st.warning("""
+                                Note: This updates the weight in the database, but not in the hardcoded 
+                                weights in bot_ranker.py. To make the change permanent, you'll need to 
+                                manually update the get_variable_weights method in src/bot_ranker.py.
+                                """)
+                                
+                                success = asyncio.run(update_weight(var_name, new_weight))
+                                if success:
+                                    st.success(f"Weight for {var_name} updated to {new_weight}")
+                else:
+                    st.info(f"No variables found for category: {category}")
+        else:
+            st.warning("Unable to retrieve ranking weights.")
+
+    with rank_tab4:
+        st.subheader("Ranking System Diagnostics")
+        
+        # Add explanation
+        st.write("""
+        This section provides direct access to the database tables related to the bot ranking system.
+        Use these views to verify that the ranking system is working correctly.
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Direct view of bot_rankings table
+            st.write("### Bot Rankings Table")
+            
+            # Function to get raw database data
+            async def fetch_raw_rankings():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        # Check if table exists
+                        table_exists = await pool.fetchval("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'bot_rankings'
+                            );
+                        """)
+                        
+                        if not table_exists:
+                            return None
+                            
+                        # Get all fields from the bot_rankings table
+                        rankings = await pool.fetch("""
+                            SELECT * FROM bot_rankings
+                            ORDER BY rank_position ASC, timestamp DESC;
+                        """)
+                        return rankings
+                except Exception as e:
+                    st.error(f"Error fetching raw rankings data: {str(e)}")
+                    return None
+            
+            if st.button("View Bot Rankings Table"):
+                raw_rankings = asyncio.run(fetch_raw_rankings())
+                if raw_rankings:
+                    # Convert to DataFrame
+                    df = pd.DataFrame([dict(r) for r in raw_rankings])
+                    st.dataframe(
+                        df.style.format({
+                            'rank_score': '{:.2f}',
+                            'timestamp': '{:%Y-%m-%d %H:%M:%S}'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No data found in bot_rankings table or table doesn't exist.")
+        
+        with col2:
+            # Variable weights table view
+            st.write("### Variable Weights Table")
+            
+            async def fetch_variable_weights():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        # Check if table exists
+                        table_exists = await pool.fetchval("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'variable_weights'
+                            );
+                        """)
+                        
+                        if not table_exists:
+                            return None
+                            
+                        # Get all fields from the variable_weights table
+                        weights = await pool.fetch("""
+                            SELECT * FROM variable_weights
+                            ORDER BY variable_name;
+                        """)
+                        return weights
+                except Exception as e:
+                    st.error(f"Error fetching variable weights data: {str(e)}")
+                    return None
+            
+            if st.button("View Variable Weights Table"):
+                variable_weights = asyncio.run(fetch_variable_weights())
+                if variable_weights:
+                    # Convert to DataFrame
+                    df = pd.DataFrame([dict(r) for r in variable_weights])
+                    st.dataframe(
+                        df.style.format({
+                            'weight': '{:.2f}',
+                            'last_updated': '{:%Y-%m-%d %H:%M:%S}'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No data found in variable_weights table or table doesn't exist.")
+        
+        # Add a divider
+        st.markdown("---")
+        
+        # Manual ranking recalculation for testing
+        st.write("### Manual Ranking Operations")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("Recalculate Bot Rankings")
+            st.write("This will trigger the ranking calculation process and update the database.")
+            
+            if st.button("Recalculate Rankings"):
+                try:
+                    async def run_ranking():
+                        try:
+                            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                                # Add the parent directory to the path to find the src module
+                                import sys
+                                import os
+                                # Get the current directory
+                                current_dir = os.path.dirname(os.path.abspath(__file__))
+                                # Go up two levels (from user_interface/src to the project root)
+                                project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+                                # Add to path if not already there
+                                if project_root not in sys.path:
+                                    sys.path.insert(0, project_root)
+                                
+                                # Now import the BotRanker
+                                from src.bot_ranker import BotRanker
+                                ranker = BotRanker(pool)
+                                
+                                # Log start time
+                                start_time = time.time()
+                                
+                                # Run the ranking process
+                                ranked_bots = await ranker.rank_bots()
+                                
+                                # Log completion time
+                                end_time = time.time()
+                                
+                                return {
+                                    "success": True,
+                                    "bots_ranked": len(ranked_bots),
+                                    "time_taken": end_time - start_time
+                                }
+                        except Exception as e:
+                            st.error(f"Error in ranking process: {str(e)}")
+                            return {
+                                "success": False,
+                                "error": str(e)
+                            }
+                    
+                    result = asyncio.run(run_ranking())
+                    
+                    if result["success"]:
+                        st.success(f"Successfully ranked {result['bots_ranked']} bots in {result['time_taken']:.2f} seconds!")
+                    else:
+                        st.error("Failed to recalculate rankings.")
+                        
+                except Exception as e:
+                    st.error(f"Error recalculating rankings: {str(e)}")
+        
+        with col2:
+            st.write("View Bot Metrics Table")
+            st.write("This shows the raw metrics used for ranking calculation.")
+            
+            async def fetch_bot_metrics_raw():
+                try:
+                    async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                        # Check if table exists
+                        table_exists = await pool.fetchval("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'bot_metrics'
+                            );
+                        """)
+                        
+                        if not table_exists:
+                            return None
+                            
+                        # Get the most recent entry for each bot
+                        metrics = await pool.fetch("""
+                            SELECT DISTINCT ON (bot_id) *
+                            FROM bot_metrics
+                            ORDER BY bot_id, timestamp DESC;
+                        """)
+                        return metrics
+                except Exception as e:
+                    st.error(f"Error fetching bot metrics: {str(e)}")
+                    return None
+            
+            if st.button("View Recent Bot Metrics"):
+                bot_metrics = asyncio.run(fetch_bot_metrics_raw())
+                if bot_metrics:
+                    # Convert to DataFrame
+                    df = pd.DataFrame([dict(r) for r in bot_metrics])
+                    
+                    # Select only key columns to display
+                    display_columns = ['bot_id', 'ticker', 'algo_id', 'timestamp']
+                    metric_columns = [col for col in df.columns if col not in ['bot_id', 'ticker', 'algo_id', 'timestamp', 'last_updated']]
+                    
+                    # Sort metric columns alphabetically for better readability
+                    metric_columns.sort()
+                    
+                    # Combine columns for display
+                    display_df = df[display_columns + metric_columns]
+                    
+                    # Display in an expandable section due to many columns
+                    with st.expander("Bot Metrics Data (Click to expand)"):
+                        st.dataframe(display_df, use_container_width=True)
+                else:
+                    st.info("No data found in bot_metrics table or table doesn't exist.")
+        
+        # Add information about the hardcoded weights
+        st.markdown("---")
+        st.write("### Current Hardcoded Weights")
+        st.write("""
+        These are the weights defined in the `get_variable_weights` method of the `BotRanker` class.
+        To modify these permanently, you need to edit the source code in `src/bot_ranker.py`.
+        """)
+        
+        # Get and display current hardcoded weights
+        hardcoded_weights = asyncio.run(get_hardcoded_weights())
+        if hardcoded_weights:
+            # Create a nicely formatted table of the weights
+            weights_list = [{"Metric": k, "Weight": v} for k, v in hardcoded_weights.items()]
+            weights_df = pd.DataFrame(weights_list)
+            
+            # Sort by absolute weight value (descending)
+            weights_df['Abs_Weight'] = weights_df['Weight'].abs()
+            weights_df = weights_df.sort_values('Abs_Weight', ascending=False).drop('Abs_Weight', axis=1)
+            
+            st.dataframe(weights_df, use_container_width=True)
 
 def trade_analysis():
     st.header("Trading Analytics Dashboard")
@@ -1236,36 +2101,40 @@ def trade_analysis():
         st.write("Attempting database connection...")
         
         async def fetch_bot_metrics():
-            async with asyncpg.create_pool(**DB_CONFIG) as pool:
-                # Debug: Check if we can query the table
-                table_check = await pool.fetch("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'bot_metrics'
-                    );
-                """)
-                st.write(f"Bot metrics table exists: {table_check[0]['exists']}")
-                
-                # Debug: Count rows
-                count = await pool.fetchval("SELECT COUNT(*) FROM bot_metrics;")
-                st.write(f"Number of rows in bot_metrics: {count}")
-                
-                if count > 0:
-                    # Show sample of data
-                    metrics = await pool.fetch("""
-                        SELECT 
-                            bot_id,
-                            ticker,
-                            one_hour_performance,
-                            one_day_performance,
-                            avg_win_rate,
-                            profit_per_second,
-                            last_updated
-                        FROM bot_metrics
-                        ORDER BY bot_id;
+            try:
+                async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                    # Debug: Check if we can query the table
+                    table_check = await pool.fetch("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = 'bot_metrics'
+                        );
                     """)
-                    return [dict(m) for m in metrics]
-                return None
+                    st.write(f"Bot metrics table exists: {table_check[0]['exists']}")
+                    
+                    # Debug: Count rows
+                    count = await pool.fetchval("SELECT COUNT(*) FROM bot_metrics;")
+                    st.write(f"Number of rows in bot_metrics: {count}")
+                    
+                    if count > 0:
+                        # Show sample of data
+                        metrics = await pool.fetch("""
+                            SELECT 
+                                bot_id,
+                                ticker,
+                                one_hour_performance,
+                                one_day_performance,
+                                avg_win_rate,
+                                profit_per_second,
+                                last_updated
+                            FROM bot_metrics
+                            ORDER BY bot_id;
+                        """)
+                        return [dict(m) for m in metrics]
+                    return None
+            except Exception as e:
+                st.error(f"Error accessing bot metrics: {str(e)}")
+                st.write("Full error details:", e)
 
         metrics = asyncio.run(fetch_bot_metrics())
         if metrics:
@@ -1336,25 +2205,50 @@ def trade_analysis():
     if __name__ == "__main__":
         asyncio.run(main())
 
-# Add this function near your other database functions
+# Function to check database schema
 async def check_database_schema():
     try:
         async with asyncpg.create_pool(**DB_CONFIG) as pool:
-            # Check bot_metrics table structure
-            columns = await pool.fetch("""
-                SELECT column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_name = 'bot_metrics';
+            # Check for bot_metrics table
+            bot_metrics_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'bot_metrics'
+                );
             """)
-            st.write("Bot Metrics Table Columns:", [col['column_name'] for col in columns])
             
-            # Check if specific columns exist
-            for col in ['algo_id', 'bot_id', 'ticker']:
-                exists = any(c['column_name'] == col for c in columns)
-                st.write(f"Column '{col}' exists: {exists}")
+            if bot_metrics_exists:
+                st.success("✅ bot_metrics table exists")
+            else:
+                st.error("❌ bot_metrics table does not exist")
+                
+            # Check for bot_rankings table
+            bot_rankings_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'bot_rankings'
+                );
+            """)
+            
+            if bot_rankings_exists:
+                st.success("✅ bot_rankings table exists")
+            else:
+                st.error("❌ bot_rankings table does not exist")
+                
+            # Check for variable_weights table
+            variable_weights_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'variable_weights'
+                );
+            """)
+            
+            if variable_weights_exists:
+                st.success("✅ variable_weights table exists")
+            else:
+                st.error("❌ variable_weights table does not exist")
     except Exception as e:
-        st.error(f"Error checking schema: {e}")
+        st.error(f"Error checking database schema: {str(e)}")
 
-# Add this button in your app
 if st.button("Check Database Schema"):
     asyncio.run(check_database_schema())
