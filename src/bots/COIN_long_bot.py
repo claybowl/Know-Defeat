@@ -8,6 +8,7 @@ import pandas as pd  # type: ignore
 from decimal import Decimal
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
+import argparse
 
 class IBClient(EWrapper, EClient):
     def __init__(self):
@@ -28,7 +29,7 @@ class CoinLongBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 1  # fixed bot id for COIN_long_bot
+        self.bot_id = bot_id
         self.algo_id = 1  # This bot belongs to algo_id 1
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
@@ -273,6 +274,11 @@ if __name__ == "__main__":
     )
 
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='COIN Long Bot')
+        parser.add_argument('--bot_id', type=int, default=1, help='Bot ID')
+        args = parser.parse_args()
+        
         # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
@@ -284,8 +290,10 @@ if __name__ == "__main__":
         # Initialize the IB client
         ib_client = IBClient()
 
-        # Create an instance of CoinLongBot
-        bot = CoinLongBot(db_pool, ib_client, 1)
+        # Create an instance of CoinLongBot with the provided bot_id
+        bot = CoinLongBot(db_pool, ib_client, args.bot_id)
+        
+        logging.info(f"Starting COIN Long Bot with ID: {args.bot_id}")
 
         try:
             await bot.run()

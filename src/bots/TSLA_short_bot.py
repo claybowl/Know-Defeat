@@ -6,6 +6,7 @@ import pandas as pd
 from decimal import Decimal
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
+import argparse
 
 class IBClient(EWrapper, EClient):
     def __init__(self):
@@ -25,7 +26,7 @@ class TSLAShortBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 6  # fixed bot id for TSLA_short_bot
+        self.bot_id = bot_id
         self.algo_id = 1  # This bot belongs to algo_id 1
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
@@ -268,16 +269,27 @@ if __name__ == "__main__":
     )
     
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='TSLA Short Bot')
+        parser.add_argument('--bot_id', type=int, default=6, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
             password='musicman',
             database='tick_data',
             host='localhost'
         )
-        
+
+        # Initialize the IB client
         ib_client = IBClient()
-        bot = TSLAShortBot(db_pool, ib_client, '4')
+
+        # Create an instance of TSLAShortBot with the provided bot_id
+        bot = TSLAShortBot(db_pool, ib_client, args.bot_id)
         
+        logging.info(f"Starting TSLA Short Bot with ID: {args.bot_id}")
+
         try:
             await bot.run()
         except KeyboardInterrupt:

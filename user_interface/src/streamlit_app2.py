@@ -65,8 +65,37 @@ DB_CONFIG = {
     'user': 'clayb',
     'password': 'musicman',
     'database': 'tick_data',
-    'host': 'localhost'
+    'host': 'localhost',
+    'min_size': 2,          # Minimum number of connections in the pool
+    'max_size': 10,         # Maximum number of connections in the pool
+    'command_timeout': 60.0,     # Timeout for database commands
+    'max_queries': 50000,        # Maximum number of queries per connection
+    'max_cached_statement_lifetime': 0,  # Don't cache statements
+    'max_cacheable_statement_size': 0,   # Don't cache statements
+    'timeout': 10.0,             # Connection timeout
+    'server_settings': {
+        'application_name': 'TradingDashboard',  # Name to identify this application
+        'client_min_messages': 'warning'         # Reduce log noise
+    }
 }
+
+# Utility function to create a database connection pool with custom settings
+async def create_db_pool(min_size=None, max_size=None, timeout=None, **kwargs):
+    """Create a database connection pool with custom settings"""
+    config = dict(DB_CONFIG)
+    
+    # Override settings if provided
+    if min_size is not None:
+        config['min_size'] = min_size
+    if max_size is not None:
+        config['max_size'] = max_size
+    if timeout is not None:
+        config['timeout'] = timeout
+    
+    # Add any additional kwargs
+    config.update(kwargs)
+    
+    return await asyncpg.create_pool(**config)
 
 # Helper function to safely convert percentage strings to numeric values
 def safe_pct_to_numeric(series):
@@ -112,13 +141,37 @@ def start_ib_controller():
     """Start the IB Controller process"""
     try:
         if not st.session_state.ib_controller_process:
+            # Use the full path to conda and activate the Autogen environment
+            conda_path = os.path.expanduser("~/Anaconda3/Scripts/conda.exe")
+            
+            # Create a batch script with improved database connection handling
+            batch_script = """
+@echo off
+call "{conda_path}" activate Autogen
+echo Starting IB Controller...
+
+REM Set PostgreSQL connection parameters to avoid connection issues
+set PGCONNECT_TIMEOUT=10
+set PGPOOL_MIN_CONN=2
+set PGPOOL_MAX_CONN=5
+
+python src/ib_controller.py
+""".format(conda_path=conda_path)
+            
+            # Write the batch script to a temporary file
+            batch_file = os.path.join(os.getcwd(), "run_ib_controller.bat")
+            with open(batch_file, "w") as f:
+                f.write(batch_script)
+            
+            # Run the batch file
             process = subprocess.Popen(
-                ['python', os.path.join('src', 'ib_controller.py')],
+                [batch_file],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                shell=True
             )
             st.session_state.ib_controller_process = process
             return True
@@ -131,6 +184,24 @@ def start_bot(bot_name):
     """Start a trading bot process"""
     try:
         if not st.session_state.bot_processes[bot_name]:
+            # Map bot names to their correct bot_ids
+            bot_id_mapping = {
+                'COIN_long': 1,
+                'COIN_short': 2,
+                'COIN_long2': 3,
+                'COIN_short2': 4,
+                'TSLA_long': 5,
+                'TSLA_short': 6,
+                'TSLA_long2': 7,
+                'TSLA_short2': 8
+            }
+            
+            # Get the correct bot_id
+            bot_id = bot_id_mapping.get(bot_name)
+            if bot_id is None:
+                st.error(f"Unknown bot name: {bot_name}")
+                return False
+                
             script_path = os.path.join('src', 'bots', f'{bot_name}_bot.py')
             # If the script filename differs (e.g., ..._bot2.py), you might need logic to pick the right filename
             if not os.path.exists(script_path):  
@@ -138,14 +209,52 @@ def start_bot(bot_name):
                 script_path_2 = os.path.join('src', 'bots', f'{bot_name}.py')
                 if os.path.exists(script_path_2):
                     script_path = script_path_2
+                else:
+                    # Try removing the "2" from the filename for version 2 bots
+                    base_name = bot_name.replace('2', '')
+                    script_path = os.path.join('src', 'bots', f'{base_name}_bot2.py')
+                    if not os.path.exists(script_path):
+                        st.error(f"Could not find script for bot: {bot_name}")
+                        return False
 
+            # Use the full path to conda and activate the Autogen environment
+            conda_path = os.path.expanduser("~/Anaconda3/Scripts/conda.exe")
+            
+            # Create a batch script with improved connection handling
+            batch_script = """
+@echo off
+call "{conda_path}" activate Autogen
+echo Starting {bot_name} with ID {bot_id}...
+REM Add a random delay to avoid database connection contention
+timeout /t {random_delay} /nobreak > nul
+
+REM Run the bot with proper connection pool settings
+set PGCONNECT_TIMEOUT=10
+set PGPOOL_MIN_CONN=1
+set PGPOOL_MAX_CONN=2
+python {script_path} --bot_id {bot_id}
+""".format(
+    conda_path=conda_path, 
+    script_path=script_path, 
+    bot_id=bot_id, 
+    bot_name=bot_name,
+    random_delay=bot_id*2  # Stagger start times based on bot_id
+)
+            
+            # Write the batch script to a temporary file
+            batch_file = os.path.join(os.getcwd(), f"run_{bot_name}.bat")
+            with open(batch_file, "w") as f:
+                f.write(batch_script)
+            
+            # Run the batch file
             process = subprocess.Popen(
-                ['python', script_path],
+                [batch_file],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                shell=True
             )
             st.session_state.bot_processes[bot_name] = process
             return True
@@ -164,6 +273,26 @@ def stop_process(process_type, bot_name=None):
                 process.wait(timeout=5)
                 st.session_state.bot_processes[bot_name] = None
                 st.session_state.log_buffer[bot_name] = []
+                
+                # Clean up the batch file
+                batch_file = os.path.join(os.getcwd(), f"run_{bot_name}.bat")
+                if os.path.exists(batch_file):
+                    try:
+                        os.remove(batch_file)
+                    except Exception as e:
+                        st.warning(f"Could not remove batch file {batch_file}: {e}")
+                
+                # Add a small cleanup script to close any lingering connections
+                cleanup_query = f"""
+                SELECT pg_terminate_backend(pid) 
+                FROM pg_stat_activity 
+                WHERE application_name LIKE '%{bot_name}%' 
+                AND pid <> pg_backend_pid();
+                """
+                try:
+                    asyncio.run(_run_cleanup_query(cleanup_query))
+                except Exception as e:
+                    st.warning(f"Could not clean up database connections: {e}")
         else:
             process = st.session_state.ib_controller_process
             if process:
@@ -171,8 +300,40 @@ def stop_process(process_type, bot_name=None):
                 process.wait(timeout=5)
                 st.session_state.ib_controller_process = None
                 st.session_state.log_buffer['ib_controller'] = []
+                
+                # Clean up the batch file
+                batch_file = os.path.join(os.getcwd(), "run_ib_controller.bat")
+                if os.path.exists(batch_file):
+                    try:
+                        os.remove(batch_file)
+                    except Exception as e:
+                        st.warning(f"Could not remove batch file {batch_file}: {e}")
+                
+                # Clean up IB controller database connections
+                cleanup_query = """
+                SELECT pg_terminate_backend(pid) 
+                FROM pg_stat_activity 
+                WHERE application_name LIKE '%ib_controller%' 
+                AND pid <> pg_backend_pid();
+                """
+                try:
+                    asyncio.run(_run_cleanup_query(cleanup_query))
+                except Exception as e:
+                    st.warning(f"Could not clean up database connections: {e}")
     except Exception as e:
         st.error(f"Error stopping process: {e}")
+
+async def _run_cleanup_query(query):
+    """Run a cleanup query to terminate lingering database connections"""
+    try:
+        # Use our utility function to create a small connection pool
+        pool = await create_db_pool(min_size=1, max_size=1)
+        
+        async with pool:
+            await pool.execute(query)
+    except Exception as e:
+        logging.error(f"Error in cleanup query: {e}")
+        raise
 
 def update_logs():
     """Update log buffers for all running processes"""
@@ -183,7 +344,11 @@ def update_logs():
                 line = st.session_state.ib_controller_process.stdout.readline()
                 if not line:
                     break
-                st.session_state.log_buffer['ib_controller'].append(line.strip())
+                # Format the log with timestamp if not present
+                log_line = line.strip()
+                if log_line and not (log_line.startswith("20") or log_line.startswith("202")):
+                    log_line = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {log_line}"
+                st.session_state.log_buffer['ib_controller'].append(log_line)
 
         # Update bot logs
         for bot_name, process in st.session_state.bot_processes.items():
@@ -192,9 +357,72 @@ def update_logs():
                     line = process.stdout.readline()
                     if not line:
                         break
-                    st.session_state.log_buffer[bot_name].append(line.strip())
+                    # Format the log with timestamp if not present
+                    log_line = line.strip()
+                    if log_line and not (log_line.startswith("20") or log_line.startswith("202")):
+                        log_line = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {log_line}"
+                    st.session_state.log_buffer[bot_name].append(log_line)
     except Exception as e:
         st.error(f"Error updating logs: {e}")
+
+def log_bot_event(bot_name, event_type, message):
+    """
+    Log a specific event for a bot
+    
+    Args:
+        bot_name (str): Name of the bot
+        event_type (str): Type of event (INFO, WARNING, ERROR, TRADE)
+        message (str): Log message
+    """
+    if bot_name not in st.session_state.log_buffer:
+        st.session_state.log_buffer[bot_name] = []
+    
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_line = f"{timestamp} [{event_type}] {message}"
+    st.session_state.log_buffer[bot_name].append(log_line)
+
+# Add function to save logs to database
+async def save_logs_to_db(bot_name=None):
+    """
+    Save logs to database for persistence
+    
+    Args:
+        bot_name (str, optional): Name of the bot to save logs for. If None, save all logs.
+    """
+    try:
+        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+            # Check if logs table exists, create if not
+            await pool.execute("""
+                CREATE TABLE IF NOT EXISTS bot_logs (
+                    log_id SERIAL PRIMARY KEY,
+                    bot_name VARCHAR(50) NOT NULL,
+                    log_text TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT NOW()
+                );
+            """)
+            
+            # Determine which logs to save
+            if bot_name:
+                logs_to_save = {bot_name: st.session_state.log_buffer.get(bot_name, [])}
+            else:
+                logs_to_save = st.session_state.log_buffer
+            
+            # Save logs to database
+            for name, logs in logs_to_save.items():
+                if logs:
+                    # Only save the last 1000 log entries to avoid overwhelming the database
+                    last_logs = logs[-1000:]
+                    log_text = "\n".join(last_logs)
+                    
+                    await pool.execute("""
+                        INSERT INTO bot_logs (bot_name, log_text)
+                        VALUES ($1, $2);
+                    """, name, log_text)
+                    
+            return True
+    except Exception as e:
+        st.error(f"Error saving logs to database: {e}")
+        return False
 
 # Create main sections using tabs
 tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_export = st.tabs([
@@ -205,6 +433,251 @@ tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_ex
 with tab_controls:
     st.header("System Controls")
 
+    # Database connection utilities
+    st.subheader("Database Connection Utilities")
+    
+    if st.button("Check Database Status", help="Get detailed database status information"):
+        try:
+            async def check_db_status():
+                try:
+                    st.info("Connecting to database...")
+                    # Use our utility function with a small connection pool
+                    pool = await create_db_pool(min_size=1, max_size=1, timeout=5.0)
+                    
+                    async with pool:
+                        # General database info
+                        version = await pool.fetchval("SELECT version()")
+                        st.write(f"**PostgreSQL version**: {version}")
+                        
+                        # Connection stats
+                        conn_count = await pool.fetchval("""
+                            SELECT count(*) FROM pg_stat_activity 
+                            WHERE datname = $1
+                        """, DB_CONFIG['database'])
+                        
+                        max_conn = await pool.fetchval("SHOW max_connections")
+                        usage_pct = (conn_count / int(max_conn)) * 100
+                        
+                        # Create metrics display
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Current Connections", f"{conn_count}")
+                        with col2:
+                            st.metric("Max Connections", f"{max_conn}")
+                        with col3:
+                            st.metric("Connection Usage", f"{usage_pct:.1f}%", 
+                                      delta="High" if usage_pct > 80 else ("Moderate" if usage_pct > 50 else "Low"),
+                                      delta_color="inverse")
+                        
+                        # Detailed connection information
+                        st.subheader("Active Connections")
+                        active_conns = await pool.fetch("""
+                            SELECT 
+                                pid,
+                                application_name,
+                                state,
+                                query,
+                                EXTRACT(EPOCH FROM (now() - query_start)) as query_duration,
+                                EXTRACT(EPOCH FROM (now() - backend_start)) as connection_duration
+                            FROM pg_stat_activity
+                            WHERE datname = $1
+                            ORDER BY state, query_duration DESC
+                        """, DB_CONFIG['database'])
+                        
+                        if active_conns:
+                            # Convert to DataFrame
+                            conn_df = pd.DataFrame([dict(r) for r in active_conns])
+                            
+                            # Format the durations
+                            conn_df['query_duration'] = conn_df['query_duration'].apply(
+                                lambda x: f"{x:.1f}s" if x else "")
+                            conn_df['connection_duration'] = conn_df['connection_duration'].apply(
+                                lambda x: f"{x:.1f}s" if x else "")
+                            
+                            # Truncate long queries for display
+                            conn_df['query'] = conn_df['query'].apply(
+                                lambda x: (x[:150] + "...") if x and len(x) > 150 else x)
+                            
+                            st.dataframe(conn_df)
+                        else:
+                            st.info("No active connections found.")
+                        
+                        # Database size information
+                        st.subheader("Database Size")
+                        db_sizes = await pool.fetch("""
+                            SELECT 
+                                datname,
+                                pg_size_pretty(pg_database_size(datname)) as size
+                            FROM pg_database
+                            ORDER BY pg_database_size(datname) DESC
+                        """)
+                        
+                        if db_sizes:
+                            st.dataframe(pd.DataFrame([dict(r) for r in db_sizes]))
+                        
+                        # Table sizes
+                        st.subheader("Table Sizes")
+                        table_sizes = await pool.fetch("""
+                            SELECT 
+                                table_name,
+                                pg_size_pretty(pg_total_relation_size(quote_ident(table_name))) as size,
+                                pg_size_pretty(pg_relation_size(quote_ident(table_name))) as table_size,
+                                pg_size_pretty(pg_total_relation_size(quote_ident(table_name)) - 
+                                              pg_relation_size(quote_ident(table_name))) as index_size
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            ORDER BY pg_total_relation_size(quote_ident(table_name)) DESC
+                            LIMIT 10
+                        """)
+                        
+                        if table_sizes:
+                            st.dataframe(pd.DataFrame([dict(r) for r in table_sizes]))
+                        else:
+                            st.info("No tables found.")
+                        
+                except asyncpg.exceptions.PostgresError as e:
+                    st.error(f"PostgreSQL error: {str(e)}")
+                except Exception as e:
+                    st.error(f"Unexpected error: {str(e)}")
+                    raise
+            
+            asyncio.run(check_db_status())
+        except Exception as e:
+            st.error(f"Error checking database status: {e}")
+    
+    col_db1, col_db2 = st.columns(2)
+    
+    with col_db1:
+        if st.button("Check & Clean Database Connections"):
+            try:
+                async def check_and_clean_connections():
+                    try:
+                        st.info("Connecting to database...")
+                        # Use our utility function to create a small connection pool
+                        pool = await create_db_pool(min_size=1, max_size=1, timeout=5.0)
+                        
+                        async with pool:
+                            # Check current connection count
+                            conn_count = await pool.fetchval("""
+                                SELECT count(*) FROM pg_stat_activity 
+                                WHERE datname = $1
+                            """, DB_CONFIG['database'])
+                            
+                            st.write(f"Current database connections: {conn_count}")
+                            
+                            # Check connection limit
+                            max_conn = await pool.fetchval("SHOW max_connections")
+                            st.write(f"Database max connections: {max_conn}")
+                            
+                            # Get connection usage percentage
+                            usage_pct = (conn_count / int(max_conn)) * 100
+                            st.write(f"Connection usage: {usage_pct:.1f}%")
+                            
+                            # Clean up idle connections
+                            if conn_count > 50:  # If we have too many connections
+                                st.warning(f"High connection count detected ({conn_count}). Cleaning up idle connections...")
+                                cleaned = await pool.fetchval("""
+                                    SELECT count(pg_terminate_backend(pid)) 
+                                    FROM pg_stat_activity 
+                                    WHERE datname = $1
+                                    AND state = 'idle'
+                                    AND pid <> pg_backend_pid()
+                                """, DB_CONFIG['database'])
+                                
+                                st.success(f"Cleaned up {cleaned} idle database connections")
+                            else:
+                                st.success(f"Connection count is normal ({conn_count})")
+                    except asyncpg.exceptions.PostgresError as e:
+                        st.error(f"PostgreSQL error: {str(e)}")
+                        st.info("Try using the EMERGENCY STOP button if the database is overloaded")
+                    except Exception as e:
+                        st.error(f"Unexpected error: {str(e)}")
+                        raise
+                
+                asyncio.run(check_and_clean_connections())
+            except Exception as e:
+                st.error(f"Error checking database connections: {e}")
+                st.error(f"Error type: {type(e).__name__}")
+                import traceback
+                st.error(f"Traceback: {traceback.format_exc()}")
+    
+    with col_db2:
+        if st.button("EMERGENCY STOP", type="primary", help="Stops all processes and cleans up all connections"):
+            try:
+                # Stop all bots
+                st.info("Stopping all bots...")
+                for bot_name in st.session_state.bot_processes.keys():
+                    try:
+                        stop_process('bots', bot_name)
+                        st.info(f"Stopped {bot_name}")
+                    except Exception as e:
+                        st.error(f"Error stopping {bot_name}: {e}")
+                
+                # Stop IB controller
+                st.info("Stopping IB controller...")
+                try:
+                    stop_process('ib_controller')
+                    st.info("IB controller stopped")
+                except Exception as e:
+                    st.error(f"Error stopping IB controller: {e}")
+                
+                # Clean up all connections
+                async def emergency_cleanup():
+                    try:
+                        st.info("Connecting to database for cleanup...")
+                        # Use our utility function to create a small connection pool
+                        pool = await create_db_pool(min_size=1, max_size=1, timeout=5.0)
+                        
+                        async with pool:
+                            # Kill all connections except our own
+                            st.info("Terminating all database connections...")
+                            killed = await pool.fetchval("""
+                                SELECT count(pg_terminate_backend(pid)) 
+                                FROM pg_stat_activity 
+                                WHERE datname = $1
+                                AND pid <> pg_backend_pid()
+                            """, DB_CONFIG['database'])
+                            
+                            return killed
+                    except asyncpg.exceptions.PostgresError as e:
+                        st.error(f"PostgreSQL error during emergency cleanup: {str(e)}")
+                        return 0
+                    except Exception as e:
+                        st.error(f"Unexpected error during emergency cleanup: {str(e)}")
+                        return 0
+                
+                try:
+                    killed = asyncio.run(emergency_cleanup())
+                    if killed > 0:
+                        st.success(f"Emergency stop complete! Terminated {killed} database connections")
+                    else:
+                        st.warning("No database connections were terminated")
+                except Exception as e:
+                    st.error(f"Error during database connection cleanup: {e}")
+                
+                # Delete all batch files
+                st.info("Cleaning up batch files...")
+                try:
+                    batch_files = [f for f in os.listdir(os.getcwd()) if f.startswith("run_") and f.endswith(".bat")]
+                    for file in batch_files:
+                        try:
+                            os.remove(os.path.join(os.getcwd(), file))
+                            st.info(f"Removed {file}")
+                        except Exception as e:
+                            st.error(f"Could not remove {file}: {e}")
+                    
+                    st.success(f"Cleaned up {len(batch_files)} batch files")
+                except Exception as e:
+                    st.error(f"Error cleaning up batch files: {e}")
+                
+                st.success("Emergency stop completed!")
+                
+            except Exception as e:
+                st.error(f"Error during emergency stop: {e}")
+                st.error(f"Error type: {type(e).__name__}")
+                import traceback
+                st.error(f"Traceback: {traceback.format_exc()}")
+    
     # IB Controller Controls
     st.subheader("IB Controller")
     col1, col2 = st.columns(2)
@@ -305,11 +778,33 @@ with tab_controls:
     with col_all_start:
         if st.button("Start All Bots"):
             success = True
-            for bot_name in st.session_state.bot_processes.keys():
+            # Define the bots to start in order
+            bots_to_start = [
+                'COIN_long',    # bot_id 1
+                'COIN_short',   # bot_id 2
+                'COIN_long2',   # bot_id 3
+                'COIN_short2',  # bot_id 4
+                'TSLA_long',    # bot_id 5
+                'TSLA_short',   # bot_id 6
+                'TSLA_long2',   # bot_id 7
+                'TSLA_short2'   # bot_id 8
+            ]
+            
+            st.info("Starting all bots with 5-second intervals to avoid connection issues...")
+            
+            for bot_name in bots_to_start:
                 if not start_bot(bot_name):
                     success = False
+                    st.error(f"Failed to start {bot_name}")
+                else:
+                    st.info(f"Started {bot_name}")
+                # Add a longer delay between starting bots to prevent database connection issues
+                time.sleep(5)
+                
             if success:
                 st.success("All bots started successfully!")
+            else:
+                st.warning("Some bots failed to start. Check the logs for details.")
 
     with col_all_stop:
         if st.button("Stop All Bots"):
@@ -323,25 +818,578 @@ with tab_logs:
 
     # Update all logs
     update_logs()
-
-    # Display IB Controller logs
-    st.subheader("IB Controller Logs")
-    if st.session_state.log_buffer['ib_controller']:
-        st.text_area(
-            "IB Controller Output",
-            value="\n".join(st.session_state.log_buffer['ib_controller'][-100:]),
-            height=200
-        )
-
-    # Display bot logs
-    st.subheader("Bot Logs")
-    for bot_name in st.session_state.bot_processes.keys():
-        if st.session_state.log_buffer[bot_name]:
-            st.text_area(
-                f"{bot_name} Bot Output",
-                value="\n".join(st.session_state.log_buffer[bot_name][-100:]),
-                height=200
+    
+    # Create tabs for different log views
+    log_tab1, log_tab2, log_tab3, log_tab4, log_tab5 = st.tabs([
+        "Bot Logs", "IB Controller Logs", "System Logs", "Historic Logs", "Manual Log Entry"
+    ])
+    
+    with log_tab1:
+        st.subheader("Trading Bot Logs")
+        
+        # Create filters for the logs
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            selected_bot = st.selectbox(
+                "Select Bot", 
+                options=list(st.session_state.bot_processes.keys()),
+                key="log_bot_selector"
             )
+        
+        with col2:
+            log_filter = st.text_input("Filter logs (contains text)", key="log_filter")
+            
+        with col3:
+            max_logs = st.slider("Max logs to display", 10, 500, 100, 10, key="max_logs")
+            auto_scroll = st.checkbox("Auto-scroll to bottom", value=True, key="auto_scroll")
+        
+        # Display logs for the selected bot with filtering
+        if selected_bot:
+            logs = st.session_state.log_buffer.get(selected_bot, [])
+            
+            # Apply text filter if provided
+            if log_filter:
+                logs = [log for log in logs if log_filter.lower() in log.lower()]
+            
+            # Get the bot status
+            bot_status = "Running" if st.session_state.bot_processes.get(selected_bot) else "Stopped"
+            status_color = "green" if bot_status == "Running" else "red"
+            
+            # Display bot status
+            st.markdown(f"**Bot Status:** <span style='color:{status_color};'>{bot_status}</span>", unsafe_allow_html=True)
+            
+            # Create a container for logs with a fixed height and scrolling
+            log_container = st.container()
+            
+            with log_container:
+                # Display the logs in a scrollable area
+                if logs:
+                    # Display only the most recent logs (limited by max_logs)
+                    displayed_logs = logs[-max_logs:] if len(logs) > max_logs else logs
+                    
+                    # Format logs with timestamps if available
+                    formatted_logs = []
+                    for log in displayed_logs:
+                        # Check if log has a timestamp at the beginning
+                        if log and (log.startswith("20") or log.startswith("202")):
+                            try:
+                                # Split by first space to separate timestamp and message
+                                parts = log.split(" ", 1)
+                                if len(parts) > 1:
+                                    timestamp, message = parts
+                                    # Format with bold timestamp
+                                    formatted_log = f"**{timestamp}** {message}"
+                                else:
+                                    formatted_log = log
+                            except:
+                                formatted_log = log
+                        else:
+                            formatted_log = log
+                        
+                        # Add color coding based on log level/content
+                        if "error" in log.lower() or "exception" in log.lower():
+                            formatted_log = f"<span style='color:red;'>{formatted_log}</span>"
+                        elif "warning" in log.lower():
+                            formatted_log = f"<span style='color:orange;'>{formatted_log}</span>"
+                        elif "info" in log.lower():
+                            formatted_log = f"<span style='color:blue;'>{formatted_log}</span>"
+                        elif "trade" in log.lower() or "position" in log.lower():
+                            formatted_log = f"<span style='color:green;'>{formatted_log}</span>"
+                            
+                        formatted_logs.append(formatted_log)
+                    
+                    # Join all logs and display with markdown for formatting
+                    log_text = "\n\n".join(formatted_logs)
+                    st.markdown(log_text, unsafe_allow_html=True)
+                    
+                    # Add auto-scrolling effect if enabled
+                    if auto_scroll and logs:
+                        st.markdown(
+                            """
+                            <script>
+                                var element = document.querySelector('[data-testid="stVerticalBlock"]');
+                                element.scrollTop = element.scrollHeight;
+                            </script>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info(f"No logs available for {selected_bot}")
+            
+            # Add buttons for log management
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("Clear Logs", key=f"clear_{selected_bot}_logs"):
+                    st.session_state.log_buffer[selected_bot] = []
+                    st.experimental_rerun()
+            
+            with col2:
+                # Add a button to export logs to a file
+                if st.button("Export Logs", key=f"export_{selected_bot}_logs"):
+                    log_text = "\n".join(logs)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{selected_bot}_logs_{timestamp}.txt"
+                    
+                    # Create a download button for the logs
+                    st.download_button(
+                        label="Download Logs",
+                        data=log_text,
+                        file_name=filename,
+                        mime="text/plain",
+                        key=f"download_{selected_bot}_logs"
+                    )
+            
+            with col3:
+                # Add a button to save logs to database
+                if st.button("Save Logs to DB", key=f"save_{selected_bot}_logs"):
+                    success = asyncio.run(save_logs_to_db(selected_bot))
+                    if success:
+                        st.success(f"Logs for {selected_bot} saved to database")
+                    else:
+                        st.error(f"Failed to save logs for {selected_bot}")
+    
+    with log_tab2:
+        st.subheader("IB Controller Logs")
+        
+        # Filter for IB Controller logs
+        ib_log_filter = st.text_input("Filter logs (contains text)", key="ib_log_filter")
+        ib_max_logs = st.slider("Max logs to display", 10, 500, 100, 10, key="ib_max_logs")
+        
+        # Get IB Controller logs
+        ib_logs = st.session_state.log_buffer['ib_controller']
+        
+        # Apply filter if provided
+        if ib_log_filter:
+            ib_logs = [log for log in ib_logs if ib_log_filter.lower() in log.lower()]
+        
+        # Get status
+        ib_status = "Running" if st.session_state.ib_controller_process else "Stopped"
+        ib_status_color = "green" if ib_status == "Running" else "red"
+        
+        # Display IB Controller status
+        st.markdown(f"**IB Controller Status:** <span style='color:{ib_status_color};'>{ib_status}</span>", unsafe_allow_html=True)
+        
+        # Display logs
+        if ib_logs:
+            # Display only the most recent logs
+            displayed_logs = ib_logs[-ib_max_logs:] if len(ib_logs) > ib_max_logs else ib_logs
+            
+            # Format logs with color coding
+            formatted_logs = []
+            for log in displayed_logs:
+                if "error" in log.lower() or "exception" in log.lower():
+                    formatted_log = f"<span style='color:red;'>{log}</span>"
+                elif "warning" in log.lower():
+                    formatted_log = f"<span style='color:orange;'>{log}</span>"
+                else:
+                    formatted_log = log
+                formatted_logs.append(formatted_log)
+            
+            log_text = "\n\n".join(formatted_logs)
+            st.markdown(log_text, unsafe_allow_html=True)
+        else:
+            st.info("No IB Controller logs available")
+        
+        # Add buttons for log management
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Clear IB Logs"):
+                st.session_state.log_buffer['ib_controller'] = []
+                st.experimental_rerun()
+        
+        with col2:
+            # Add a button to export logs to a file
+            if st.button("Export IB Logs"):
+                log_text = "\n".join(ib_logs)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"ib_controller_logs_{timestamp}.txt"
+                
+                # Create a download button for the logs
+                st.download_button(
+                    label="Download IB Logs",
+                    data=log_text,
+                    file_name=filename,
+                    mime="text/plain"
+                )
+        
+        with col3:
+            # Add a button to save logs to database
+            if st.button("Save IB Logs to DB"):
+                success = asyncio.run(save_logs_to_db('ib_controller'))
+                if success:
+                    st.success("IB Controller logs saved to database")
+                else:
+                    st.error("Failed to save IB Controller logs")
+    
+    with log_tab3:
+        st.subheader("System Log Statistics")
+        
+        # Calculate and display log statistics
+        log_stats = {}
+        for bot_name, logs in st.session_state.log_buffer.items():
+            # Count total logs
+            total_logs = len(logs)
+            
+            # Count error logs
+            error_logs = sum(1 for log in logs if "error" in log.lower() or "exception" in log.lower())
+            
+            # Count warning logs
+            warning_logs = sum(1 for log in logs if "warning" in log.lower())
+            
+            # Count trade-related logs
+            trade_logs = sum(1 for log in logs if "trade" in log.lower() or "position" in log.lower())
+            
+            # Store stats
+            log_stats[bot_name] = {
+                "total": total_logs,
+                "errors": error_logs,
+                "warnings": warning_logs,
+                "trades": trade_logs
+            }
+        
+        # Convert to DataFrame
+        stats_df = pd.DataFrame.from_dict(log_stats, orient='index')
+        stats_df = stats_df.reset_index().rename(columns={"index": "Bot/Component"})
+        
+        # Display statistics
+        st.dataframe(stats_df, use_container_width=True)
+        
+        # Create visualization
+        if not stats_df.empty:
+            # Create bar chart of errors and warnings
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                x=stats_df["Bot/Component"],
+                y=stats_df["errors"],
+                name="Errors",
+                marker_color='red'
+            ))
+            
+            fig.add_trace(go.Bar(
+                x=stats_df["Bot/Component"],
+                y=stats_df["warnings"],
+                name="Warnings",
+                marker_color='orange'
+            ))
+            
+            fig.add_trace(go.Bar(
+                x=stats_df["Bot/Component"],
+                y=stats_df["trades"],
+                name="Trade Events",
+                marker_color='green'
+            ))
+            
+            fig.update_layout(
+                title="Log Event Distribution",
+                xaxis_title="Bot/Component",
+                yaxis_title="Count",
+                barmode='group'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Add buttons for log management
+        col1, col2 = st.columns(2)
+        with col1:
+            # Add options to manage all logs
+            if st.button("Clear All Logs"):
+                for bot_name in st.session_state.log_buffer:
+                    st.session_state.log_buffer[bot_name] = []
+                st.experimental_rerun()
+        
+        with col2:
+            # Add a button to save all logs to database
+            if st.button("Save All Logs to DB"):
+                success = asyncio.run(save_logs_to_db())
+                if success:
+                    st.success("All logs saved to database")
+                else:
+                    st.error("Failed to save logs to database")
+    
+    with log_tab4:
+        st.subheader("Historic Logs")
+        
+        # Create filters for historic logs
+        col1, col2 = st.columns(2)
+        with col1:
+            historic_bot = st.selectbox(
+                "Select Bot", 
+                options=["All Bots"] + list(st.session_state.bot_processes.keys()),
+                key="historic_bot_selector"
+            )
+        
+        with col2:
+            historic_limit = st.slider("Max logs to retrieve", 100, 5000, 1000, 100, key="historic_limit")
+        
+        # Button to load historic logs
+        if st.button("Load Historic Logs"):
+            with st.spinner("Loading logs from database..."):
+                # Handle 'All Bots' selection
+                bot_to_load = None if historic_bot == "All Bots" else historic_bot
+                # Load logs from database
+                historic_logs = asyncio.run(load_logs_from_db(bot_to_load, historic_limit))
+                
+                if historic_logs:
+                    # Create tabs for each bot
+                    if len(historic_logs) > 1:
+                        historic_bot_tabs = st.tabs(list(historic_logs.keys()))
+                        
+                        for i, (bot_name, logs) in enumerate(historic_logs.items()):
+                            with historic_bot_tabs[i]:
+                                st.write(f"**{len(logs)}** log entries for **{bot_name}**")
+                                
+                                # Filter logs if requested
+                                log_filter = st.text_input(
+                                    "Filter logs (contains text)", 
+                                    key=f"historic_filter_{bot_name}"
+                                )
+                                
+                                if log_filter:
+                                    logs = [log for log in logs if log_filter.lower() in log.lower()]
+                                
+                                # Format logs with timestamps and color coding
+                                formatted_logs = []
+                                for log in logs:
+                                    if "error" in log.lower() or "exception" in log.lower():
+                                        formatted_log = f"<span style='color:red;'>{log}</span>"
+                                    elif "warning" in log.lower():
+                                        formatted_log = f"<span style='color:orange;'>{log}</span>"
+                                    elif "info" in log.lower():
+                                        formatted_log = f"<span style='color:blue;'>{log}</span>"
+                                    elif "trade" in log.lower() or "position" in log.lower():
+                                        formatted_log = f"<span style='color:green;'>{log}</span>"
+                                    else:
+                                        formatted_log = log
+                                    formatted_logs.append(formatted_log)
+                                
+                                log_text = "\n\n".join(formatted_logs)
+                                st.markdown(log_text, unsafe_allow_html=True)
+                                
+                                # Export button
+                                if st.button(f"Export {bot_name} Logs", key=f"export_historic_{bot_name}"):
+                                    log_text_plain = "\n".join(logs)
+                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                    filename = f"{bot_name}_historic_logs_{timestamp}.txt"
+                                    
+                                    st.download_button(
+                                        label=f"Download {bot_name} Historic Logs",
+                                        data=log_text_plain,
+                                        file_name=filename,
+                                        mime="text/plain",
+                                        key=f"download_historic_{bot_name}"
+                                    )
+                    else:
+                        # Single bot view
+                        bot_name = list(historic_logs.keys())[0]
+                        logs = historic_logs[bot_name]
+                        
+                        st.write(f"**{len(logs)}** log entries for **{bot_name}**")
+                        
+                        # Filter logs if requested
+                        log_filter = st.text_input("Filter logs (contains text)", key="historic_filter_single")
+                        
+                        if log_filter:
+                            logs = [log for log in logs if log_filter.lower() in log.lower()]
+                        
+                        # Format logs with timestamps and color coding
+                        formatted_logs = []
+                        for log in logs:
+                            if "error" in log.lower() or "exception" in log.lower():
+                                formatted_log = f"<span style='color:red;'>{log}</span>"
+                            elif "warning" in log.lower():
+                                formatted_log = f"<span style='color:orange;'>{log}</span>"
+                            elif "info" in log.lower():
+                                formatted_log = f"<span style='color:blue;'>{log}</span>"
+                            elif "trade" in log.lower() or "position" in log.lower():
+                                formatted_log = f"<span style='color:green;'>{log}</span>"
+                            else:
+                                formatted_log = log
+                            formatted_logs.append(formatted_log)
+                        
+                        log_text = "\n\n".join(formatted_logs)
+                        st.markdown(log_text, unsafe_allow_html=True)
+                        
+                        # Export button
+                        if st.button(f"Export {bot_name} Logs", key="export_historic_single"):
+                            log_text_plain = "\n".join(logs)
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"{bot_name}_historic_logs_{timestamp}.txt"
+                            
+                            st.download_button(
+                                label=f"Download {bot_name} Historic Logs",
+                                data=log_text_plain,
+                                file_name=filename,
+                                mime="text/plain",
+                                key="download_historic_single"
+                            )
+                else:
+                    st.info("No historic logs found in the database")
+        
+        # Add a button to clear historic logs from database
+        if st.button("Clear Historic Logs from Database"):
+            if st.session_state.get('confirm_clear_historic', False):
+                # User already confirmed, proceed with deletion
+                try:
+                    async def clear_historic_logs():
+                        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                            if historic_bot == "All Bots":
+                                await pool.execute("TRUNCATE TABLE bot_logs;")
+                                message = "All historic logs cleared from database"
+                            else:
+                                await pool.execute(
+                                    "DELETE FROM bot_logs WHERE bot_name = $1;",
+                                    historic_bot
+                                )
+                                message = f"Historic logs for {historic_bot} cleared from database"
+                            return message
+                    
+                    message = asyncio.run(clear_historic_logs())
+                    st.success(message)
+                    # Reset confirmation state
+                    st.session_state.confirm_clear_historic = False
+                except Exception as e:
+                    st.error(f"Error clearing historic logs: {e}")
+            else:
+                # Ask for confirmation
+                st.warning(f"Are you sure you want to clear {'all' if historic_bot == 'All Bots' else historic_bot} historic logs? This cannot be undone!")
+                st.session_state.confirm_clear_historic = True
+                if st.button("Yes, Clear Historic Logs"):
+                    # User confirmed, will be handled on next rerun
+                    st.experimental_rerun()
+                if st.button("No, Cancel"):
+                    st.session_state.confirm_clear_historic = False
+                    st.experimental_rerun()
+
+    # Add new tab for manual log entry
+    with log_tab5:
+        st.subheader("Manual Log Entry")
+        
+        st.write("""
+        Use this section to manually add log entries for your bots. 
+        This is useful for adding notes, comments, or annotations about bot behavior or trading decisions.
+        """)
+        
+        # Create form for log entry
+        with st.form(key="manual_log_form"):
+            # Bot selection
+            target_bot = st.selectbox(
+                "Select Target Bot",
+                options=list(st.session_state.bot_processes.keys()),
+                key="manual_log_bot"
+            )
+            
+            # Log level selection
+            log_level = st.selectbox(
+                "Log Level",
+                options=["INFO", "WARNING", "ERROR", "TRADE", "NOTE"],
+                index=0,
+                key="manual_log_level"
+            )
+            
+            # Log message input
+            log_message = st.text_area(
+                "Log Message",
+                height=100,
+                key="manual_log_message"
+            )
+            
+            # Submit button
+            submit_button = st.form_submit_button(label="Add Log Entry")
+        
+        # Process form submission
+        if submit_button and target_bot and log_message:
+            # Add the log entry
+            log_bot_event(target_bot, log_level, log_message)
+            st.success(f"Log entry added for {target_bot}")
+            
+            # Provide option to save to database
+            if st.button("Save New Log to Database"):
+                success = asyncio.run(save_logs_to_db(target_bot))
+                if success:
+                    st.success(f"Logs for {target_bot} saved to database")
+                else:
+                    st.error(f"Failed to save logs for {target_bot}")
+        
+        # Add a separator
+        st.markdown("---")
+        
+        # Add section for batch log entry from file
+        st.subheader("Import Logs from File")
+        
+        uploaded_file = st.file_uploader("Choose a log file", type=['txt', 'log'])
+        
+        if uploaded_file is not None:
+            # Import target selection
+            import_target = st.selectbox(
+                "Import logs to",
+                options=list(st.session_state.bot_processes.keys()),
+                key="import_log_target"
+            )
+            
+            # Parse log file
+            if st.button("Import Logs"):
+                try:
+                    # Read and decode the file
+                    log_content = uploaded_file.read().decode('utf-8')
+                    log_lines = log_content.splitlines()
+                    
+                    # Count lines
+                    line_count = len(log_lines)
+                    
+                    # Ask for confirmation if file is large
+                    if line_count > 1000:
+                        st.warning(f"This file contains {line_count} lines. Importing large files may affect performance.")
+                        confirm_import = st.checkbox("Import anyway")
+                        if not confirm_import:
+                            st.stop()
+                    
+                    # Process each line
+                    for line in log_lines:
+                        if line.strip():
+                            # Add to log buffer
+                            if import_target not in st.session_state.log_buffer:
+                                st.session_state.log_buffer[import_target] = []
+                            
+                            # Add timestamp if missing
+                            if not (line.startswith("20") or line.startswith("202")):
+                                line = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [IMPORTED] {line}"
+                            
+                            st.session_state.log_buffer[import_target].append(line)
+                    
+                    st.success(f"Successfully imported {line_count} log lines for {import_target}")
+                except Exception as e:
+                    st.error(f"Error importing logs: {e}")
+        
+        # Template section
+        st.markdown("---")
+        st.subheader("Log Templates")
+        
+        # Define some common log templates
+        templates = {
+            "Trade Entry": "{timestamp} [TRADE] Entered {long_short} position for {ticker} at {price}",
+            "Trade Exit": "{timestamp} [TRADE] Exited {long_short} position for {ticker} at {price}, PnL: {pnl}",
+            "Strategy Change": "{timestamp} [INFO] Changed strategy parameters for {ticker}: {params}",
+            "Position Adjustment": "{timestamp} [INFO] Adjusted position size for {ticker} from {old_size} to {new_size}",
+            "Error Note": "{timestamp} [ERROR] Bot encountered an issue: {error_details}"
+        }
+        
+        # Template selection
+        selected_template = st.selectbox(
+            "Select Template",
+            options=list(templates.keys()),
+            key="log_template"
+        )
+        
+        # Show the template
+        st.code(templates[selected_template], language="text")
+        
+        # Button to use the template
+        if st.button("Use This Template"):
+            # Pre-fill the log message with the template
+            template_text = templates[selected_template].replace("{timestamp}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            st.session_state.manual_log_message = template_text
+            st.experimental_rerun()
 
 # Tables Section
 with tab_tables:
@@ -2255,3 +3303,74 @@ async def check_database_schema():
 
 if st.button("Check Database Schema"):
     asyncio.run(check_database_schema())
+
+# Add function to load logs from database
+async def load_logs_from_db(bot_name=None, limit=1000):
+    """
+    Load logs from database
+    
+    Args:
+        bot_name (str, optional): Name of the bot to load logs for. If None, load all logs.
+        limit (int, optional): Maximum number of logs to load. Defaults to 1000.
+        
+    Returns:
+        dict: Dictionary of logs by bot name
+    """
+    try:
+        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+            # Check if logs table exists
+            table_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'bot_logs'
+                );
+            """)
+            
+            if not table_exists:
+                return {}
+            
+            # Query to get logs
+            if bot_name:
+                logs = await pool.fetch("""
+                    SELECT bot_name, log_text, timestamp
+                    FROM bot_logs
+                    WHERE bot_name = $1
+                    ORDER BY timestamp DESC
+                    LIMIT $2
+                """, bot_name, limit)
+            else:
+                logs = await pool.fetch("""
+                    SELECT bot_name, log_text, timestamp
+                    FROM bot_logs
+                    ORDER BY timestamp DESC
+                    LIMIT $1
+                """, limit)
+            
+            # Organize logs by bot
+            result = {}
+            for log in logs:
+                bot = log['bot_name']
+                if bot not in result:
+                    result[bot] = []
+                    
+                # Split log text into individual log lines
+                log_lines = log['log_text'].splitlines()
+                timestamp = log['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Add timestamp to each log line if missing
+                formatted_lines = []
+                for line in log_lines:
+                    if line and not (line.startswith("20") or line.startswith("202")):
+                        line = f"{timestamp} {line}"
+                    formatted_lines.append(line)
+                
+                result[bot].extend(formatted_lines)
+            
+            # Sort logs chronologically
+            for bot in result:
+                result[bot].sort()
+            
+            return result
+    except Exception as e:
+        st.error(f"Error loading logs from database: {e}")
+        return {}

@@ -8,6 +8,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
+import argparse
 
 
 class IBClient(EWrapper, EClient):
@@ -31,7 +32,7 @@ class COINShortBot2:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 4  # fixed bot id for COIN_short_bot2
+        self.bot_id = bot_id
         self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
@@ -259,6 +260,12 @@ if __name__ == "__main__":
     )
 
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='COIN Short Bot 2')
+        parser.add_argument('--bot_id', type=int, default=4, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
             password='musicman',
@@ -266,9 +273,13 @@ if __name__ == "__main__":
             host='localhost'
         )
 
+        # Initialize the IB client
         ib_client = IBClient()
-        # Pass integer bot_id instead of string
-        bot = COINShortBot2(db_pool, ib_client, 7)
+
+        # Create an instance of COINShortBot2 with the provided bot_id
+        bot = COINShortBot2(db_pool, ib_client, args.bot_id)
+        
+        logging.info(f"Starting COIN Short Bot 2 with ID: {args.bot_id}")
 
         try:
             await bot.run()

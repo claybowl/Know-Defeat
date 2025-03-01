@@ -6,6 +6,7 @@ import pandas as pd
 from decimal import Decimal
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
+import argparse
 
 class IBClient(EWrapper, EClient):
     def __init__(self):
@@ -25,7 +26,7 @@ class CoinShortBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 2  # fixed bot id for COIN_short_bot
+        self.bot_id = bot_id
         self.algo_id = 1  # This bot belongs to algo_id 1
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
@@ -312,6 +313,12 @@ if __name__ == "__main__":
     )
 
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='COIN Short Bot')
+        parser.add_argument('--bot_id', type=int, default=2, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
             password='musicman',
@@ -319,8 +326,13 @@ if __name__ == "__main__":
             host='localhost'
         )
 
+        # Initialize the IB client
         ib_client = IBClient()
-        bot = CoinShortBot(db_pool, ib_client, '2')
+
+        # Create an instance of CoinShortBot with the provided bot_id
+        bot = CoinShortBot(db_pool, ib_client, args.bot_id)
+        
+        logging.info(f"Starting COIN Short Bot with ID: {args.bot_id}")
 
         try:
             await bot.run()

@@ -7,6 +7,7 @@ from decimal import Decimal
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 import time
+import argparse
 
 class IBClient(EWrapper, EClient):
     """Interactive Brokers client implementation for handling market data and order execution."""
@@ -28,7 +29,7 @@ class TSLALongBot:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 5  # fixed bot id for TSLA_long_bot
+        self.bot_id = bot_id
         self.algo_id = 1  # This bot belongs to algo_id 1
         self.position = None
         self.trailing_stop_pct = 0.002  # 0.2% trailing stop
@@ -348,21 +349,32 @@ class TSLALongBot:
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG,  # Change to DEBUG level
+        level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
+
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='TSLA Long Bot')
+        parser.add_argument('--bot_id', type=int, default=5, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
             password='musicman',
             database='tick_data',
             host='localhost'
         )
-        
+
+        # Initialize the IB client
         ib_client = IBClient()
-        bot = TSLALongBot(db_pool, ib_client, 5)
+
+        # Create an instance of TSLALongBot with the provided bot_id
+        bot = TSLALongBot(db_pool, ib_client, args.bot_id)
         
+        logging.info(f"Starting TSLA Long Bot with ID: {args.bot_id}")
+
         try:
             await bot.run()
         except KeyboardInterrupt:

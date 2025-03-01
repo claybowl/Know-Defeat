@@ -9,6 +9,7 @@ from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
 import time
+import argparse
 
 # # Add the parent directory to sys.path to allow for module imports
 # current_dir = Path(__file__).parent
@@ -38,7 +39,7 @@ class TSLALongBot2:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 7  # fixed bot id for TSLA_long_bot2
+        self.bot_id = bot_id
         self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.trailing_stop_pct = Decimal('0.002')  # Convert to Decimal
@@ -308,6 +309,12 @@ if __name__ == "__main__":
     )
 
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='TSLA Long Bot 2')
+        parser.add_argument('--bot_id', type=int, default=7, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
         db_pool = await asyncpg.create_pool(
             user='clayb',
             password='musicman',
@@ -315,8 +322,13 @@ if __name__ == "__main__":
             host='localhost'
         )
 
+        # Initialize the IB client
         ib_client = IBClient()
-        bot = TSLALongBot2(db_pool, ib_client, 6)
+
+        # Create an instance of TSLALongBot2 with the provided bot_id
+        bot = TSLALongBot2(db_pool, ib_client, args.bot_id)
+        
+        logging.info(f"Starting TSLA Long Bot 2 with ID: {args.bot_id}")
 
         try:
             await bot.run()

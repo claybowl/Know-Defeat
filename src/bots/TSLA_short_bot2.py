@@ -9,6 +9,7 @@ from ibapi.wrapper import EWrapper
 import sys
 from pathlib import Path
 import time
+import argparse
 
 
 class IBClient(EWrapper, EClient):
@@ -32,7 +33,7 @@ class TSLAShortBot2:
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
         self.ib_client = ib_client
-        self.bot_id = 8  # fixed bot id for TSLA_short_bot2
+        self.bot_id = bot_id
         self.algo_id = 2  # This bot belongs to algo_id 2
         self.position = None
         self.lowest_price = float('inf')
@@ -328,16 +329,28 @@ if __name__ == "__main__":
     )
     
     async def main():
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='TSLA Short Bot 2')
+        parser.add_argument('--bot_id', type=int, default=8, help='Bot ID')
+        args = parser.parse_args()
+        
+        # Create the database pool
+        db_pool = await asyncpg.create_pool(
+            user='clayb',
+            password='musicman',
+            database='tick_data',
+            host='localhost'
+        )
+
+        # Initialize the IB client
+        ib_client = IBClient()
+
+        # Create an instance of TSLAShortBot2 with the provided bot_id
+        bot = TSLAShortBot2(db_pool, ib_client, args.bot_id)
+        
+        logging.info(f"Starting TSLA Short Bot 2 with ID: {args.bot_id}")
+
         try:
-            db_pool = await asyncpg.create_pool(
-                user='clayb',
-                password='musicman',
-                database='tick_data',
-                host='localhost'
-            )
-            
-            ib_client = IBClient()
-            bot = TSLAShortBot2(db_pool, ib_client, 8)
             await bot.run()
         except KeyboardInterrupt:
             logging.info("Shutting down bot...")
