@@ -87,20 +87,26 @@ def safe_pct_to_numeric(series):
     
     # If the above fails, try string processing only if we have strings
     try:
-        # Try to check if the first non-null value is a string
-        for val in series.dropna():
-            if isinstance(val, str):
-                # We have at least one string, use string processing
-                return pd.to_numeric(series.astype(str).str.rstrip('%'), errors='coerce')
-            else:
-                # First non-null value is not a string, just use to_numeric
-                return pd.to_numeric(series, errors='coerce')
-        
-        # If we get here, series might be empty or all null
-        return pd.to_numeric(series, errors='coerce')
+        return series.str.rstrip('%').astype('float') / 100.0
     except Exception as e:
-        # Fallback to direct conversion
-        return pd.to_numeric(series, errors='coerce')
+        # Return original if all else fails
+        return series
+
+# Helper function to safely format values that might be None
+def safe_format(value, format_str):
+    """
+    Safely format a value that might be None.
+    
+    Args:
+        value: The value to format
+        format_str: The format string to use
+        
+    Returns:
+        Formatted string or None if value is None
+    """
+    if value is None:
+        return None
+    return format_str.format(value)
 
 def start_ib_controller():
     """Start the IB Controller process"""
@@ -508,13 +514,13 @@ with tab_trades:
                     st.subheader("Detailed Statistics by Bot")
                     st.dataframe(
                         stats_df.style.format({
-                            'trade_count': '{:,}',
-                            'winning_trades': '{:,}',
-                            'losing_trades': '{:,}',
-                            'avg_pnl': '${:.2f}',
-                            'total_pnl': '${:.2f}',
-                            'calculated_win_rate': '{:.1f}%',
-                            'avg_duration': '{:.1f}'
+                            'trade_count': lambda x: safe_format(x, '{:,}'),
+                            'winning_trades': lambda x: safe_format(x, '{:,}'),
+                            'losing_trades': lambda x: safe_format(x, '{:,}'),
+                            'avg_pnl': lambda x: safe_format(x, '${:.2f}'),
+                            'total_pnl': lambda x: safe_format(x, '${:.2f}'),
+                            'calculated_win_rate': lambda x: safe_format(x, '{:.1f}%'),
+                            'avg_duration': lambda x: safe_format(x, '{:.1f}')
                         }),
                         use_container_width=True
                     )
@@ -992,8 +998,8 @@ with tab_trades:
                     weights_df['weight_decimal'] = weights_df['weight'] / 100
                     st.dataframe(
                         weights_df[['variable_name', 'weight_decimal', 'last_updated']].style.format({
-                            'weight_decimal': '{:.2f}',
-                            'last_updated': '{:%Y-%m-%d %H:%M:%S}'
+                            'weight_decimal': lambda x: safe_format(x, '{:.2f}'),
+                            'last_updated': lambda x: safe_format(x, '{:%Y-%m-%d %H:%M:%S}')
                         }),
                         use_container_width=True
                     )
@@ -1190,7 +1196,8 @@ with tab_rankings:
         try:
             async with asyncpg.create_pool(**DB_CONFIG) as pool:
                 # Get historical rankings with daily resolution
-                rankings = await pool.fetch("""
+                # Use string concatenation for the interval instead of a parameter
+                query = f"""
                     WITH daily_rankings AS (
                         SELECT 
                             bot_id, 
@@ -1198,7 +1205,7 @@ with tab_rankings:
                             rank_score,
                             ROW_NUMBER() OVER (PARTITION BY bot_id, DATE(timestamp) ORDER BY timestamp DESC) as rn
                         FROM bot_rankings
-                        WHERE timestamp >= CURRENT_DATE - INTERVAL '$1 days'
+                        WHERE timestamp >= CURRENT_DATE - INTERVAL '{days} days'
                     )
                     SELECT 
                         dr.bot_id, 
@@ -1209,7 +1216,8 @@ with tab_rankings:
                     LEFT JOIN bot_metrics bm ON dr.bot_id = bm.bot_id
                     WHERE dr.rn = 1
                     ORDER BY dr.date, dr.rank_score DESC
-                """, days)
+                """
+                rankings = await pool.fetch(query)
                 return rankings
         except Exception as e:
             st.error(f"Error fetching historical rankings: {str(e)}")
@@ -1344,11 +1352,11 @@ with tab_rankings:
                             'one_day_performance', 'avg_win_rate', 'profit_factor', 
                             'is_active', 'timestamp'
                         ]].style.format({
-                            'rank_score': '{:.2f}',
-                            'one_day_performance': '{:.2f}%',
-                            'avg_win_rate': '{:.2f}%',
-                            'profit_factor': '{:.2f}',
-                            'timestamp': '{:%Y-%m-%d %H:%M:%S}'
+                            'rank_score': lambda x: safe_format(x, '{:.2f}'),
+                            'one_day_performance': lambda x: safe_format(x, '{:.2f}%'),
+                            'avg_win_rate': lambda x: safe_format(x, '{:.2f}%'),
+                            'profit_factor': lambda x: safe_format(x, '{:.2f}'),
+                            'timestamp': lambda x: safe_format(x, '{:%Y-%m-%d %H:%M:%S}')
                         }),
                         use_container_width=True
                     )
@@ -1399,8 +1407,9 @@ with tab_rankings:
                         alloc_df_display[[
                             'bot', 'allocation_amount', 'allocation_percentage', 'rank_score'
                         ]].style.format({
-                            'allocation_amount': '${:.2f}',
-                            'allocation_percentage': '{:.2f}%'
+                            'allocation_amount': lambda x: safe_format(x, '${:.2f}'),
+                            'allocation_percentage': lambda x: safe_format(x, '{:.2f}%'),
+                            'rank_score': lambda x: safe_format(x, '{:.2f}')
                         }),
                         use_container_width=True
                     )
@@ -1766,8 +1775,8 @@ with tab_rankings:
                     df = pd.DataFrame([dict(r) for r in raw_rankings])
                     st.dataframe(
                         df.style.format({
-                            'rank_score': '{:.2f}',
-                            'timestamp': '{:%Y-%m-%d %H:%M:%S}'
+                            'rank_score': lambda x: safe_format(x, '{:.2f}'),
+                            'timestamp': lambda x: safe_format(x, '{:%Y-%m-%d %H:%M:%S}')
                         }),
                         use_container_width=True
                     )
@@ -1809,8 +1818,8 @@ with tab_rankings:
                     df = pd.DataFrame([dict(r) for r in variable_weights])
                     st.dataframe(
                         df.style.format({
-                            'weight': '{:.2f}',
-                            'last_updated': '{:%Y-%m-%d %H:%M:%S}'
+                            'weight': lambda x: safe_format(x, '{:.2f}'),
+                            'last_updated': lambda x: safe_format(x, '{:%Y-%m-%d %H:%M:%S}')
                         }),
                         use_container_width=True
                     )
@@ -2010,10 +2019,10 @@ def trade_analysis():
         )
         st.dataframe(
             metrics_df.style.format({
-                '1hr Perf': '{:.2f}%',
-                '24hr Perf': '{:.2f}%',
-                'Win Rate': '{:.1f}%',
-                'Profit/sec': '${:.4f}'
+                '1hr Perf': lambda x: safe_format(x, '{:.2f}%'),
+                '24hr Perf': lambda x: safe_format(x, '{:.2f}%'),
+                'Win Rate': lambda x: safe_format(x, '{:.1f}%'),
+                'Profit/sec': lambda x: safe_format(x, '${:.4f}')
             }),
             use_container_width=True
         )
@@ -2029,8 +2038,8 @@ def trade_analysis():
         ])
         st.dataframe(
             stats_df.style.format({
-                'Avg PNL': '${:.2f}',
-                'Avg Duration (sec)': '{:.1f}'
+                'Avg PNL': lambda x: safe_format(x, '${:.2f}'),
+                'Avg Duration (sec)': lambda x: safe_format(x, '{:.1f}')
             }),
             use_container_width=True
         )
@@ -2135,10 +2144,10 @@ def trade_analysis():
             metrics_df = pd.DataFrame(metrics)
             st.dataframe(
                 metrics_df.style.format({
-                    'one_hour_performance': '{:.2f}%',
-                    'one_day_performance': '{:.2f}%',
-                    'avg_win_rate': '{:.1f}%',
-                    'profit_per_second': '${:.4f}'
+                    'one_hour_performance': lambda x: safe_format(x, '{:.2f}%'),
+                    'one_day_performance': lambda x: safe_format(x, '{:.2f}%'),
+                    'avg_win_rate': lambda x: safe_format(x, '{:.1f}%'),
+                    'profit_per_second': lambda x: safe_format(x, '${:.4f}')
                 }),
                 use_container_width=True
             )
@@ -2160,8 +2169,8 @@ def trade_analysis():
         ])
         st.dataframe(
             stats_df.style.format({
-                'Avg PNL': '${:.2f}',
-                'Avg Duration (sec)': '{:.1f}'
+                'Avg PNL': lambda x: safe_format(x, '${:.2f}'),
+                'Avg Duration (sec)': lambda x: safe_format(x, '{:.1f}')
             }),
             use_container_width=True
         ) 
