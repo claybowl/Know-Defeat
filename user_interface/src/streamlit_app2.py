@@ -1178,7 +1178,7 @@ with tab_rankings:
                     WHERE bm.timestamp = (
                         SELECT MAX(timestamp) FROM bot_metrics WHERE bot_id = br.bot_id
                     )
-                    ORDER BY br.rank ASC;
+                    ORDER BY br.rank_score DESC;
                 """)
                 return rankings
         except Exception as e:
@@ -1195,7 +1195,7 @@ with tab_rankings:
                         SELECT 
                             bot_id, 
                             DATE(timestamp) as date,
-                            rank_position,
+                            rank_score,
                             ROW_NUMBER() OVER (PARTITION BY bot_id, DATE(timestamp) ORDER BY timestamp DESC) as rn
                         FROM bot_rankings
                         WHERE timestamp >= CURRENT_DATE - INTERVAL '$1 days'
@@ -1203,12 +1203,12 @@ with tab_rankings:
                     SELECT 
                         dr.bot_id, 
                         dr.date, 
-                        dr.rank_position,
+                        dr.rank_score,
                         bm.ticker
                     FROM daily_rankings dr
                     LEFT JOIN bot_metrics bm ON dr.bot_id = bm.bot_id
                     WHERE dr.rn = 1
-                    ORDER BY dr.date, dr.rank_position
+                    ORDER BY dr.date, dr.rank_score DESC
                 """, days)
                 return rankings
         except Exception as e:
@@ -1246,10 +1246,10 @@ with tab_rankings:
                     
                     # Fallback: calculate a simple allocation based on rank position
                     rankings = await pool.fetch("""
-                        SELECT bot_id, rank as rank_position, rank_score, is_active
+                        SELECT bot_id, rank_score, is_active
                         FROM bot_rankings
                         WHERE is_active = true
-                        ORDER BY rank ASC;
+                        ORDER BY rank_score DESC;
                     """)
                     
                     if not rankings:
@@ -1264,7 +1264,7 @@ with tab_rankings:
                             'bot_id': row['bot_id'],
                             'allocation_amount': allocation,
                             'allocation_percentage': (allocation / total_funds) * 100,
-                            'rank': row['rank_position']
+                            'rank_score': row['rank_score']
                         })
                     
                     return allocations
@@ -1340,7 +1340,7 @@ with tab_rankings:
                     # Display rankings table
                     st.dataframe(
                         rankings_df[[
-                            'bot_id', 'ticker', 'rank_position', 'rank_score', 
+                            'bot_id', 'ticker', 'rank_score', 
                             'one_day_performance', 'avg_win_rate', 'profit_factor', 
                             'is_active', 'timestamp'
                         ]].style.format({
@@ -1397,7 +1397,7 @@ with tab_rankings:
                     
                     st.dataframe(
                         alloc_df_display[[
-                            'bot', 'allocation_amount', 'allocation_percentage', 'rank'
+                            'bot', 'allocation_amount', 'allocation_percentage', 'rank_score'
                         ]].style.format({
                             'allocation_amount': '${:.2f}',
                             'allocation_percentage': '{:.2f}%'
@@ -1487,23 +1487,17 @@ with tab_rankings:
                     
                     fig.add_trace(go.Scatter(
                         x=bot_data['date'],
-                        y=bot_data['rank_position'],
+                        y=bot_data['rank_score'],
                         mode='lines+markers',
                         name=f"Bot {bot_id} - {ticker}",
-                        hovertemplate='Date: %{x}<br>Rank: %{y}'
+                        hovertemplate='Date: %{x}<br>Score: %{y}'
                     ))
                 
-                # Invert y-axis so rank 1 is at the top
+                # Do NOT invert y-axis since higher rank_score is better
                 fig.update_layout(
-                    title='Bot Ranking History',
+                    title='Bot Ranking Score History',
                     xaxis_title='Date',
-                    yaxis_title='Rank Position',
-                    yaxis=dict(
-                        autorange="reversed",
-                        tickmode='linear',
-                        tick0=1,
-                        dtick=1
-                    ),
+                    yaxis_title='Rank Score',
                     hovermode='closest',
                     height=500
                 )
@@ -1512,7 +1506,7 @@ with tab_rankings:
                 # Heat map visualization of rankings over time
                 if len(hist_df['date'].unique()) > 1:
                     # Pivot the data for the heatmap
-                    pivot_df = hist_df.pivot(index='bot_id', columns='date', values='rank_position')
+                    pivot_df = hist_df.pivot(index='bot_id', columns='date', values='rank_score')
                     
                     # Replace bot_id with bot_id - ticker
                     bot_labels = []
@@ -1758,7 +1752,7 @@ with tab_rankings:
                         # Get all fields from the bot_rankings table
                         rankings = await pool.fetch("""
                             SELECT * FROM bot_rankings
-                            ORDER BY rank_position ASC, timestamp DESC;
+                            ORDER BY rank_score DESC, timestamp DESC;
                         """)
                         return rankings
                 except Exception as e:

@@ -236,7 +236,7 @@ class BotRanker:
         """
         Update the bot_rankings table with the latest rankings.
         
-        This method stores both the rank score and position (rank number) for each bot 
+        This method stores the rank score for each bot 
         in the database for record-keeping and decision-making.
         
         Args:
@@ -250,7 +250,6 @@ class BotRanker:
                         ranking_id SERIAL PRIMARY KEY,
                         bot_id INTEGER NOT NULL,
                         rank_score DECIMAL(10,2) NOT NULL,
-                        rank_position INTEGER NOT NULL,
                         timestamp TIMESTAMP DEFAULT NOW(),
                         is_active BOOLEAN DEFAULT true,
                         UNIQUE(bot_id)
@@ -260,14 +259,13 @@ class BotRanker:
                 # Update rankings for each bot
                 for bot in ranked_bots:
                     await connection.execute("""
-                        INSERT INTO bot_rankings (bot_id, rank_score, rank_position, timestamp)
-                        VALUES ($1, $2, $3, NOW())
+                        INSERT INTO bot_rankings (bot_id, rank_score, timestamp)
+                        VALUES ($1, $2, NOW())
                         ON CONFLICT (bot_id) 
                         DO UPDATE SET 
                             rank_score = $2,
-                            rank_position = $3,
                             timestamp = NOW()
-                    """, bot['bot_id'], bot['rank_score'], bot['rank'])
+                    """, bot['bot_id'], bot['rank_score'])
                 
                 # Also update the bot_metrics table with the current rank
                 for bot in ranked_bots:
@@ -305,7 +303,7 @@ class BotRanker:
                 active_bots = await connection.fetch("""
                     SELECT bot_id FROM bot_rankings
                     WHERE is_active = true
-                    ORDER BY rank_position ASC
+                    ORDER BY rank_score DESC
                 """)
                 
                 active_bot_ids = [row['bot_id'] for row in active_bots]
