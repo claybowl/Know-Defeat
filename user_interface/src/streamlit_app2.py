@@ -19,8 +19,12 @@ from plotly.subplots import make_subplots
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from weights_management_ui import WeightsManagementUI
 
-# Set page config
-st.set_page_config(page_title="Trading System Dashboard", layout="wide")
+# Set page config with a cool style
+st.set_page_config(
+    page_title="Know Defeat",
+    page_icon=":chart_with_upwards_trend:",
+    layout="wide"
+)
 
 # Initialize session state variables at the start of the app
 if 'bot_processes' not in st.session_state:
@@ -58,7 +62,48 @@ if 'risk_per_trade' not in st.session_state:
 if 'logs' not in st.session_state:
     st.session_state.logs = []
 
-st.title("Trading System Dashboard")
+st.title("Know Defeat Trading System by Curve Ai Solutions")
+
+
+################################################################################################################################
+
+# Add Dev Blog section immediately after the title and before the tabs
+with st.expander("📝 Development Blog", expanded=True):
+    st.markdown("""
+## Development Updates
+
+This space contains the latest development updates for partners. Check back regularly for new information on features, improvements, and upcoming changes.
+
+### Latest Updates - March 1, 2025
+
+#### Weekly Progress Summary
+We've made significant progress on the Know Defeat Trading System this week, completing several high-priority tasks:
+
+- ✅ **Weighted Ranking System** - Implemented the dynamic variable weighting system that allows the algorithm to adjust importance of different metrics based on market conditions
+- ✅ **Fund Allocation Logic** - Completed the mechanism for distributing funds to trading bots based on their performance ranking
+- ✅ **Visual Representation of Weights** - Added visualization components to the dashboard for better understanding of how weights impact bot ranking
+- ✅ **Bot Metrics Representation** - Fixed issues with how bot_metrics are displayed in the user interface, improving readability
+- ✅ **Dynamic bot_metric Table** - Finalized the schema for storing performance metrics with all specified variables
+
+#### Database Improvements
+- Standardized the bot_metrics table with consistent decimal precision (DECIMAL(4,1)) for all percentage metrics
+- Implemented the variable_weights table to store dynamic weights for different performance indicators
+- Created the calculate_bot_rank() function to determine bot rankings based on weighted metrics
+- Added time-based performance tracking (1hr, 2hr, 1day, 1week, 1month)
+
+#### Next Steps
+- Complete standardization of bot configuration parameters
+- Begin implementation of the Probability Engine for calculating success probabilities
+- Prepare for performance testing with increased calculation load (100x)
+- Explore NVIDIA Jetson hardware options for scaling computation
+
+---
+
+*Database and infrastructure are operational with initial testing showing promising results. The system can now store tick-level data, track bot metrics, and dynamically rank trading algorithms.*
+    """)
+
+################################################################################################################################
+
 
 # Database connection parameters
 DB_CONFIG = {
