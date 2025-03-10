@@ -1,0 +1,25 @@
+name: NVDA Short Minute Momentum
+description: Minute-based momentum short strategy for NVIDIA stock
+version: 1.0
+
+# Bot Identification (Persistent IDs)
+bot_id: 14  # Permanent unique bot ID for database tracking
+algo_id: 2  # Algorithm identifier
+ticker: NVDA
+trade_direction: SHORT
+
+# Trading Parameters
+position_size: 2000.00  # Position size in USD
+trailing_stop_pct: 0.0025  # 0.25% trailing stop
+
+# Algorithm Module (points to Python implementation)
+algorithm_module: "algorithms.minute_momentum_algorithm"  # Python module with custom entry/exit logic
+
+# Algorithm Parameters (passed to the algorithm module)
+parameters:
+  lookback_minutes: 4  # Compare current minute to price 4 minutes ago
+  momentum_threshold: 0.0035  # 0.35% minimum price decrease per minute
+  confirmation_minutes: 2  # Confirm trend over the last 2 minutes
+  use_volume: true  # Consider volume in decision making
+  min_bars: 4  # Need at least 4 minute bars to make a decision
+  max_spread_pct: 0.0007  # Maximum bid-ask spread as percentage (0.07%) 

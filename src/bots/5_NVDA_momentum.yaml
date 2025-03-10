@@ -1,11 +1,11 @@
-name: COIN Long Momentum
-description: Momentum-based long strategy for Coinbase stock
+name: NVDA Long Momentum
+description: Momentum-based long strategy for Nvidia stock
 version: 1.0
 
 # Bot Identification (Persistent IDs)
 bot_id: 5  # Permanent unique bot ID for database tracking
-algo_id: 2  # Algorithm identifier
-ticker: COIN
+algo_id: 1  # Algorithm identifier
+ticker: NVDA
 trade_direction: LONG
 
 # Trading Parameters
@@ -16,9 +16,9 @@ trailing_stop_pct: 0.002  # 0.2% trailing stop
 algorithm_module: "algorithms.momentum_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
-# parameters:
-#   lookback_seconds: 60
-#   momentum_threshold: 0.001  # 0.1% minimum price increase
-#   confirmation_seconds: 15
-#   use_volume: false
-#   min_bars: 2
+parameters:
+  lookback_seconds: 60
+  momentum_threshold: 0.001  # 0.1% minimum price increase
+  confirmation_seconds: 15
+  use_volume: false
+  min_bars: 2
