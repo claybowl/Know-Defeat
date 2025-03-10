@@ -368,16 +368,104 @@ class BotRanker:
             return []
 
     async def toggle_bot_active_status(self, bot_id, is_active):
-        """Toggle a bot's active status for trading."""
+        """
+        Toggle a bot's active status in the rankings.
+        
+        Args:
+            bot_id: ID of the bot to toggle
+            is_active: New status (True for active, False for inactive)
+        
+        Returns:
+            Boolean indicating success
+        """
         try:
             async with self.db_pool.acquire() as connection:
                 await connection.execute("""
                     UPDATE bot_rankings
-                    SET is_active = $2
-                    WHERE bot_id = $1
-                """, bot_id, is_active)
+                    SET is_active = $1
+                    WHERE bot_id = $2
+                """, is_active, bot_id)
                 
                 return True
         except Exception as e:
             self.logger.error(f"Error toggling bot active status: {e}")
             return False
+            
+    async def get_top10_fund_allocation(self, amount_per_bot=2000):
+        """
+        Allocate funds to the top 10 ranked bots.
+        
+        This method implements a simple allocation strategy:
+        - Only the top 10 ranked bots get funds
+        - Each bot in the top 10 gets the same fixed amount
+        - Bots ranked below 10 get zero funds
+        
+        Args:
+            amount_per_bot: Fixed amount to allocate to each top bot (default: $2000)
+            
+        Returns:
+            List of dicts with bot_id, ticker, rank, rank_score, allocation_amount
+        """
+        try:
+            # Get ranked bots
+            ranked_bots = await self.rank_bots()
+            if not ranked_bots:
+                return []
+            
+            # Get active bots only
+            async with self.db_pool.acquire() as connection:
+                active_bots = await connection.fetch("""
+                    SELECT bot_id FROM bot_rankings
+                    WHERE is_active = true
+                    ORDER BY rank_score DESC
+                """)
+                
+                active_bot_ids = [row['bot_id'] for row in active_bots]
+            
+            # Filter to only active bots and sort by rank
+            ranked_active_bots = [bot for bot in ranked_bots if bot['bot_id'] in active_bot_ids]
+            ranked_active_bots.sort(key=lambda x: x['rank_score'], reverse=True)
+            
+            # Select top 10 bots (or fewer if less than 10 are available)
+            top_bots = ranked_active_bots[:10]
+            
+            # Calculate allocations - fixed amount for top 10, zero for others
+            allocations = []
+            
+            # Add top bots with allocation
+            for bot in top_bots:
+                allocations.append({
+                    'bot_id': bot['bot_id'],
+                    'ticker': bot['ticker'],
+                    'rank_score': bot['rank_score'],
+                    'rank': bot['rank'],
+                    'allocation_amount': amount_per_bot,
+                    'allocation_percentage': 10.0,  # 10% each if exactly 10 bots
+                    'top_10': True
+                })
+            
+            # Add remaining active bots with zero allocation
+            for bot in ranked_active_bots[10:]:
+                allocations.append({
+                    'bot_id': bot['bot_id'],
+                    'ticker': bot['ticker'],
+                    'rank_score': bot['rank_score'],
+                    'rank': bot['rank'],
+                    'allocation_amount': 0,
+                    'allocation_percentage': 0,
+                    'top_10': False
+                })
+            
+            # Calculate total allocated and adjust percentages if needed
+            total_allocated = len(top_bots) * amount_per_bot
+            total_percentage = 100.0
+            
+            # Update percentages based on actual allocation
+            for alloc in allocations:
+                if alloc['top_10']:
+                    alloc['allocation_percentage'] = (amount_per_bot / total_allocated) * 100.0
+            
+            return allocations
+        except Exception as e:
+            self.logger.error(f"Error calculating top 10 fund allocation: {e}")
+            return []

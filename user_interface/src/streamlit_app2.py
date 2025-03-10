@@ -70,36 +70,46 @@ st.title("Know Defeat Trading System by Curve Ai Solutions")
 # Add Dev Blog section immediately after the title and before the tabs
 with st.expander("📝 Development Blog", expanded=True):
     st.markdown("""
-## Development Updates
+    ## Development Updates
+    
+    This space contains the latest development updates for partners. Check back regularly for new information on features, improvements, and upcoming changes.
+    
+    ### Latest Updates
 
-This space contains the latest development updates for partners. Check back regularly for new information on features, improvements, and upcoming changes.
-
-### Latest Updates - March 1, 2025
-
-#### Weekly Progress Summary
-We've made significant progress on the Know Defeat Trading System this week, completing several high-priority tasks:
-
-- ✅ **Weighted Ranking System** - Implemented the dynamic variable weighting system that allows the algorithm to adjust importance of different metrics based on market conditions
-- ✅ **Fund Allocation Logic** - Completed the mechanism for distributing funds to trading bots based on their performance ranking
-- ✅ **Visual Representation of Weights** - Added visualization components to the dashboard for better understanding of how weights impact bot ranking
-- ✅ **Bot Metrics Representation** - Fixed issues with how bot_metrics are displayed in the user interface, improving readability
-- ✅ **Dynamic bot_metric Table** - Finalized the schema for storing performance metrics with all specified variables
-
-#### Database Improvements
-- Standardized the bot_metrics table with consistent decimal precision (DECIMAL(4,1)) for all percentage metrics
-- Implemented the variable_weights table to store dynamic weights for different performance indicators
-- Created the calculate_bot_rank() function to determine bot rankings based on weighted metrics
-- Added time-based performance tracking (1hr, 2hr, 1day, 1week, 1month)
-
-#### Next Steps
-- Complete standardization of bot configuration parameters
-- Begin implementation of the Probability Engine for calculating success probabilities
-- Prepare for performance testing with increased calculation load (100x)
-- Explore NVIDIA Jetson hardware options for scaling computation
-
----
-
-*Database and infrastructure are operational with initial testing showing promising results. The system can now store tick-level data, track bot metrics, and dynamically rank trading algorithms.*
+    #### March 7, 2025 - Interactive Brokers Integration
+    Added comprehensive IB account monitoring to the trading dashboard:
+    - Real-time account summary showing balances, P&L, and leverage
+    - Current positions tracking with performance metrics
+    - Historical account value tracking and visualization
+    - Automatic data storage in the database for long-term analysis
+    
+    #### March 5, 2025 - Top 10 Fund Allocation System
+    Implemented a dynamic fund allocation system based on bot rankings:
+    - Automatically allocates $2,000 to each bot in the top 10
+    - Removes funding from bots that fall out of the top 10
+    - Adds funding to bots that enter the top 10
+    - Provides visualization of allocation changes over time
+    - Includes a historical record of all allocation changes
+    
+    #### February 28, 2025 - Connection Pooling Optimization
+    Improved database connection management:
+    - Implemented connection pooling to reduce overhead
+    - Added database status monitoring tools
+    - Automated cleanup of idle connections
+    - Enhanced error handling for database operations
+    
+    #### February 20, 2025 - Bot Ranking System Launch
+    Launched the new bot ranking system:
+    - Automatic evaluation of bots based on multiple performance metrics
+    - Weight management for customizing the importance of different metrics
+    - Historical tracking of bot rankings over time
+    - Integration with the database for persistent storage
+    
+    _This area will be populated with development updates. Partners can refer to this section for the most recent changes and progress on the Know Defeat Trading System._
+    
+    ---
+    
+    *You can add new updates here in markdown format. Include dates, feature descriptions, bug fixes, and any other relevant development information.*
     """)
 
 ################################################################################################################################
@@ -470,8 +480,8 @@ async def save_logs_to_db(bot_name=None):
         return False
 
 # Create main sections using tabs
-tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_export = st.tabs([
-    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Bot Rankings", "Data Export"
+tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_account, tab_export = st.tabs([
+    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Bot Rankings", "Account Info", "Data Export"
 ])
 
 # Controls Section
@@ -2250,8 +2260,8 @@ with tab_rankings:
     st.header("Bot Rankings and Fund Allocation")
     
     # Create sub-tabs for different ranking views
-    rank_tab1, rank_tab2, rank_tab3, rank_tab4 = st.tabs([
-        "Current Rankings", "Historical Performance", "Weight Management", "Database Diagnostics"
+    rank_tab1, rank_tab2, rank_tab3, rank_tab4, rank_tab5 = st.tabs([
+        "Current Rankings", "Historical Performance", "Weight Management", "Database Diagnostics", "Automated Fund Management"
     ])
     
     # Function to fetch bot rankings
@@ -2463,51 +2473,128 @@ with tab_rankings:
             # Input for total funds
             total_funds = st.number_input("Total Funds ($)", min_value=1000, max_value=1000000, value=10000, step=1000)
             
+            # Add allocation mode selection
+            allocation_mode = st.radio(
+                "Allocation Method",
+                ["Proportional", "Top 10 Strategy"],
+                help="Choose 'Proportional' to allocate funds based on rank scores, or 'Top 10 Strategy' to give $2000 to each top 10 bot"
+            )
+            
             if st.button("Calculate Allocation"):
-                allocations = asyncio.run(fetch_fund_allocation(total_funds))
-                if allocations:
-                    # Convert to DataFrame
-                    alloc_df = pd.DataFrame(allocations)
+                if allocation_mode == "Proportional":
+                    # Use existing proportional allocation
+                    allocations = asyncio.run(fetch_fund_allocation(total_funds))
+                else:
+                    # Use new Top 10 allocation
+                    # First check if we can import the BotRanker
+                    try:
+                        # Add the parent directory to the path to find the src module
+                        import sys
+                        import os
+                        # Get the current directory
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        # Go up two levels (from user_interface/src to the project root)
+                        project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+                        # Add to path if not already there
+                        if project_root not in sys.path:
+                            sys.path.insert(0, project_root)
+                        
+                        # Now import the BotRanker
+                        from src.bot_ranker import BotRanker
+                        
+                        # Create a DB pool
+                        pool = asyncio.run(create_db_pool(**DB_CONFIG))
+                        
+                        # Create a bot ranker instance and get top 10 allocation
+                        ranker = BotRanker(pool)
+                        allocations = asyncio.run(ranker.get_top10_fund_allocation(2000))
+                        
+                        # Close the pool when done
+                        asyncio.run(pool.close())
+                    except ImportError as e:
+                        st.error(f"Error importing BotRanker: {str(e)}")
+                        allocations = None
                     
-                    # Create pie chart of allocations
-                    fig = go.Figure(data=[go.Pie(
-                        labels=[f"Bot {row['bot_id']}" for i, row in alloc_df.iterrows()],
-                        values=alloc_df['allocation_amount'],
-                        textinfo='label+percent',
-                        hoverinfo='label+value+percent',
-                        marker=dict(
-                            # Define colors based on rank for visual differentiation
-                            colors=['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880']
-                        )
-                    )])
-                    
-                    fig.update_layout(
-                        title=f'Fund Allocation (${total_funds:,})',
-                        height=300
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Display allocation table
-                    alloc_df_display = alloc_df.copy()
-                    if 'ticker' in alloc_df_display.columns:
-                        alloc_df_display['bot'] = alloc_df_display.apply(
-                            lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1
+                    if allocations:
+                        # Convert to DataFrame
+                        alloc_df = pd.DataFrame(allocations)
+                        
+                        # Create visualization based on allocation method
+                        if allocation_mode == "Proportional":
+                            # Create pie chart of allocations for proportional allocation
+                            fig = go.Figure(data=[go.Pie(
+                                labels=[f"Bot {row['bot_id']}" for i, row in alloc_df.iterrows()],
+                                values=alloc_df['allocation_amount'],
+                                textinfo='label+percent',
+                                hoverinfo='label+value+percent',
+                                marker=dict(
+                                    # Define colors based on rank for visual differentiation
+                                    colors=['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880']
+                                )
+                            )])
+                            
+                            fig.update_layout(
+                                title=f'Proportional Fund Allocation (${total_funds:,})',
+                                height=300
+                            )
+                        else:
+                            # For Top 10 allocation, create a bar chart
+                            # Sort by rank first
+                            sorted_df = alloc_df.sort_values('rank')
+                            
+                            # Create labels with rank, bot ID and ticker where available
+                            labels = []
+                            for _, row in sorted_df.iterrows():
+                                if 'ticker' in row and row['ticker']:
+                                    label = f"Rank {row['rank']}: Bot {row['bot_id']} ({row['ticker']})"
+                                else:
+                                    label = f"Rank {row['rank']}: Bot {row['bot_id']}"
+                                labels.append(label)
+                            
+                            # Create a categorical color scale: green for top 10, gray for others
+                            colors = ['green' if row['top_10'] else 'lightgray' for _, row in sorted_df.iterrows()]
+                            
+                            fig = go.Figure(data=[go.Bar(
+                                x=labels,
+                                y=sorted_df['allocation_amount'],
+                                text=sorted_df['allocation_amount'].apply(lambda x: f"${x:,.2f}"),
+                                textposition='auto',
+                                marker_color=colors
+                            )])
+                            
+                            fig.update_layout(
+                                title=f'Top 10 Fund Allocation (${len(sorted_df[sorted_df["top_10"]]) * 2000:,})',
+                                xaxis_title='Bot',
+                                yaxis_title='Allocation Amount ($)',
+                                xaxis_tickangle=-45,
+                                height=400
+                            )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Display allocation table
+                        alloc_df_display = alloc_df.copy()
+                        if 'ticker' in alloc_df_display.columns:
+                            alloc_df_display['bot'] = alloc_df_display.apply(
+                                lambda x: f"Bot {x['bot_id']} - {x['ticker']}", axis=1
+                            )
+                        else:
+                            alloc_df_display['bot'] = alloc_df_display['bot_id'].apply(lambda x: f"Bot {x}")
+                        
+                        columns_to_display = ['bot', 'rank', 'allocation_amount', 'allocation_percentage', 'rank_score']
+                        if 'top_10' in alloc_df_display.columns:
+                            columns_to_display.append('top_10')
+                        
+                        st.dataframe(
+                            alloc_df_display[columns_to_display].style.format({
+                                'allocation_amount': lambda x: safe_format(x, '${:.2f}'),
+                                'allocation_percentage': lambda x: safe_format(x, '{:.2f}%'),
+                                'rank_score': lambda x: safe_format(x, '{:.2f}')
+                            }),
+                            use_container_width=True
                         )
                     else:
-                        alloc_df_display['bot'] = alloc_df_display['bot_id'].apply(lambda x: f"Bot {x}")
-                    
-                    st.dataframe(
-                        alloc_df_display[[
-                            'bot', 'allocation_amount', 'allocation_percentage', 'rank_score'
-                        ]].style.format({
-                            'allocation_amount': lambda x: safe_format(x, '${:.2f}'),
-                            'allocation_percentage': lambda x: safe_format(x, '{:.2f}%'),
-                            'rank_score': lambda x: safe_format(x, '{:.2f}')
-                        }),
-                        use_container_width=True
-                    )
-                else:
-                    st.info("No allocation data available. Please make sure the bot_rankings table exists and contains data.")
+                        st.info("No allocation data available. Please make sure the bot_rankings table exists and contains data.")
             
             # Toggle bot active status
             st.subheader("Bot Status Management")
@@ -3054,6 +3141,350 @@ with tab_rankings:
             
             st.dataframe(weights_df, use_container_width=True)
 
+    # New function to check and update bot funding status
+    async def check_and_update_bot_funding(check_interval_minutes=60):
+        """
+        Periodically check bot rankings and update fund allocations.
+        
+        This function:
+        1. Checks the current top 10 ranked bots
+        2. Allocates $2000 to each top 10 bot
+        3. Removes funding from bots that fall out of the top 10
+        4. Logs all fund allocation changes
+        5. Updates the database with the new allocations
+        
+        Args:
+            check_interval_minutes: How often to check rankings (in minutes)
+        
+        Returns:
+            Dictionary with update status and changes made
+        """
+        try:
+            # Import BotRanker
+            try:
+                # Add the parent directory to the path to find the src module
+                import sys
+                import os
+                # Get the current directory
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                # Go up two levels (from user_interface/src to the project root)
+                project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+                # Add to path if not already there
+                if project_root not in sys.path:
+                    sys.path.insert(0, project_root)
+                
+                # Now import the BotRanker
+                from src.bot_ranker import BotRanker
+            except ImportError as e:
+                return {"success": False, "error": f"Error importing BotRanker: {str(e)}"}
+            
+            # Create a new DB pool
+            pool = await create_db_pool(**DB_CONFIG)
+            
+            # Create a bot ranker instance
+            ranker = BotRanker(pool)
+            
+            # Get the top 10 allocation
+            allocations = await ranker.get_top10_fund_allocation(2000)
+            
+            # Check if table exists, create if not
+            table_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'bot_fund_allocations'
+                );
+            """)
+            
+            if not table_exists:
+                # Create the fund allocations table
+                await pool.execute("""
+                    CREATE TABLE bot_fund_allocations (
+                        allocation_id SERIAL PRIMARY KEY,
+                        bot_id INTEGER NOT NULL,
+                        allocation_amount NUMERIC(10, 2) NOT NULL,
+                        is_top_10 BOOLEAN NOT NULL,
+                        previous_amount NUMERIC(10, 2),
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        allocation_notes TEXT
+                    );
+                """)
+            
+            # Get current allocations from database
+            current_allocations = await pool.fetch("""
+                SELECT DISTINCT ON (bot_id) 
+                    bot_id, allocation_amount, is_top_10, timestamp 
+                FROM bot_fund_allocations
+                ORDER BY bot_id, timestamp DESC;
+            """)
+            
+            # Convert to dictionary for easy lookup
+            current_alloc_map = {row['bot_id']: dict(row) for row in current_allocations}
+            
+            # Prepare changes to record
+            changes = []
+            
+            # Update allocations in database
+            for bot in allocations:
+                bot_id = bot['bot_id']
+                amount = bot['allocation_amount']
+                is_top_10 = bot['top_10']
+                
+                # Check if this bot's allocation has changed
+                if bot_id in current_alloc_map:
+                    prev = current_alloc_map[bot_id]
+                    prev_amount = prev['allocation_amount']
+                    prev_top_10 = prev['is_top_10']
+                    
+                    # Record changes for bots entering or leaving top 10
+                    if prev_top_10 != is_top_10:
+                        note = ""
+                        if is_top_10 and not prev_top_10:
+                            note = f"Bot {bot_id} entered top 10, allocated ${amount}"
+                            changes.append(f"✅ {note}")
+                        elif not is_top_10 and prev_top_10:
+                            note = f"Bot {bot_id} fell out of top 10, funding removed"
+                            changes.append(f"❌ {note}")
+                        
+                        # Insert allocation change record
+                        await pool.execute("""
+                            INSERT INTO bot_fund_allocations 
+                                (bot_id, allocation_amount, is_top_10, previous_amount, allocation_notes)
+                            VALUES ($1, $2, $3, $4, $5)
+                        """, bot_id, amount, is_top_10, prev_amount, note)
+                else:
+                    # New bot, no previous allocation
+                    note = ""
+                    if is_top_10:
+                        note = f"Initial allocation for bot {bot_id}: ${amount}"
+                        changes.append(f"✅ {note}")
+                    else:
+                        note = f"Bot {bot_id} not in top 10, no funds allocated"
+                    
+                    # Insert new allocation record
+                    await pool.execute("""
+                        INSERT INTO bot_fund_allocations 
+                            (bot_id, allocation_amount, is_top_10, allocation_notes)
+                        VALUES ($1, $2, $3, $4)
+                    """, bot_id, amount, is_top_10, note)
+            
+            # Close the pool
+            await pool.close()
+            
+            # Create result object
+            result = {
+                "success": True,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "changes": changes,
+                "top_10_bots": [a for a in allocations if a['top_10']],
+                "total_allocated": sum(a['allocation_amount'] for a in allocations if a['top_10']),
+                "allocation_count": len([a for a in allocations if a['top_10']])
+            }
+            
+            return result
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # Function to fetch allocation history
+    async def fetch_allocation_history(limit=50):
+        """Fetch recent allocation changes from the database"""
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # Check if table exists
+                table_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'bot_fund_allocations'
+                    );
+                """)
+                
+                if not table_exists:
+                    return None
+                
+                # Fetch allocation history with bot information
+                history = await pool.fetch("""
+                    SELECT 
+                        a.allocation_id, a.bot_id, a.allocation_amount, a.is_top_10, 
+                        a.previous_amount, a.timestamp, a.allocation_notes,
+                        bm.ticker
+                    FROM bot_fund_allocations a
+                    LEFT JOIN (
+                        SELECT DISTINCT ON (bot_id) bot_id, ticker
+                        FROM bot_metrics
+                        ORDER BY bot_id, timestamp DESC
+                    ) bm ON a.bot_id = bm.bot_id
+                    ORDER BY a.timestamp DESC
+                    LIMIT $1
+                """, limit)
+                
+                return history
+        except Exception as e:
+            st.error(f"Error fetching allocation history: {str(e)}")
+            return None
+    
+    # Add content to rank_tab5 for automated fund management
+    with rank_tab5:
+        st.subheader("Automated Fund Management")
+        
+        st.markdown("""
+        This section provides automated management of fund allocations based on bot rankings.
+        The system periodically checks the current rankings and allocates funds as follows:
+        
+        - Each of the **top 10 ranked bots** is allocated **$2,000**
+        - Bots that fall out of the top 10 have their funds removed
+        - Bots that enter the top 10 are allocated $2,000
+        """)
+        
+        # Create columns for layout
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Show allocation history
+            st.subheader("Allocation History")
+            
+            history_limit = st.slider("Number of records to show", 10, 100, 30, 5)
+            
+            if st.button("View Allocation History"):
+                history = asyncio.run(fetch_allocation_history(history_limit))
+                if history:
+                    # Convert to DataFrame
+                    history_df = pd.DataFrame([dict(r) for r in history])
+                    
+                    # Format for display
+                    history_df['bot'] = history_df.apply(
+                        lambda x: f"Bot {x['bot_id']} ({x['ticker']})" if pd.notnull(x['ticker']) else f"Bot {x['bot_id']}",
+                        axis=1
+                    )
+                    
+                    # Add readable label for top 10 status
+                    history_df['status'] = history_df['is_top_10'].apply(
+                        lambda x: "✅ In Top 10" if x else "❌ Not in Top 10"
+                    )
+                    
+                    # Add change amount column
+                    history_df['change'] = history_df['allocation_amount'] - history_df['previous_amount']
+                    
+                    # Display the DataFrame
+                    st.dataframe(
+                        history_df[[
+                            'bot', 'timestamp', 'allocation_amount', 
+                            'previous_amount', 'change', 'status', 'allocation_notes'
+                        ]].style.format({
+                            'allocation_amount': lambda x: safe_format(x, '${:.2f}'),
+                            'previous_amount': lambda x: safe_format(x, '${:.2f}'),
+                            'change': lambda x: safe_format(x, '${:.2f}'),
+                            'timestamp': lambda x: safe_format(x, '{:%Y-%m-%d %H:%M:%S}')
+                        }),
+                        use_container_width=True
+                    )
+                    
+                    # Create a line chart showing allocation changes over time
+                    pivot_df = history_df.pivot_table(
+                        index='timestamp', 
+                        columns='bot', 
+                        values='allocation_amount',
+                        aggfunc='first'
+                    ).reset_index()
+                    
+                    if not pivot_df.empty and len(pivot_df.columns) > 1:
+                        fig = go.Figure()
+                        
+                        for col in pivot_df.columns:
+                            if col != 'timestamp':
+                                fig.add_trace(go.Scatter(
+                                    x=pivot_df['timestamp'],
+                                    y=pivot_df[col],
+                                    mode='lines+markers',
+                                    name=col
+                                ))
+                        
+                        fig.update_layout(
+                            title='Bot Allocation History',
+                            xaxis_title='Time',
+                            yaxis_title='Allocation Amount ($)',
+                            height=400
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No allocation history available yet.")
+        
+        with col2:
+            # Manual update control
+            st.subheader("Update Allocations")
+            
+            update_interval = st.number_input(
+                "Check Interval (minutes)",
+                min_value=1,
+                max_value=1440,  # Max 24 hours
+                value=60,
+                help="How often the system should check rankings and update allocations"
+            )
+            
+            if st.button("Update Fund Allocations Now"):
+                with st.spinner("Updating fund allocations..."):
+                    result = asyncio.run(check_and_update_bot_funding(update_interval))
+                
+                if result["success"]:
+                    st.success("Fund allocations updated successfully!")
+                    
+                    # Show summary of changes
+                    if result["changes"]:
+                        st.subheader("Changes Made:")
+                        for change in result["changes"]:
+                            st.write(change)
+                    else:
+                        st.info("No changes were needed to the allocations.")
+                    
+                    # Show totals
+                    st.metric(
+                        "Total Allocated",
+                        f"${result['total_allocated']:,.2f}",
+                        f"{result['allocation_count']} bots"
+                    )
+                else:
+                    st.error(f"Error updating allocations: {result.get('error', 'Unknown error')}")
+            
+            # Schedule automated updates
+            st.subheader("Automated Updates")
+            
+            # This would normally use a scheduled task, but for demo we'll show a placeholder
+            st.info("""
+            For production use, you should set up a scheduled task to call the 
+            `check_and_update_bot_funding()` function at your desired interval.
+            
+            In a production environment, this could be implemented with:
+            - A cron job on Linux/Unix systems
+            - Windows Task Scheduler
+            - A cloud function triggered on a schedule
+            - A dedicated scheduler within your application
+            """)
+                        
+            # Show current top 10
+            st.subheader("Current Top 10 Bots")
+            
+            # Get current top 10 allocations
+            current_top10 = asyncio.run(fetch_allocation_history(10))
+            if current_top10:
+                top10_df = pd.DataFrame([dict(r) for r in current_top10])
+                top10_df = top10_df[top10_df['is_top_10'] == True]
+                
+                if not top10_df.empty:
+                    # Format for display
+                    top10_df['bot'] = top10_df.apply(
+                        lambda x: f"Bot {x['bot_id']} ({x['ticker']})" if pd.notnull(x['ticker']) else f"Bot {x['bot_id']}",
+                        axis=1
+                    )
+                    
+                    st.dataframe(
+                        top10_df[['bot', 'allocation_amount']].style.format({
+                            'allocation_amount': lambda x: safe_format(x, '${:.2f}')
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No bots are currently in the top 10.")
+            else:
+                st.info("No allocation data available yet.")
+
 def trade_analysis():
     st.header("Trading Analytics Dashboard")
 
@@ -3419,3 +3850,859 @@ async def load_logs_from_db(bot_name=None, limit=1000):
     except Exception as e:
         st.error(f"Error loading logs from database: {e}")
         return {}
+
+# New function to fetch account details from Interactive Brokers
+async def fetch_ib_account_details():
+    """
+    Fetch account details from Interactive Brokers.
+    
+    Returns:
+        Dictionary with account summary data
+    """
+    try:
+        # Import IB API
+        import sys
+        import os
+        
+        # Get the current directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up two levels (from user_interface/src to the project root)
+        project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+        # Add to path if not already there
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        
+        try:
+            # Try to import the IB API module
+            from ibapi.client import EClient
+            from ibapi.wrapper import EWrapper
+            from ibapi.account_summary_tags import AccountSummaryTags
+            from ibapi.contract import Contract
+        except ImportError:
+            return {
+                "success": False,
+                "error": "IB API not found. Please make sure ibapi is installed.",
+                "sample_data": True  # Flag to use sample data
+            }
+        
+        # Create a simple IB API client to fetch account info
+        class AccountInfoClient(EWrapper, EClient):
+            def __init__(self):
+                EClient.__init__(self, self)
+                self.account_data = {}
+                self.positions = []
+                self.account_updates = []
+                self.request_id = 1
+                self.account_ready = False
+                self.positions_ready = False
+            
+            def accountSummary(self, reqId, account, tag, value, currency):
+                # Store account summary data
+                if account not in self.account_data:
+                    self.account_data[account] = {}
+                self.account_data[account][tag] = {
+                    "value": value,
+                    "currency": currency
+                }
+            
+            def accountSummaryEnd(self, reqId):
+                self.account_ready = True
+            
+            def position(self, account, contract, position, avgCost):
+                # Store position data
+                self.positions.append({
+                    "account": account,
+                    "symbol": contract.symbol,
+                    "exchange": contract.exchange,
+                    "position": position,
+                    "avgCost": avgCost
+                })
+            
+            def positionEnd(self):
+                self.positions_ready = True
+            
+            def updateAccountValue(self, key, value, currency, accountName):
+                # Store real-time account updates
+                self.account_updates.append({
+                    "key": key,
+                    "value": value,
+                    "currency": currency,
+                    "account": accountName,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        
+        # Connect to IB and fetch data
+        client = AccountInfoClient()
+        client.connect("127.0.0.1", 7496, 0)  # Default IB Gateway port
+        
+        # Use a separate thread to process IB messages
+        import threading
+        api_thread = threading.Thread(target=client.run)
+        api_thread.start()
+        
+        # Wait for connection
+        max_wait = 5  # seconds
+        wait_step = 0.1
+        total_wait = 0
+        
+        while not client.isConnected() and total_wait < max_wait:
+            time.sleep(wait_step)
+            total_wait += wait_step
+        
+        if not client.isConnected():
+            client.disconnect()
+            return {
+                "success": False,
+                "error": "Could not connect to IB Gateway. Make sure it's running.",
+                "sample_data": True  # Flag to use sample data
+            }
+        
+        # Request account summary
+        client.reqAccountSummary(client.request_id, "All", AccountSummaryTags.AllTags)
+        client.request_id += 1
+        
+        # Request positions
+        client.reqPositions()
+        
+        # Wait for data
+        max_wait = 10  # seconds
+        total_wait = 0
+        
+        while (not client.account_ready or not client.positions_ready) and total_wait < max_wait:
+            time.sleep(wait_step)
+            total_wait += wait_step
+        
+        # Disconnect from IB
+        client.disconnect()
+        
+        # Format the response
+        result = {
+            "success": True,
+            "account_data": client.account_data,
+            "positions": client.positions,
+            "account_updates": client.account_updates,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "sample_data": True  # Flag to use sample data
+        }
+
+# Function to get sample account data when IB connection fails
+def get_sample_account_data():
+    """Provide sample account data for UI testing when IB connection is unavailable"""
+    return {
+        "account_data": {
+            "DU12345": {
+                "NetLiquidation": {"value": "52430.75", "currency": "USD"},
+                "TotalCashValue": {"value": "15670.22", "currency": "USD"},
+                "SettledCash": {"value": "15670.22", "currency": "USD"},
+                "AccruedCash": {"value": "0.00", "currency": "USD"},
+                "BuyingPower": {"value": "104861.50", "currency": "USD"},
+                "EquityWithLoanValue": {"value": "52430.75", "currency": "USD"},
+                "PreviousDayEquityWithLoanValue": {"value": "51982.50", "currency": "USD"},
+                "GrossPositionValue": {"value": "36760.53", "currency": "USD"},
+                "RegTEquity": {"value": "15670.22", "currency": "USD"},
+                "RegTMargin": {"value": "18380.27", "currency": "USD"},
+                "UnrealizedPnL": {"value": "1245.30", "currency": "USD"},
+                "RealizedPnL": {"value": "450.75", "currency": "USD"},
+                "ExchangeRate": {"value": "1.00", "currency": "USD"},
+                "FundValue": {"value": "0.00", "currency": "USD"},
+                "FullInitMarginReq": {"value": "7352.11", "currency": "USD"},
+                "FullMaintMarginReq": {"value": "5881.68", "currency": "USD"},
+                "FullAvailableFunds": {"value": "45078.64", "currency": "USD"},
+                "DayTradesRemaining": {"value": "3", "currency": "USD"},
+                "Leverage": {"value": "0.70", "currency": "USD"},
+                "EquityPercentage": {"value": "100.00", "currency": "USD"}
+            }
+        },
+        "positions": [
+            {
+                "account": "DU12345",
+                "symbol": "COIN",
+                "exchange": "NASDAQ",
+                "position": 25,
+                "avgCost": 175.25
+            },
+            {
+                "account": "DU12345",
+                "symbol": "TSLA",
+                "exchange": "NASDAQ",
+                "position": 15,
+                "avgCost": 880.42
+            },
+            {
+                "account": "DU12345",
+                "symbol": "AAPL",
+                "exchange": "NASDAQ",
+                "position": 30,
+                "avgCost": 145.70
+            },
+            {
+                "account": "DU12345",
+                "symbol": "SPY",
+                "exchange": "ARCA",
+                "position": -5,
+                "avgCost": 420.35
+            }
+        ],
+        "account_updates": [
+            {
+                "key": "NetLiquidation",
+                "value": "52430.75",
+                "currency": "USD",
+                "account": "DU12345",
+                "timestamp": (datetime.now() - timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+            },
+            {
+                "key": "NetLiquidation",
+                "value": "52385.25", 
+                "currency": "USD",
+                "account": "DU12345",
+                "timestamp": (datetime.now() - timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+            },
+            {
+                "key": "NetLiquidation",
+                "value": "52415.50",
+                "currency": "USD",
+                "account": "DU12345",
+                "timestamp": (datetime.now() - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+            }
+        ],
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+# Function to store account history in the database
+async def store_account_history(account_data):
+    """
+    Store account snapshot in the database for historical tracking
+    
+    Args:
+        account_data: Dictionary containing account information
+    """
+    try:
+        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+            # Check if table exists
+            table_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'account_history'
+                );
+            """)
+            
+            if not table_exists:
+                # Create the account history table
+                await pool.execute("""
+                    CREATE TABLE account_history (
+                        history_id SERIAL PRIMARY KEY,
+                        account_id TEXT NOT NULL,
+                        net_liquidation NUMERIC(15, 2),
+                        total_cash NUMERIC(15, 2),
+                        buying_power NUMERIC(15, 2),
+                        equity_with_loan NUMERIC(15, 2),
+                        unrealized_pnl NUMERIC(15, 2),
+                        realized_pnl NUMERIC(15, 2),
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+            
+            # Extract account data
+            for account_id, details in account_data.get("account_data", {}).items():
+                # Store account snapshot
+                await pool.execute("""
+                    INSERT INTO account_history 
+                        (account_id, net_liquidation, total_cash, buying_power, 
+                        equity_with_loan, unrealized_pnl, realized_pnl)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """, 
+                    account_id,
+                    float(details.get("NetLiquidation", {}).get("value", 0)),
+                    float(details.get("TotalCashValue", {}).get("value", 0)),
+                    float(details.get("BuyingPower", {}).get("value", 0)),
+                    float(details.get("EquityWithLoanValue", {}).get("value", 0)),
+                    float(details.get("UnrealizedPnL", {}).get("value", 0)),
+                    float(details.get("RealizedPnL", {}).get("value", 0))
+                )
+                
+            return True
+    except Exception as e:
+        st.error(f"Error storing account history: {str(e)}")
+        return False
+
+# Function to fetch account history
+async def fetch_account_history(days=30):
+    """
+    Fetch account history from the database
+    
+    Args:
+        days: Number of days of history to fetch
+        
+    Returns:
+        List of account history records
+    """
+    try:
+        async with asyncpg.create_pool(**DB_CONFIG) as pool:
+            # Check if table exists
+            table_exists = await pool.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'account_history'
+                );
+            """)
+            
+            if not table_exists:
+                return None
+            
+            # Fetch account history
+            history = await pool.fetch("""
+                SELECT * FROM account_history
+                WHERE timestamp >= CURRENT_DATE - INTERVAL '$1 days'
+                ORDER BY timestamp
+            """, days)
+            
+            return history
+    except Exception as e:
+        st.error(f"Error fetching account history: {str(e)}")
+        return None
+
+# Account Information Tab
+with tab_account:
+    st.header("Interactive Brokers Account Information")
+    
+    st.markdown("""
+    This section displays real-time information from your Interactive Brokers account.
+    The data includes account balances, positions, and historical account value.
+    """)
+    
+    # Create tabs for different account views
+    acc_tab1, acc_tab2, acc_tab3 = st.tabs([
+        "Account Summary", "Positions", "Account History"
+    ])
+    
+    # Get and store account data
+    if st.button("Refresh Account Data", key="refresh_account"):
+        with st.spinner("Fetching account data from Interactive Brokers..."):
+            account_result = asyncio.run(fetch_ib_account_details())
+            
+            # If we got real data (not an error), store it in the database
+            if account_result.get("success", False) and not account_result.get("sample_data", False):
+                asyncio.run(store_account_history(account_result))
+                st.success("Account data refreshed successfully!")
+            else:
+                if account_result.get("sample_data", False):
+                    st.warning("Using sample data. Could not connect to Interactive Brokers.")
+                    st.info(f"Error: {account_result.get('error', 'Unknown error')}")
+                    # Use sample data for UI demonstration
+                    account_result = get_sample_account_data()
+                else:
+                    st.error(f"Error fetching account data: {account_result.get('error', 'Unknown error')}")
+        
+            # Store in session state for tab access
+            st.session_state.account_data = account_result
+    
+    # Check if we have account data in session state
+    if 'account_data' not in st.session_state:
+        st.info("Click 'Refresh Account Data' to load account information.")
+        account_result = get_sample_account_data()  # Use sample data initially
+        st.session_state.account_data = account_result
+    
+    # Account Summary Tab
+    with acc_tab1:
+        st.subheader("Account Summary")
+        
+        if 'account_data' in st.session_state:
+            account_data = st.session_state.account_data.get("account_data", {})
+            
+            if account_data:
+                # Create columns for each account (typically just one account)
+                for account_id, details in account_data.items():
+                    st.write(f"### Account: {account_id}")
+                    
+                    # Create a clean dataframe from the account details
+                    summary_data = []
+                    for tag, values in details.items():
+                        summary_data.append({
+                            "Metric": tag,
+                            "Value": values.get("value", ""),
+                            "Currency": values.get("currency", "")
+                        })
+                    
+                    # Convert to DataFrame and display
+                    summary_df = pd.DataFrame(summary_data)
+                    
+                    # Custom order of important metrics
+                    important_metrics = [
+                        "NetLiquidation", "TotalCashValue", "BuyingPower", 
+                        "UnrealizedPnL", "RealizedPnL", "EquityWithLoanValue",
+                        "GrossPositionValue"
+                    ]
+                    
+                    # Sort the dataframe to show important metrics first
+                    summary_df['Sort'] = summary_df['Metric'].apply(
+                        lambda x: important_metrics.index(x) if x in important_metrics else 999
+                    )
+                    summary_df = summary_df.sort_values('Sort').drop('Sort', axis=1)
+                    
+                    # Display key metrics as big numbers in columns
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        net_liq = details.get("NetLiquidation", {}).get("value", "0")
+                        prev_equity = details.get("PreviousDayEquityWithLoanValue", {}).get("value", "0")
+                        try:
+                            delta = float(net_liq) - float(prev_equity)
+                            delta_pct = (delta / float(prev_equity)) * 100 if float(prev_equity) != 0 else 0
+                            st.metric(
+                                "Net Liquidation Value", 
+                                f"${float(net_liq):,.2f}", 
+                                f"{delta_pct:+.2f}% from previous day"
+                            )
+                        except (ValueError, TypeError):
+                            st.metric("Net Liquidation Value", f"${net_liq}")
+                            
+                    with col2:
+                        cash = details.get("TotalCashValue", {}).get("value", "0")
+                        st.metric("Total Cash Value", f"${float(cash):,.2f}")
+                        
+                    with col3:
+                        bp = details.get("BuyingPower", {}).get("value", "0")
+                        st.metric("Buying Power", f"${float(bp):,.2f}")
+                    
+                    # Second row of metrics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        unrealized = details.get("UnrealizedPnL", {}).get("value", "0")
+                        st.metric("Unrealized P&L", f"${float(unrealized):,.2f}")
+                        
+                    with col2:
+                        realized = details.get("RealizedPnL", {}).get("value", "0")
+                        st.metric("Realized P&L", f"${float(realized):,.2f}")
+                        
+                    with col3:
+                        leverage = details.get("Leverage", {}).get("value", "0")
+                        st.metric("Account Leverage", f"{float(leverage):,.2f}x")
+                    
+                    # Full account details in a table
+                    with st.expander("Show all account details", expanded=False):
+                        st.dataframe(summary_df, use_container_width=True)
+                    
+                    # Create gauge charts for key metrics
+                    st.subheader("Key Metrics Visualization")
+                    
+                    # Leverage gauge
+                    try:
+                        leverage_val = float(details.get("Leverage", {}).get("value", "0"))
+                        
+                        fig = go.Figure(go.Indicator(
+                            mode="gauge+number",
+                            value=leverage_val,
+                            title={"text": "Account Leverage"},
+                            gauge={
+                                "axis": {"range": [0, 3]},
+                                "steps": [
+                                    {"range": [0, 1], "color": "lightgreen"},
+                                    {"range": [1, 2], "color": "orange"},
+                                    {"range": [2, 3], "color": "red"}
+                                ],
+                                "threshold": {
+                                    "line": {"color": "red", "width": 4},
+                                    "thickness": 0.75,
+                                    "value": leverage_val
+                                }
+                            }
+                        ))
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    except (ValueError, TypeError):
+                        st.warning("Could not render leverage gauge with current data.")
+                    
+                    # P&L chart (Unrealized vs Realized)
+                    try:
+                        unrealized_val = float(details.get("UnrealizedPnL", {}).get("value", "0"))
+                        realized_val = float(details.get("RealizedPnL", {}).get("value", "0"))
+                        
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            x=["Unrealized P&L", "Realized P&L"],
+                            y=[unrealized_val, realized_val],
+                            marker_color=["lightblue", "darkblue"],
+                            text=[f"${unrealized_val:,.2f}", f"${realized_val:,.2f}"],
+                            textposition="auto"
+                        ))
+                        
+                        fig.update_layout(
+                            title="Profit & Loss Breakdown",
+                            xaxis_title="P&L Type",
+                            yaxis_title="Amount ($)"
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    except (ValueError, TypeError):
+                        st.warning("Could not render P&L chart with current data.")
+            else:
+                st.info("No account data available. Please refresh.")
+        else:
+            st.info("No account data available. Please refresh.")
+    
+    # Positions Tab
+    with acc_tab2:
+        st.subheader("Current Positions")
+        
+        if 'account_data' in st.session_state:
+            positions = st.session_state.account_data.get("positions", [])
+            
+            if positions:
+                # Convert to DataFrame
+                pos_df = pd.DataFrame(positions)
+                
+                # Calculate current value (will be estimated if using sample data)
+                pos_df['currentPrice'] = pos_df.apply(
+                    lambda row: row['avgCost'] * (1 + (0.05 * np.random.randn())), axis=1
+                )
+                pos_df['marketValue'] = pos_df['position'] * pos_df['currentPrice']
+                pos_df['costBasis'] = pos_df['position'] * pos_df['avgCost']
+                pos_df['unrealizedPnL'] = pos_df['marketValue'] - pos_df['costBasis']
+                pos_df['unrealizedPnLPct'] = (pos_df['unrealizedPnL'] / pos_df['costBasis']) * 100
+                
+                # Position type (long/short)
+                pos_df['positionType'] = pos_df['position'].apply(
+                    lambda x: "LONG" if x > 0 else "SHORT" if x < 0 else "NONE"
+                )
+                
+                # Display positions
+                st.dataframe(
+                    pos_df[[
+                        'symbol', 'exchange', 'position', 'positionType', 'avgCost', 
+                        'currentPrice', 'marketValue', 'unrealizedPnL', 'unrealizedPnLPct'
+                    ]].style.format({
+                        'avgCost': '${:.2f}',
+                        'currentPrice': '${:.2f}',
+                        'marketValue': '${:.2f}',
+                        'unrealizedPnL': '${:.2f}',
+                        'unrealizedPnLPct': '{:.2f}%'
+                    }).applymap(
+                        lambda val: 'color: green' if val > 0 else 'color: red' if val < 0 else '',
+                        subset=['unrealizedPnL', 'unrealizedPnLPct']
+                    ),
+                    use_container_width=True
+                )
+                
+                # Create visualization of positions
+                st.subheader("Position Visualization")
+                
+                # Market value by symbol
+                fig = go.Figure()
+                
+                for i, row in pos_df.iterrows():
+                    color = "green" if row['positionType'] == "LONG" else "red"
+                    
+                    fig.add_trace(go.Bar(
+                        x=[row['symbol']],
+                        y=[abs(row['marketValue'])],
+                        name=f"{row['symbol']} ({row['positionType']})",
+                        marker_color=color,
+                        text=f"${abs(row['marketValue']):,.2f}",
+                        textposition="auto"
+                    ))
+                
+                fig.update_layout(
+                    title="Position Size by Symbol",
+                    xaxis_title="Symbol",
+                    yaxis_title="Market Value ($)",
+                    showlegend=True
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # P&L by position
+                pos_df_sorted = pos_df.sort_values('unrealizedPnL', ascending=False)
+                
+                # Create a bar chart colored by P&L
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    x=pos_df_sorted['symbol'],
+                    y=pos_df_sorted['unrealizedPnL'],
+                    marker_color=pos_df_sorted['unrealizedPnL'].apply(
+                        lambda x: 'green' if x > 0 else 'red'
+                    ),
+                    text=pos_df_sorted['unrealizedPnL'].apply(lambda x: f"${x:,.2f}"),
+                    textposition="auto"
+                ))
+                
+                fig.update_layout(
+                    title="Unrealized P&L by Position",
+                    xaxis_title="Symbol",
+                    yaxis_title="Unrealized P&L ($)"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Pie chart of portfolio allocation
+                fig = go.Figure(data=[go.Pie(
+                    labels=pos_df['symbol'],
+                    values=pos_df['marketValue'].abs(),
+                    textinfo='label+percent',
+                    hoverinfo='label+value+percent'
+                )])
+                
+                fig.update_layout(
+                    title="Portfolio Allocation by Symbol"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No position data available. Please refresh.")
+        else:
+            st.info("No position data available. Please refresh.")
+    
+    # Account History Tab
+    with acc_tab3:
+        st.subheader("Account History")
+        
+        # Get duration for history view
+        history_days = st.slider("Number of days to display", 1, 90, 30)
+        
+        if st.button("Fetch Account History"):
+            with st.spinner("Fetching account history..."):
+                history = asyncio.run(fetch_account_history(history_days))
+                
+                if history:
+                    # Convert to DataFrame
+                    history_df = pd.DataFrame([dict(r) for r in history])
+                    
+                    # Display history
+                    st.dataframe(
+                        history_df[[
+                            'timestamp', 'account_id', 'net_liquidation', 'total_cash',
+                            'buying_power', 'unrealized_pnl', 'realized_pnl'
+                        ]].style.format({
+                            'net_liquidation': '${:,.2f}',
+                            'total_cash': '${:,.2f}',
+                            'buying_power': '${:,.2f}',
+                            'unrealized_pnl': '${:,.2f}',
+                            'realized_pnl': '${:,.2f}',
+                            'timestamp': '{:%Y-%m-%d %H:%M:%S}'
+                        }),
+                        use_container_width=True
+                    )
+                    
+                    # Create account value chart
+                    st.subheader("Account Value History")
+                    
+                    # Line chart of account value over time
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Scatter(
+                        x=history_df['timestamp'],
+                        y=history_df['net_liquidation'],
+                        mode='lines+markers',
+                        name='Net Liquidation Value',
+                        line=dict(color='blue', width=2)
+                    ))
+                    
+                    # Add total cash as a second line
+                    fig.add_trace(go.Scatter(
+                        x=history_df['timestamp'],
+                        y=history_df['total_cash'],
+                        mode='lines',
+                        name='Total Cash',
+                        line=dict(color='green', width=1.5, dash='dash')
+                    ))
+                    
+                    fig.update_layout(
+                        title='Account Value History',
+                        xaxis_title='Date',
+                        yaxis_title='Value ($)',
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Create P&L history chart
+                    st.subheader("P&L History")
+                    
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Scatter(
+                        x=history_df['timestamp'],
+                        y=history_df['unrealized_pnl'],
+                        mode='lines',
+                        name='Unrealized P&L',
+                        line=dict(color='orange', width=1.5)
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=history_df['timestamp'],
+                        y=history_df['realized_pnl'],
+                        mode='lines',
+                        name='Realized P&L',
+                        line=dict(color='blue', width=1.5)
+                    ))
+                    
+                    # Add a zero line for reference
+                    fig.add_shape(
+                        type="line",
+                        xref="paper",
+                        yref="y",
+                        x0=0,
+                        y0=0,
+                        x1=1,
+                        y1=0,
+                        line=dict(color="gray", width=1, dash="dash")
+                    )
+                    
+                    fig.update_layout(
+                        title='Profit & Loss History',
+                        xaxis_title='Date',
+                        yaxis_title='P&L ($)',
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display daily changes
+                    st.subheader("Daily Account Changes")
+                    
+                    # Calculate daily changes
+                    history_df['date'] = history_df['timestamp'].dt.date
+                    
+                    # Group by date and get first and last value for each day
+                    daily_df = history_df.groupby('date').agg({
+                        'net_liquidation': ['first', 'last'],
+                        'unrealized_pnl': ['first', 'last'],
+                        'realized_pnl': ['first', 'last']
+                    }).reset_index()
+                    
+                    # Flatten multi-level columns
+                    daily_df.columns = ['_'.join(col).strip('_') for col in daily_df.columns.values]
+                    
+                    # Calculate changes
+                    daily_df['net_change'] = daily_df['net_liquidation_last'] - daily_df['net_liquidation_first']
+                    daily_df['net_change_pct'] = (daily_df['net_change'] / daily_df['net_liquidation_first']) * 100
+                    daily_df['unrealized_change'] = daily_df['unrealized_pnl_last'] - daily_df['unrealized_pnl_first']
+                    daily_df['realized_change'] = daily_df['realized_pnl_last'] - daily_df['realized_pnl_first']
+                    
+                    # Display daily changes
+                    st.dataframe(
+                        daily_df[[
+                            'date', 'net_liquidation_first', 'net_liquidation_last', 
+                            'net_change', 'net_change_pct', 'unrealized_change', 'realized_change'
+                        ]].style.format({
+                            'net_liquidation_first': '${:,.2f}',
+                            'net_liquidation_last': '${:,.2f}',
+                            'net_change': '${:,.2f}',
+                            'net_change_pct': '{:,.2f}%',
+                            'unrealized_change': '${:,.2f}',
+                            'realized_change': '${:,.2f}'
+                        }),
+                        use_container_width=True
+                    )
+                    
+                    # Bar chart of daily changes
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Bar(
+                        x=daily_df['date'],
+                        y=daily_df['net_change'],
+                        marker_color=daily_df['net_change'].apply(
+                            lambda x: 'green' if x > 0 else 'red'
+                        ),
+                        text=daily_df['net_change'].apply(lambda x: f"${x:,.2f}"),
+                        textposition="outside"
+                    ))
+                    
+                    fig.update_layout(
+                        title='Daily Account Value Changes',
+                        xaxis_title='Date',
+                        yaxis_title='Change ($)'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No account history available. Please make sure the account_history table exists and contains data.")
+                    
+                    # Create sample data for demo purposes
+                    st.warning("Displaying sample data for demonstration purposes.")
+                    
+                    # Generate sample data
+                    dates = pd.date_range(end=datetime.now(), periods=history_days)
+                    sample_history = []
+                    
+                    base_value = 50000
+                    current_value = base_value
+                    
+                    for date in dates:
+                        # Random daily change -2% to +2%
+                        daily_change = current_value * (np.random.random() * 0.04 - 0.02)
+                        current_value += daily_change
+                        
+                        # Add some noise for intraday fluctuations
+                        for hour in range(0, 24, 6):
+                            if hour > 0:
+                                intraday_change = current_value * (np.random.random() * 0.01 - 0.005)
+                                current_value += intraday_change
+                            
+                            sample_history.append({
+                                'timestamp': date.replace(hour=hour),
+                                'account_id': 'SAMPLE',
+                                'net_liquidation': current_value,
+                                'total_cash': current_value * 0.4,
+                                'buying_power': current_value * 2,
+                                'unrealized_pnl': current_value * 0.05 * (np.random.random() * 2 - 1),
+                                'realized_pnl': current_value * 0.02 * (np.random.random() * 2 - 1)
+                            })
+                    
+                    # Convert to DataFrame
+                    sample_df = pd.DataFrame(sample_history)
+                    
+                    # Display sample history
+                    st.dataframe(
+                        sample_df[[
+                            'timestamp', 'account_id', 'net_liquidation', 'total_cash',
+                            'buying_power', 'unrealized_pnl', 'realized_pnl'
+                        ]].style.format({
+                            'net_liquidation': '${:,.2f}',
+                            'total_cash': '${:,.2f}',
+                            'buying_power': '${:,.2f}',
+                            'unrealized_pnl': '${:,.2f}',
+                            'realized_pnl': '${:,.2f}'
+                        }),
+                        use_container_width=True
+                    )
+                    
+                    # Create sample account value chart
+                    st.subheader("Sample Account Value History")
+                    
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Scatter(
+                        x=sample_df['timestamp'],
+                        y=sample_df['net_liquidation'],
+                        mode='lines',
+                        name='Net Liquidation Value',
+                        line=dict(color='blue', width=2)
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=sample_df['timestamp'],
+                        y=sample_df['total_cash'],
+                        mode='lines',
+                        name='Total Cash',
+                        line=dict(color='green', width=1.5, dash='dash')
+                    ))
+                    
+                    fig.update_layout(
+                        title='Sample Account Value History',
+                        xaxis_title='Date',
+                        yaxis_title='Value ($)',
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
