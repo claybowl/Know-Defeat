@@ -35,8 +35,14 @@ logger = logging.getLogger(__name__)
 TIER_1_SYMBOLS = [
     'TSLA',  # Tesla
     'COIN',  # Coinbase
-    'SPY',   # S&P 500 ETF
-    'QQQ',   # Nasdaq ETF
+    'FOUR',   # FourFront Technologies
+    'NVDA',   # Nvidia
+    'ARWR',   # Arrowhead Pharmaceuticals
+    'CYTK',   # Cytokinetics
+    'ROOT',   # Root Pharmaceuticals
+    'JANX',   # Janus Henderson Global Technology Fund
+    'LBPH',   # Liberty Broadband
+    'FLYW',   # Flywire
     'AAPL'   # Apple
 ]
 
@@ -139,6 +145,7 @@ class DataIngestionManager:
         self.db_pool = None
         # Dictionary to store last valid price for each ticker
         self.last_valid_prices = {}
+        self.trade_locks = {}  # Dictionary to track locks by trade_id
 
     async def init_db(self):
         """Initialize database connection pool"""
@@ -260,6 +267,52 @@ class DataIngestionManager:
             await self.db_pool.close()
             
         logger.info("Data ingestion manager stopped")
+
+    async def acquire_trade_lock(self, trade_id):
+        """Acquire a lock for a specific trade to prevent race conditions"""
+        if trade_id not in self.trade_locks:
+            self.trade_locks[trade_id] = asyncio.Lock()
+        
+        await self.trade_locks[trade_id].acquire()
+        return True
+    
+    def release_trade_lock(self, trade_id):
+        """Release a trade lock"""
+        if trade_id in self.trade_locks and not self.trade_locks[trade_id].locked():
+            self.trade_locks[trade_id].release()
+
+    async def complete_trade(self, trade_id, exit_price):
+        """Complete an existing trade."""
+        try:
+            # Acquire lock for this trade
+            await self.acquire_trade_lock(trade_id)
+            
+            async with self.db_pool.acquire() as connection:
+                # Get trade details
+                trade = await connection.fetchrow("""
+                    SELECT bot_id, ticker, entry_price, trade_direction, trade_size
+                    FROM sim_bot_trades
+                    WHERE trade_id = $1 AND trade_status = 'open'
+                """, trade_id)
+                
+                if not trade:
+                    self.logger.error(f"Trade {trade_id} not found or not open")
+                    return {
+                        'success': False,
+                        'reason': 'Trade not found or not open'
+                    }
+                    
+                # Rest of your existing code...
+                
+        except Exception as e:
+            self.logger.error(f"Error completing trade {trade_id}: {e}")
+            return {
+                'success': False,
+                'reason': f'Exception: {str(e)}'
+            }
+        finally:
+            # Always release the lock
+            self.release_trade_lock(trade_id)
 
 async def main():
     """Initialize and run the data ingestion manager with Tier 1 symbols."""
