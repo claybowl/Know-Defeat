@@ -8,6 +8,7 @@ import logging
 import asyncio
 import asyncpg
 from queue import Queue
+import logging
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
@@ -30,6 +31,8 @@ from metrics_calculator import MetricsCalculator
 from metrics_updater import MetricsUpdater
 from trade_listener import TradeListener
 from bot_ranker import BotRanker
+
+
 
 # Configure logging
 logging.basicConfig(
@@ -103,6 +106,11 @@ class IBDataIngestion(EWrapper, EClient):
         if reqId in self.contract_details:
             ticker = self.contract_details[reqId]['symbol']
             timestamp = datetime.utcnow()
+
+            # ADDED: Skip invalid prices (negative or zero)
+            if price <= 0:
+                self.logger.warning(f"Received invalid price {price} for {ticker}, skipping")
+                return
 
             # Create a more detailed mapping of tick types
             tick_type_map = {
@@ -178,9 +186,8 @@ class DataIngestionManager:
         self.metrics_updater = MetricsUpdater(self.db_pool, self.metrics_calculator)
         self.trade_listener = TradeListener(self.db_pool, self.metrics_updater)
         self.bot_ranker = BotRanker(self.db_pool)
-
-        # Add metrics update task to initialization
-        asyncio.create_task(self.update_periodic_metrics())
+        # Add dictionary to store last valid price for each ticker
+        self.last_valid_prices = {}
 
     # async def init_db(self):
     #     """Initialize database connection pool"""
@@ -223,6 +230,18 @@ class DataIngestionManager:
             return
 
         try:
+            # If price is invalid, use last valid price if available
+            if price <= 0:
+                if ticker in self.last_valid_prices:
+                    self.logger.warning(f"Replacing invalid price {price} with last valid price {self.last_valid_prices[ticker]} for {ticker}")
+                    price = self.last_valid_prices[ticker]
+                else:
+                    self.logger.warning(f"Skipping invalid price {price} for {ticker} (no valid price history)")
+                    return  # Skip storing invalid prices if no history
+            else:
+                # Store valid price for future reference
+                self.last_valid_prices[ticker] = price
+                
             async with self.db_pool.acquire() as conn:
                 await conn.execute('''
                     INSERT INTO tick_data (ticker, price, volume, timestamp)
@@ -235,15 +254,25 @@ class DataIngestionManager:
         """Process data from the queue and store in database"""
         while True:
             try:
-                # Process all available items in the queue
-                while not self.data_queue.empty():
-                    data = self.data_queue.get()
-                    await self.store_tick_data(
-                        data['ticker'],
-                        data['price'],
-                        data['volume'],
-                        data['timestamp']
-                    )
+                # Check if queue is empty before trying to get data
+                if self.data_queue.empty():
+                    await asyncio.sleep(0.1)
+                    continue
+                
+                # Get data from queue
+                data = self.data_queue.get()
+                
+                # Skip invalid prices
+                if data['price'] <= 0:
+                    self.logger.warning(f"Skipping invalid price {data['price']} for {data['ticker']} in queue processing")
+                    continue
+                
+                await self.store_tick_data(
+                    data['ticker'],
+                    data['price'],
+                    data['volume'],
+                    data['timestamp']
+                )
 
                 # Add this line to process the tick through the bots
                 await self.bot_manager.process_tick(
@@ -251,9 +280,6 @@ class DataIngestionManager:
                     data['price'],
                     data['timestamp']
                 )
-
-                # Wait a short time before checking queue again
-                await asyncio.sleep(0.1)
 
             except Exception as e:
                 self.logger.error(f"Error processing queue: {e}")
@@ -362,70 +388,121 @@ class DataIngestionManager:
                 self.logger.error(f"Error updating metrics: {e}")
                 await asyncio.sleep(60)  # If there's an error, wait a minute before retrying
 
+    async def update_bot_activations_task(self, db_pool):
+        """
+        Periodically update bot activations based on active trades.
+        This ensures that bot activations stay in sync with the actual trade state.
+        """
+        logger = logging.getLogger(__name__)
+        try:
+            # Initialize the bot ranker
+            bot_ranker = BotRanker(db_pool)
+            
+            while True:
+                try:
+                    # Update bot activations
+                    await bot_ranker.update_all_bot_activations()
+                    
+                    # Get dashboard data for logging
+                    dashboard = await bot_ranker.get_trade_dashboard_data()
+                    
+                    if dashboard:
+                        active_trades = dashboard['active_trades']
+                        portfolio_usage = dashboard['portfolio_usage']
+                        
+                        # Log current state
+                        logger.info(f"Portfolio usage: {portfolio_usage:.2f}% ({len(active_trades)}/10 trades)")
+                        
+                        if active_trades:
+                            # Log active trade details
+                            bot_ids = [trade['bot_id'] for trade in active_trades]
+                            lowest_active_bot = active_trades[-1]['bot_id'] if active_trades else None
+                            logger.info(f"Active trades from bots: {bot_ids}")
+                            logger.info(f"Lowest-ranked active bot: {lowest_active_bot}")
+                    
+                    # Wait before next update
+                    await asyncio.sleep(60)  # Update every minute
+                    
+                except Exception as e:
+                    logger.error(f"Error in bot activation update: {e}")
+                    await asyncio.sleep(30)  # Retry sooner on error
+                    
+        except Exception as e:
+            logger.error(f"Fatal error in activation task: {e}")
+
     async def start(self):
         """Start the data ingestion process"""
+        logger = logging.getLogger(__name__)
+        logger.info("Starting data ingestion manager")
+        
+        # Initialize the database first
+        await self.init_db()
+        
+        # Update metrics calculator and other components with the db_pool
+        self.metrics_calculator.db_pool = self.db_pool
+        self.metrics_updater.db_pool = self.db_pool
+        self.trade_listener.db_pool = self.db_pool
+        self.bot_ranker.db_pool = self.db_pool
+        
+        # Connect to Interactive Brokers
         try:
-            # Initialize database connection
-            await self.init_db()
-
-            # Start the IB client in a separate thread
             self.app.connect('127.0.0.1', 4002, 0)
+            # Start IB client in a separate thread
             api_thread = Thread(target=self.app.run)
-            api_thread.daemon = True  # This ensures the thread will exit when the main program does
+            api_thread.daemon = True
             api_thread.start()
-
-            # Wait for connection
+            logger.info("Connected to Interactive Brokers")
+            
+            # Wait for connection to establish
             await asyncio.sleep(2)
-
+            
             # Subscribe to market data for all symbols
             for symbol in self.symbols:
                 self.app.subscribe_market_data(symbol)
-
-            self.logger.info("Data ingestion system started successfully")
-
-            # Start processing the queue
-            await self.process_queue()
-            # Initialize and add the bots
-            coin_long_bot = CoinLongBot(self.db_pool, self.app, 1)
-            tsla_long_bot = TSLALongBot(self.db_pool, self.app, 5)
-            coin_short_bot = CoinShortBot(self.db_pool, self.app, 2)
-            tsla_short_bot = TSLAShortBot(self.db_pool, self.app, 6)
-            
-            # New bots with correct IDs
-            coin_long_bot2 = COINLongBot2(self.db_pool, self.app, 3)
-            tsla_long_bot2 = TSLALongBot2(self.db_pool, self.app, 7)
-            coin_short_bot2 = COINShortBot2(self.db_pool, self.app, 4)
-            tsla_short_bot2 = TSLAShortBot2(self.db_pool, self.app, 8)
-
-            self.bot_manager.add_bot(coin_long_bot)
-            self.bot_manager.add_bot(tsla_long_bot)
-            self.bot_manager.add_bot(coin_short_bot)
-            self.bot_manager.add_bot(tsla_short_bot)
-            self.bot_manager.add_bot(coin_long_bot2)
-            self.bot_manager.add_bot(tsla_long_bot2)
-            self.bot_manager.add_bot(coin_short_bot2)
-            self.bot_manager.add_bot(tsla_short_bot2)
-
-            # Start metrics updater
-            asyncio.create_task(self.update_periodic_metrics())
-
-            # Start trade listener and metrics components
-            asyncio.create_task(self.trade_listener.listen_for_trade_completion())
-
+                logger.info(f"Subscribed to market data for {symbol}")
         except Exception as e:
-            self.logger.error(f"Failed to start data ingestion: {e}")
-            raise
+            logger.error(f"Failed to connect to Interactive Brokers: {e}")
+        
+        # Start the queue processing task
+        self.queue_task = asyncio.create_task(self.process_queue())
+        
+        # Start the metrics update task
+        self.metrics_task = asyncio.create_task(self.update_periodic_metrics())
+        
+        # Start the bot activations update task
+        if hasattr(self, 'db_pool') and self.db_pool:
+            self.activations_task = asyncio.create_task(self.update_bot_activations_task(self.db_pool))
+        else:
+            logger.error("Cannot start activations task: db_pool not initialized")
+            
+        logger.info("Data ingestion manager started successfully")
 
     async def stop(self):
-        """Stop the data ingestion process"""
-        try:
-            if self.app:
-                self.app.disconnect()
-            if self.db_pool:
-                await self.db_pool.close()
-            self.logger.info("Data ingestion system stopped")
-        except Exception as e:
-            self.logger.error(f"Error stopping data ingestion: {e}")
+        """Stop the data ingestion process and clean up resources"""
+        logger = logging.getLogger(__name__)
+        logger.info("Stopping data ingestion manager")
+        
+        # Cancel running tasks
+        if hasattr(self, 'queue_task') and self.queue_task:
+            self.queue_task.cancel()
+            
+        if hasattr(self, 'metrics_task') and self.metrics_task:
+            self.metrics_task.cancel()
+            
+        if hasattr(self, 'activations_task') and self.activations_task:
+            self.activations_task.cancel()
+        
+        # Close database connection
+        if hasattr(self, 'db_pool') and self.db_pool:
+            await self.db_pool.close()
+            logger.info("Database connection closed")
+        
+        # If there's an IB connection, disconnect it
+        if hasattr(self, 'app') and self.app:
+            self.app.disconnect()
+            logger.info("Disconnected from Interactive Brokers")
+            
+        logger.info("Data ingestion manager stopped successfully")
 
 async def main():
     """Initialize and run the data ingestion manager with Tier 1 symbols."""

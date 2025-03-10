@@ -1,18 +1,23 @@
 import logging
 import asyncpg
 from decimal import Decimal
+from trade_manager import TradeManager
 
 class BotRanker:
     """
     Enhanced bot ranking system that uses weighted metrics from variable_weights table.
     Incorporates all available metrics in bot_metrics table and allows for dynamic
     adjustment of weights.
+    
+    Now integrated with TradeManager for dynamic trade-based allocation strategy.
     """
     
-    def __init__(self, db_pool):
+    def __init__(self, db_pool, max_active_trades=10):
         """Initialize with a database connection pool."""
         self.db_pool = db_pool
         self.logger = logging.getLogger(__name__)
+        # Initialize the Trade Manager
+        self.trade_manager = TradeManager(db_pool, max_active_trades)
 
     async def get_variable_weights(self):
         """
@@ -250,6 +255,7 @@ class BotRanker:
                         ranking_id SERIAL PRIMARY KEY,
                         bot_id INTEGER NOT NULL,
                         rank_score DECIMAL(10,2) NOT NULL,
+                        rank INTEGER NOT NULL,
                         timestamp TIMESTAMP DEFAULT NOW(),
                         is_active BOOLEAN DEFAULT true,
                         UNIQUE(bot_id)
@@ -259,14 +265,15 @@ class BotRanker:
                 # Update rankings for each bot
                 for bot in ranked_bots:
                     await connection.execute("""
-                        INSERT INTO bot_rankings (bot_id, rank_score, timestamp)
-                        VALUES ($1, $2, NOW())
+                        INSERT INTO bot_rankings (bot_id, rank_score, rank, timestamp)
+                        VALUES ($1, $2, $3, NOW())
                         ON CONFLICT (bot_id) 
                         DO UPDATE SET 
                             rank_score = $2,
+                            rank = $3,
                             timestamp = NOW()
-                    """, bot['bot_id'], bot['rank_score'])
-                
+                    """, bot['bot_id'], bot['rank_score'], bot['rank'])
+                    
                 # Also update the bot_metrics table with the current rank
                 for bot in ranked_bots:
                     await connection.execute("""
@@ -368,104 +375,82 @@ class BotRanker:
             return []
 
     async def toggle_bot_active_status(self, bot_id, is_active):
-        """
-        Toggle a bot's active status in the rankings.
-        
-        Args:
-            bot_id: ID of the bot to toggle
-            is_active: New status (True for active, False for inactive)
-        
-        Returns:
-            Boolean indicating success
-        """
+        """Toggle a bot's active status for trading."""
         try:
             async with self.db_pool.acquire() as connection:
                 await connection.execute("""
                     UPDATE bot_rankings
-                    SET is_active = $1
-                    WHERE bot_id = $2
-                """, is_active, bot_id)
+                    SET is_active = $2
+                    WHERE bot_id = $1
+                """, bot_id, is_active)
+                
+                # If activating a bot, ensure bot rankings are updated
+                if is_active:
+                    await self.trade_manager.update_bot_activations()
                 
                 return True
         except Exception as e:
             self.logger.error(f"Error toggling bot active status: {e}")
             return False
             
-    async def get_top10_fund_allocation(self, amount_per_bot=2000):
+    # New methods to integrate with TradeManager
+    
+    async def can_bot_trade(self, bot_id):
         """
-        Allocate funds to the top 10 ranked bots.
-        
-        This method implements a simple allocation strategy:
-        - Only the top 10 ranked bots get funds
-        - Each bot in the top 10 gets the same fixed amount
-        - Bots ranked below 10 get zero funds
+        Check if a bot is allowed to trade based on current portfolio allocation.
         
         Args:
-            amount_per_bot: Fixed amount to allocate to each top bot (default: $2000)
+            bot_id: The ID of the bot requesting to trade
             
         Returns:
-            List of dicts with bot_id, ticker, rank, rank_score, allocation_amount
+            bool: True if the bot can open a new trade, False otherwise
         """
-        try:
-            # Get ranked bots
-            ranked_bots = await self.rank_bots()
-            if not ranked_bots:
-                return []
+        can_trade, _, _ = await self.trade_manager.can_open_new_trade(bot_id)
+        return can_trade
+        
+    async def initiate_bot_trade(self, bot_id, ticker, entry_price, trade_direction, trade_size):
+        """
+        Initiate a trade for a bot using the dynamic allocation logic.
+        
+        Args:
+            bot_id: The ID of the bot initiating the trade
+            ticker: The stock ticker symbol
+            entry_price: The price at which to enter the trade
+            trade_direction: 'LONG' or 'SHORT'
+            trade_size: The size of the trade in dollars
             
-            # Get active bots only
-            async with self.db_pool.acquire() as connection:
-                active_bots = await connection.fetch("""
-                    SELECT bot_id FROM bot_rankings
-                    WHERE is_active = true
-                    ORDER BY rank_score DESC
-                """)
-                
-                active_bot_ids = [row['bot_id'] for row in active_bots]
+        Returns:
+            dict: Status information about the trade initiation
+        """
+        return await self.trade_manager.initiate_trade(
+            bot_id, ticker, entry_price, trade_direction, trade_size
+        )
+        
+    async def complete_bot_trade(self, trade_id, exit_price):
+        """
+        Complete a trade with the given trade_id and exit_price.
+        
+        Args:
+            trade_id: The ID of the trade to complete
+            exit_price: The price at which to exit the trade
             
-            # Filter to only active bots and sort by rank
-            ranked_active_bots = [bot for bot in ranked_bots if bot['bot_id'] in active_bot_ids]
-            ranked_active_bots.sort(key=lambda x: x['rank_score'], reverse=True)
-            
-            # Select top 10 bots (or fewer if less than 10 are available)
-            top_bots = ranked_active_bots[:10]
-            
-            # Calculate allocations - fixed amount for top 10, zero for others
-            allocations = []
-            
-            # Add top bots with allocation
-            for bot in top_bots:
-                allocations.append({
-                    'bot_id': bot['bot_id'],
-                    'ticker': bot['ticker'],
-                    'rank_score': bot['rank_score'],
-                    'rank': bot['rank'],
-                    'allocation_amount': amount_per_bot,
-                    'allocation_percentage': 10.0,  # 10% each if exactly 10 bots
-                    'top_10': True
-                })
-            
-            # Add remaining active bots with zero allocation
-            for bot in ranked_active_bots[10:]:
-                allocations.append({
-                    'bot_id': bot['bot_id'],
-                    'ticker': bot['ticker'],
-                    'rank_score': bot['rank_score'],
-                    'rank': bot['rank'],
-                    'allocation_amount': 0,
-                    'allocation_percentage': 0,
-                    'top_10': False
-                })
-            
-            # Calculate total allocated and adjust percentages if needed
-            total_allocated = len(top_bots) * amount_per_bot
-            total_percentage = 100.0
-            
-            # Update percentages based on actual allocation
-            for alloc in allocations:
-                if alloc['top_10']:
-                    alloc['allocation_percentage'] = (amount_per_bot / total_allocated) * 100.0
-            
-            return allocations
-        except Exception as e:
-            self.logger.error(f"Error calculating top 10 fund allocation: {e}")
-            return []
+        Returns:
+            dict: Status information about the trade completion
+        """
+        return await self.trade_manager.complete_trade(trade_id, exit_price)
+    
+    async def update_all_bot_activations(self):
+        """
+        Update all bot activations based on current trades.
+        This should be called periodically to ensure proper activations.
+        """
+        return await self.trade_manager.update_bot_activations()
+        
+    async def get_trade_dashboard_data(self):
+        """
+        Get data for a dashboard showing active trades and bot statuses.
+        
+        Returns:
+            dict: Dashboard data including active trades, bot activations, and portfolio usage
+        """
+        return await self.trade_manager.get_trade_dashboard_data()
