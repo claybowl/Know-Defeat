@@ -15,7 +15,6 @@ class Momentum_algorithmAlgorithm:
     """
     Momentum algorithm for detecting price trends and generating trade signals.
     """
-
     def __init__(self, direction, parameters):
         """
         Initialize the momentum algorithm.

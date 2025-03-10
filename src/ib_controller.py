@@ -8,19 +8,10 @@ import logging
 import asyncio
 import asyncpg
 from queue import Queue
-import logging
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.common import TickerId, BarData
-from bots.COIN_long_bot import CoinLongBot
-from bots.TSLA_long_bot import TSLALongBot
-from bots.COIN_short_bot import CoinShortBot
-from bots.TSLA_short_bot import TSLAShortBot
-from bots.COIN_long_bot2 import COINLongBot2
-from bots.TSLA_long_bot2 import TSLALongBot2    
-from bots.COIN_short_bot2 import COINShortBot2
-from bots.TSLA_short_bot2 import TSLAShortBot2
 from utils.db_utils import (
     execute_db_query,
     fetch_rows,
@@ -31,8 +22,6 @@ from metrics_calculator import MetricsCalculator
 from metrics_updater import MetricsUpdater
 from trade_listener import TradeListener
 from bot_ranker import BotRanker
-
-
 
 # Configure logging
 logging.basicConfig(

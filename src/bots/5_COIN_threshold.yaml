@@ -3,8 +3,8 @@ description: Momentum-based long strategy for Coinbase stock
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 1  # Permanent unique bot ID for database tracking
-algo_id: 1  # Algorithm identifier
+bot_id: 5  # Permanent unique bot ID for database tracking
+algo_id: 2  # Algorithm identifier
 ticker: COIN
 trade_direction: LONG
 
