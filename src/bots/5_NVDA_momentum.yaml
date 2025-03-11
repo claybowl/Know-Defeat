@@ -21,4 +21,4 @@ parameters:
   momentum_threshold: 0.001  # 0.1% minimum price increase
   confirmation_seconds: 15
   use_volume: false
-  min_bars: 2
+  min_bars: 1

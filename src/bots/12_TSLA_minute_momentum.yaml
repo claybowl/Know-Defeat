@@ -17,9 +17,9 @@ algorithm_module: "algorithms.minute_momentum_algorithm"  # Python module with c
 
 # Algorithm Parameters (passed to the algorithm module)
 parameters:
-  lookback_minutes: 6  # Compare current minute to price 6 minutes ago
-  momentum_threshold: 0.0025  # 0.25% minimum price decrease per minute
-  confirmation_minutes: 3  # Confirm trend over the last 3 minutes
+  lookback_minutes: 2  # Compare current minute to price 6 minutes ago
+  # momentum_threshold: 0.0025  # 0.25% minimum price decrease per minute
+  confirmation_minutes: 1  # Confirm trend over the last 3 minutes
   use_volume: false  # Don't consider volume in decision making
-  min_bars: 6  # Need at least 6 minute bars to make a decision
-  max_spread_pct: 0.0008  # Maximum bid-ask spread as percentage (0.08%) 
+  min_bars: 2  # Need at least 6 minute bars to make a decision
+  # max_spread_pct: 0.0008  # Maximum bid-ask spread as percentage (0.08%) 
