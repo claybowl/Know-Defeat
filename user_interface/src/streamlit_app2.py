@@ -18,6 +18,43 @@ from plotly.subplots import make_subplots
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from weights_management_ui import WeightsManagementUI
+from trade_manager import TradeManager
+from ai_weight_adjuster import AIWeightAdjuster
+
+# Define helper functions for the dashboard
+def show_dashboard():
+    """Display the main system dashboard."""
+    st.title("System Dashboard")
+    st.info("The main dashboard content goes here. Select 'Fund Allocation Dashboard' from the navigation to see the new features.")
+
+def show_metrics():
+    """Display bot metrics."""
+    st.title("Bot Metrics")
+    st.info("The bot metrics content would go here. Select 'Fund Allocation Dashboard' from the navigation to see the new features.")
+
+def show_raw_metrics():
+    """Display raw bot metrics data."""
+    st.title("Raw Bot Metrics")
+    st.info("Raw bot metrics would be displayed here. Select 'Fund Allocation Dashboard' from the navigation to see the new features.")
+
+def show_raw_rankings():
+    """Display raw bot rankings data."""
+    st.title("Raw Bot Rankings")
+    st.info("Raw bot rankings would be displayed here. Select 'Fund Allocation Dashboard' from the navigation to see the new features.")
+
+def show_db_check():
+    """Display database check results."""
+    st.title("Database Check")
+    
+    # Run check in background
+    with st.spinner("Checking database schema..."):
+        db_status = asyncio.run(check_database_schema())
+    
+    st.success("Database schema check complete")
+
+# Forward declaration for functions used before defined
+async def load_logs_from_db(bot_name=None, limit=1000):
+    pass
 
 # Set page config with a cool style
 st.set_page_config(
@@ -120,18 +157,7 @@ DB_CONFIG = {
     'user': 'clayb',
     'password': 'musicman',
     'database': 'tick_data',
-    'host': 'localhost',
-    'min_size': 2,          # Minimum number of connections in the pool
-    'max_size': 10,         # Maximum number of connections in the pool
-    'command_timeout': 60.0,     # Timeout for database commands
-    'max_queries': 50000,        # Maximum number of queries per connection
-    'max_cached_statement_lifetime': 0,  # Don't cache statements
-    'max_cacheable_statement_size': 0,   # Don't cache statements
-    'timeout': 10.0,             # Connection timeout
-    'server_settings': {
-        'application_name': 'TradingDashboard',  # Name to identify this application
-        'client_min_messages': 'warning'         # Reduce log noise
-    }
+    'host': 'localhost'
 }
 
 # Utility function to create a database connection pool with custom settings
@@ -2356,25 +2382,50 @@ with tab_rankings:
                     st.error(f"Error importing BotRanker: {str(e)}")
                     
                     # Fallback: calculate a simple allocation based on rank position
-                    rankings = await pool.fetch("""
-                        SELECT bot_id, rank_score, is_active
-                        FROM bot_rankings
-                        WHERE is_active = true
-                        ORDER BY rank_score DESC;
+                    
+                    # First check if is_active column exists
+                    column_exists = await pool.fetchval("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns 
+                            WHERE table_name = 'bot_rankings' AND column_name = 'is_active'
+                        );
                     """)
+                    
+                    if column_exists:
+                        rankings = await pool.fetch("""
+                            SELECT bot_id, rank_score, is_active
+                            FROM bot_rankings
+                            WHERE is_active = true
+                            ORDER BY rank_score DESC;
+                        """)
+                    else:
+                        # If is_active doesn't exist, assume all bots are active
+                        rankings = await pool.fetch("""
+                            SELECT bot_id, rank_score
+                            FROM bot_rankings
+                            ORDER BY rank_score DESC;
+                        """)
                     
                     if not rankings:
                         return None
                         
-                    total_score = sum(row['rank_score'] for row in rankings)
+                    # Calculate total score for all bots (active ones if the column exists)
+                    if column_exists:
+                        total_score = sum(row['rank_score'] for row in rankings if row['is_active'])
+                    else:
+                        total_score = sum(row['rank_score'] for row in rankings)
                     
                     allocations = []
                     for row in rankings:
+                        # Skip inactive bots if is_active column exists
+                        if column_exists and not row['is_active']:
+                            continue
+                            
                         allocation = (row['rank_score'] / total_score) * total_funds if total_score > 0 else total_funds / len(rankings)
                         allocations.append({
                             'bot_id': row['bot_id'],
-                            'allocation_amount': allocation,
-                            'allocation_percentage': (allocation / total_funds) * 100,
+                            'allocated_amount': allocation,
+                            'percentage': (allocation / total_funds) * 100,
                             'rank_score': row['rank_score']
                         })
                     
@@ -2524,7 +2575,7 @@ with tab_rankings:
                             # Create pie chart of allocations for proportional allocation
                             fig = go.Figure(data=[go.Pie(
                                 labels=[f"Bot {row['bot_id']}" for i, row in alloc_df.iterrows()],
-                                values=alloc_df['allocation_amount'],
+                                values=alloc_df['allocated_amount'],
                                 textinfo='label+percent',
                                 hoverinfo='label+value+percent',
                                 marker=dict(
@@ -2556,8 +2607,8 @@ with tab_rankings:
                             
                             fig = go.Figure(data=[go.Bar(
                                 x=labels,
-                                y=sorted_df['allocation_amount'],
-                                text=sorted_df['allocation_amount'].apply(lambda x: f"${x:,.2f}"),
+                                y=sorted_df['allocated_amount'],
+                                text=sorted_df['allocated_amount'].apply(lambda x: f"${x:,.2f}"),
                                 textposition='auto',
                                 marker_color=colors
                             )])
@@ -2581,14 +2632,14 @@ with tab_rankings:
                         else:
                             alloc_df_display['bot'] = alloc_df_display['bot_id'].apply(lambda x: f"Bot {x}")
                         
-                        columns_to_display = ['bot', 'rank', 'allocation_amount', 'allocation_percentage', 'rank_score']
+                        columns_to_display = ['bot', 'rank', 'allocated_amount', 'percentage', 'rank_score']
                         if 'top_10' in alloc_df_display.columns:
                             columns_to_display.append('top_10')
                         
                         st.dataframe(
                             alloc_df_display[columns_to_display].style.format({
-                                'allocation_amount': lambda x: safe_format(x, '${:.2f}'),
-                                'allocation_percentage': lambda x: safe_format(x, '{:.2f}%'),
+                                'allocated_amount': lambda x: safe_format(x, '${:.2f}'),
+                                'percentage': lambda x: safe_format(x, '{:.2f}%'),
                                 'rank_score': lambda x: safe_format(x, '{:.2f}')
                             }),
                             use_container_width=True
@@ -2967,7 +3018,7 @@ with tab_rankings:
             # Variable weights table view
             st.write("### Variable Weights Table")
             
-            async def fetch_variable_weights():
+            async def fetch_variable_weights_raw():
                 try:
                     async with asyncpg.create_pool(**DB_CONFIG) as pool:
                         # Check if table exists
@@ -2992,7 +3043,7 @@ with tab_rankings:
                     return None
             
             if st.button("View Variable Weights Table"):
-                variable_weights = asyncio.run(fetch_variable_weights())
+                variable_weights = asyncio.run(fetch_variable_weights_raw())
                 if variable_weights:
                     # Convert to DataFrame
                     df = pd.DataFrame([dict(r) for r in variable_weights])
@@ -4184,7 +4235,7 @@ with tab_account:
     ])
     
     # Get and store account data
-    if st.button("Refresh Account Data", key="refresh_account"):
+    if st.button("Refresh Account Data", key="refresh_account_button_unique"):
         with st.spinner("Fetching account data from Interactive Brokers..."):
             account_result = asyncio.run(fetch_ib_account_details())
             
@@ -4214,141 +4265,70 @@ with tab_account:
     with acc_tab1:
         st.subheader("Account Summary")
         
-        if 'account_data' in st.session_state:
-            account_data = st.session_state.account_data.get("account_data", {})
+        # Add refresh button
+        refresh_account = st.button("Refresh Account Data", key="refresh_account_in_modal")
+        
+        # Get account details
+        try:
+            account_details = asyncio.run(fetch_ib_account_details())
             
-            if account_data:
-                # Create columns for each account (typically just one account)
-                for account_id, details in account_data.items():
-                    st.write(f"### Account: {account_id}")
+            if account_details and 'summary' in account_details:
+                # Create a DataFrame from account summary
+                summary_data = account_details['summary']
+                
+                if summary_data:
+                    # Convert to DataFrame
+                    df_summary = pd.DataFrame(summary_data)
                     
-                    # Create a clean dataframe from the account details
-                    summary_data = []
-                    for tag, values in details.items():
-                        summary_data.append({
-                            "Metric": tag,
-                            "Value": values.get("value", ""),
-                            "Currency": values.get("currency", "")
-                        })
+                    # Display as metrics for important values
+                    col1, col2, col3 = st.columns(3)
                     
-                    # Convert to DataFrame and display
-                    summary_df = pd.DataFrame(summary_data)
+                    # Net Liquidation Value
+                    nlv = next((item['value'] for item in summary_data if item['tag'] == 'NetLiquidation'), 'N/A')
+                    col1.metric("Net Liquidation Value", f"${nlv}")
                     
-                    # Custom order of important metrics
-                    important_metrics = [
-                        "NetLiquidation", "TotalCashValue", "BuyingPower", 
-                        "UnrealizedPnL", "RealizedPnL", "EquityWithLoanValue",
-                        "GrossPositionValue"
-                    ]
+                    # Cash Balance
+                    cash = next((item['value'] for item in summary_data if item['tag'] == 'TotalCashBalance'), 'N/A')
+                    col2.metric("Cash Balance", f"${cash}")
                     
-                    # Sort the dataframe to show important metrics first
-                    summary_df['Sort'] = summary_df['Metric'].apply(
-                        lambda x: important_metrics.index(x) if x in important_metrics else 999
+                    # Buying Power
+                    bp = next((item['value'] for item in summary_data if item['tag'] == 'BuyingPower'), 'N/A')
+                    col3.metric("Buying Power", f"${bp}")
+                    
+                    # Display full summary as a table
+                    st.subheader("Complete Account Summary")
+                    st.dataframe(
+                        df_summary,
+                        column_config={
+                            "tag": "Metric",
+                            "value": "Value", 
+                            "currency": "Currency"
+                        },
+                        use_container_width=True
                     )
-                    summary_df = summary_df.sort_values('Sort').drop('Sort', axis=1)
+                else:
+                    # If no real data, use sample data
+                    st.warning("No live account data available - showing sample data")
+                    sample_data = get_sample_account_data()
                     
-                    # Display key metrics as big numbers in columns
+                    # Display sample metrics
                     col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        net_liq = details.get("NetLiquidation", {}).get("value", "0")
-                        prev_equity = details.get("PreviousDayEquityWithLoanValue", {}).get("value", "0")
-                        try:
-                            delta = float(net_liq) - float(prev_equity)
-                            delta_pct = (delta / float(prev_equity)) * 100 if float(prev_equity) != 0 else 0
-                            st.metric(
-                                "Net Liquidation Value", 
-                                f"${float(net_liq):,.2f}", 
-                                f"{delta_pct:+.2f}% from previous day"
-                            )
-                        except (ValueError, TypeError):
-                            st.metric("Net Liquidation Value", f"${net_liq}")
-                            
-                    with col2:
-                        cash = details.get("TotalCashValue", {}).get("value", "0")
-                        st.metric("Total Cash Value", f"${float(cash):,.2f}")
-                        
-                    with col3:
-                        bp = details.get("BuyingPower", {}).get("value", "0")
-                        st.metric("Buying Power", f"${float(bp):,.2f}")
-                    
-                    # Second row of metrics
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        unrealized = details.get("UnrealizedPnL", {}).get("value", "0")
-                        st.metric("Unrealized P&L", f"${float(unrealized):,.2f}")
-                        
-                    with col2:
-                        realized = details.get("RealizedPnL", {}).get("value", "0")
-                        st.metric("Realized P&L", f"${float(realized):,.2f}")
-                        
-                    with col3:
-                        leverage = details.get("Leverage", {}).get("value", "0")
-                        st.metric("Account Leverage", f"{float(leverage):,.2f}x")
-                    
-                    # Full account details in a table
-                    with st.expander("Show all account details", expanded=False):
-                        st.dataframe(summary_df, use_container_width=True)
-                    
-                    # Create gauge charts for key metrics
-                    st.subheader("Key Metrics Visualization")
-                    
-                    # Leverage gauge
-                    try:
-                        leverage_val = float(details.get("Leverage", {}).get("value", "0"))
-                        
-                        fig = go.Figure(go.Indicator(
-                            mode="gauge+number",
-                            value=leverage_val,
-                            title={"text": "Account Leverage"},
-                            gauge={
-                                "axis": {"range": [0, 3]},
-                                "steps": [
-                                    {"range": [0, 1], "color": "lightgreen"},
-                                    {"range": [1, 2], "color": "orange"},
-                                    {"range": [2, 3], "color": "red"}
-                                ],
-                                "threshold": {
-                                    "line": {"color": "red", "width": 4},
-                                    "thickness": 0.75,
-                                    "value": leverage_val
-                                }
-                            }
-                        ))
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                    except (ValueError, TypeError):
-                        st.warning("Could not render leverage gauge with current data.")
-                    
-                    # P&L chart (Unrealized vs Realized)
-                    try:
-                        unrealized_val = float(details.get("UnrealizedPnL", {}).get("value", "0"))
-                        realized_val = float(details.get("RealizedPnL", {}).get("value", "0"))
-                        
-                        fig = go.Figure()
-                        
-                        fig.add_trace(go.Bar(
-                            x=["Unrealized P&L", "Realized P&L"],
-                            y=[unrealized_val, realized_val],
-                            marker_color=["lightblue", "darkblue"],
-                            text=[f"${unrealized_val:,.2f}", f"${realized_val:,.2f}"],
-                            textposition="auto"
-                        ))
-                        
-                        fig.update_layout(
-                            title="Profit & Loss Breakdown",
-                            xaxis_title="P&L Type",
-                            yaxis_title="Amount ($)"
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                    except (ValueError, TypeError):
-                        st.warning("Could not render P&L chart with current data.")
+                    col1.metric("Net Liquidation Value", f"${sample_data['NetLiquidation']}")
+                    col2.metric("Cash Balance", f"${sample_data['TotalCashBalance']}")
+                    col3.metric("Buying Power", f"${sample_data['BuyingPower']}")
             else:
-                st.info("No account data available. Please refresh.")
-        else:
-            st.info("No account data available. Please refresh.")
+                st.warning("No account data available")
+        except Exception as e:
+            st.error(f"Error fetching account details: {e}")
+            # Fall back to sample data
+            st.warning("Using sample account data")
+            sample_data = get_sample_account_data()
+            
+            # Display sample metrics
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Net Liquidation Value", f"${sample_data['NetLiquidation']}")
+            col2.metric("Cash Balance", f"${sample_data['TotalCashBalance']}")
+            col3.metric("Buying Power", f"${sample_data['BuyingPower']}")
     
     # Positions Tab
     with acc_tab2:
@@ -4706,3 +4686,653 @@ with tab_account:
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
+
+def fund_allocation_dashboard():
+    """
+    Display a real-time dashboard for the fund allocation system, showing:
+    - Active bots and their rankings
+    - Current trades
+    - Fund allocation
+    - Manual trade control
+    """
+    st.title("Fund Allocation System Dashboard")
+    
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["Active Bots", "Current Trades", "Manual Controls"])
+    
+    # Define internal function to get bot rankings with required columns
+    async def dashboard_fetch_bot_rankings():
+        """Fetch bot rankings with guaranteed columns for the dashboard"""
+        try:
+            async with asyncpg.create_pool(**DB_CONFIG) as pool:
+                # Check if table exists
+                table_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'bot_rankings'
+                    );
+                """)
+                
+                if not table_exists:
+                    # Return empty dataframe with required columns
+                    return pd.DataFrame(columns=['bot_id', 'rank_score', 'is_active'])
+                
+                # Check if rank_score column exists
+                rank_score_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_name = 'bot_rankings' AND column_name = 'rank_score'
+                    );
+                """)
+                
+                # Check if is_active column exists
+                is_active_exists = await pool.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_name = 'bot_rankings' AND column_name = 'is_active'
+                    );
+                """)
+                
+                # Build query dynamically based on available columns
+                select_columns = ["bot_id"]
+                if rank_score_exists:
+                    select_columns.append("rank_score")
+                if is_active_exists:
+                    select_columns.append("is_active")
+                
+                query = f"""
+                    SELECT {', '.join(select_columns)}
+                    FROM bot_rankings
+                    ORDER BY bot_id
+                """
+                
+                # Execute query
+                rankings = await pool.fetch(query)
+                
+                # Convert to DataFrame
+                df = pd.DataFrame(rankings)
+                
+                # Add missing columns with default values
+                if 'rank_score' not in df.columns and len(df) > 0:
+                    df['rank_score'] = 5.0  # Default rank score
+                if 'is_active' not in df.columns and len(df) > 0:
+                    df['is_active'] = True  # Default to active
+                
+                return df
+        except Exception as e:
+            st.error(f"Error fetching bot rankings: {e}")
+            # Return empty dataframe with required columns
+            return pd.DataFrame(columns=['bot_id', 'rank_score', 'is_active'])
+    
+    with tab1:
+        st.header("Bot Rankings & Allocation")
+        
+        # Create two columns for bot metrics and allocation
+        col1, col2 = st.columns([3, 2])
+        
+        with col1:
+            # Bot Rankings Table
+            st.subheader("Bot Rankings")
+            
+            # Add refresh button
+            refresh_rankings = st.button("Refresh Rankings", key="refresh_rankings")
+            
+            # Run async function to get bot rankings data using the dashboard-specific function
+            bot_rankings = asyncio.run(dashboard_fetch_bot_rankings())
+            
+            if bot_rankings is not None and len(bot_rankings) > 0:
+                # Format the rankings data for display
+                df_rankings = bot_rankings
+                
+                # Add a visual indicator for active status
+                def format_active(active):
+                    if active:
+                        return "✅ Active"
+                    else:
+                        return "❌ Inactive"
+                
+                # Check if 'is_active' column exists
+                if 'is_active' in df_rankings.columns:
+                    df_rankings['status'] = df_rankings['is_active'].apply(format_active)
+                else:
+                    # If 'is_active' doesn't exist, assume all bots are active
+                    df_rankings['status'] = "✅ Active"
+                
+                # Format the score if column exists
+                if 'rank_score' in df_rankings.columns:
+                    df_rankings['rank_score'] = df_rankings['rank_score'].apply(lambda x: f"{x:.2f}")
+                else:
+                    # If 'rank_score' doesn't exist, create a placeholder
+                    df_rankings['rank_score'] = "N/A"
+                
+                # Make sure we have required columns for display
+                required_columns = ['bot_id', 'rank_score', 'status']
+                missing_columns = [col for col in required_columns if col not in df_rankings.columns]
+                
+                # Add missing columns with placeholder values
+                for col in missing_columns:
+                    if col == 'bot_id':
+                        # This should never happen, but add a safety check
+                        df_rankings['bot_id'] = range(1, len(df_rankings) + 1)
+                    else:
+                        df_rankings[col] = "N/A"
+                        
+                # Now display the dataframe with known columns
+                st.dataframe(
+                    df_rankings[required_columns],
+                    column_config={
+                        "bot_id": "Bot ID",
+                        "rank_score": "Rank Score",
+                        "status": "Status"
+                    },
+                    use_container_width=True,
+                    height=400
+                )
+            else:
+                st.warning("No bot ranking data available")
+        
+        with col2:
+            # Fund Allocation Pie Chart
+            st.subheader("Fund Allocation")
+            
+            # Define a safer function for fund allocation that won't crash
+            async def dashboard_fetch_fund_allocation(total_funds=10000):
+                """Fetch fund allocation with error handling for the dashboard"""
+                try:
+                    # Get bot rankings with our safe function
+                    df_rankings = await dashboard_fetch_bot_rankings()
+                    
+                    if df_rankings is None or len(df_rankings) == 0:
+                        return []
+                    
+                    # Create fund allocation data
+                    allocations = []
+                    # Calculate total score of all active bots
+                    is_active_filter = df_rankings['is_active'] if 'is_active' in df_rankings.columns else pd.Series([True] * len(df_rankings))
+                    active_bots = df_rankings[is_active_filter]
+                    
+                    if len(active_bots) == 0:
+                        return []
+                        
+                    # Get rank score or use default if missing
+                    if 'rank_score' in active_bots.columns:
+                        total_score = active_bots['rank_score'].sum()
+                    else:
+                        # If no rank scores, equal allocation
+                        total_score = len(active_bots)
+                        active_bots['rank_score'] = 1.0
+                    
+                    # Calculate allocations
+                    for _, bot in active_bots.iterrows():
+                        bot_id = bot['bot_id']
+                        rank_score = bot['rank_score'] if 'rank_score' in bot else 1.0
+                        
+                        # Prevent division by zero
+                        if total_score > 0:
+                            percentage = (rank_score / total_score) * 100
+                            allocated_amount = (rank_score / total_score) * total_funds
+                        else:
+                            # Equal allocation if all scores are zero
+                            percentage = 100 / len(active_bots)
+                            allocated_amount = total_funds / len(active_bots)
+                        
+                        allocations.append({
+                            'bot_id': bot_id,
+                            'percentage': percentage,
+                            'allocated_amount': allocated_amount,
+                            'rank_score': rank_score
+                        })
+                    
+                    return allocations
+                except Exception as e:
+                    st.error(f"Error calculating fund allocation: {e}")
+                    return []
+            
+            # Get fund allocation data with the safer function
+            fund_allocation = asyncio.run(dashboard_fetch_fund_allocation())
+            
+            if fund_allocation and len(fund_allocation) > 0:
+                # Create a DataFrame for the pie chart
+                df_allocation = pd.DataFrame(fund_allocation)
+                df_allocation = df_allocation.sort_values('percentage', ascending=False)
+                
+                # Create pie chart
+                fig = px.pie(
+                    df_allocation, 
+                    values='percentage', 
+                    names='bot_id', 
+                    title='Fund Allocation by Bot',
+                    hole=0.4
+                )
+                
+                # Update trace information for better hovering details
+                hover_template = (
+                    "Bot ID: %{label}<br>" +
+                    "Allocation: %{value:.1f}%<br>" +
+                    "Amount: $%{customdata:,.2f}"
+                )
+                
+                fig.update_traces(
+                    hovertemplate=hover_template,
+                    customdata=df_allocation['allocated_amount'],
+                    textinfo='label+percent'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("No fund allocation data available")
+    
+    with tab2:
+        st.header("Current Open Trades")
+        
+        # Add refresh button
+        refresh_trades = st.button("Refresh Trades", key="refresh_trades")
+        
+        # Safe function to get active trades
+        async def get_active_trades_safely():
+            try:
+                db_pool = await create_db_pool()
+                trade_manager = TradeManager(db_pool)
+                active_trades = await trade_manager.get_active_trades()
+                await db_pool.close()
+                return active_trades
+            except Exception as e:
+                st.error(f"Error fetching active trades: {e}")
+                return []
+        
+        # Get active trades
+        active_trades = asyncio.run(get_active_trades_safely())
+        
+        if active_trades and len(active_trades) > 0:
+            # Convert to DataFrame
+            try:
+                df_trades = pd.DataFrame(active_trades)
+                
+                # Format the trade direction with up/down arrows
+                def format_direction(direction):
+                    if direction == "LONG":
+                        return "🔼 LONG"
+                    else:
+                        return "🔽 SHORT"
+                
+                if 'trade_direction' in df_trades.columns:
+                    df_trades['direction'] = df_trades['trade_direction'].apply(format_direction)
+                
+                # Calculate time in trade
+                def time_in_trade(entry_time):
+                    if entry_time:
+                        time_diff = datetime.now() - entry_time
+                        hours = time_diff.total_seconds() / 3600
+                        return f"{hours:.1f} hours"
+                    return "Unknown"
+                
+                if 'entry_time' in df_trades.columns:
+                    df_trades['time_in_trade'] = df_trades['entry_time'].apply(time_in_trade)
+                
+                # Select and reorder columns for display
+                display_columns = ['trade_id', 'bot_id', 'ticker', 'direction', 
+                                'entry_price', 'time_in_trade', 'rank_score']
+                
+                # Display only columns that exist
+                existing_columns = [col for col in display_columns if col in df_trades.columns]
+                
+                # Ensure we have at least some columns to display
+                if not existing_columns:
+                    existing_columns = df_trades.columns.tolist()
+                
+                st.dataframe(
+                    df_trades[existing_columns],
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"Error displaying trade data: {e}")
+                st.info("Raw trade data:")
+                st.write(active_trades)
+        else:
+            st.info("No active trades at the moment")
+    
+    with tab3:
+        st.header("Manual Trade Controls")
+        
+        # Safe function to get active trades for the dropdown
+        async def get_active_trades_for_dropdown():
+            try:
+                db_pool = await create_db_pool()
+                trade_manager = TradeManager(db_pool)
+                active_trades = await trade_manager.get_active_trades()
+                await db_pool.close()
+                return active_trades
+            except Exception as e:
+                st.error(f"Error fetching active trades for dropdown: {e}")
+                return []
+        
+        # Get active trades for the dropdown
+        active_trades = asyncio.run(get_active_trades_for_dropdown())
+        
+        if active_trades and len(active_trades) > 0:
+            try:
+                # Create a dropdown for trade selection
+                trade_options = []
+                for t in active_trades:
+                    # Check if all required keys exist
+                    bot_id = t.get('bot_id', 'Unknown')
+                    ticker = t.get('ticker', 'Unknown')
+                    direction = t.get('trade_direction', 'Unknown')
+                    trade_id = t.get('trade_id', 0)
+                    
+                    # Create the option text
+                    option_text = f"Trade {trade_id}: Bot {bot_id} - {ticker} {direction}"
+                    trade_options.append(option_text)
+                
+                if not trade_options:
+                    st.warning("No trade details available")
+                    return
+                
+                selected_trade = st.selectbox(
+                    "Select trade to close:",
+                    options=trade_options,
+                    index=0
+                )
+                
+                # Extract trade_id from the selected option
+                try:
+                    selected_trade_id = int(selected_trade.split(":")[0].replace("Trade ", ""))
+                except (ValueError, IndexError, AttributeError):
+                    st.error("Could not parse trade ID from selection")
+                    selected_trade_id = None
+                
+                if selected_trade_id is not None:
+                    # Current market price input
+                    current_price = st.number_input(
+                        "Current Market Price (for manual close)",
+                        min_value=0.01,
+                        step=0.01,
+                        value=100.00
+                    )
+                    
+                    # Close trade button
+                    if st.button("Close Selected Trade", key="close_trade_btn"):
+                        with st.spinner("Closing trade..."):
+                            try:
+                                # Execute the trade close using a coroutine wrapper
+                                async def close_trade_coroutine():
+                                    db_pool = await create_db_pool()
+                                    trade_manager = TradeManager(db_pool)
+                                    result = await trade_manager.complete_trade(selected_trade_id, current_price)
+                                    await db_pool.close()
+                                    return result
+                                
+                                # Run the coroutine
+                                result = asyncio.run(close_trade_coroutine())
+                                
+                                if result and result.get('success', False):
+                                    st.success(f"Successfully closed trade {selected_trade_id}")
+                                    
+                                    # Show trade details
+                                    if 'pnl' in result:
+                                        pnl = result['pnl']
+                                        if pnl > 0:
+                                            st.metric("Trade Result", f"${pnl:.2f}", delta=f"{pnl:.2f}")
+                                        else:
+                                            st.metric("Trade Result", f"${pnl:.2f}", delta=f"{pnl:.2f}", delta_color="inverse")
+                                else:
+                                    st.error(f"Failed to close trade: {result.get('reason', 'Unknown error')}")
+                            except Exception as e:
+                                st.error(f"Error closing trade: {e}")
+            except Exception as e:
+                st.error(f"Error setting up trade controls: {e}")
+                st.info("Raw trade data:")
+                st.write(active_trades)
+        else:
+            st.warning("No active trades available to close")
+        
+        # Add a section for closing all trades
+        st.subheader("Emergency Controls")
+        
+        if st.button("Close All Trades", key="close_all_trades"):
+            # Show confirmation dialog
+            confirm = st.text_input("Type 'CONFIRM' to close all trades:")
+            
+            if confirm.upper() == "CONFIRM":
+                with st.spinner("Closing all trades..."):
+                    # Execute close all trades
+                    success = asyncio.run(emergency_close_all_trades())
+                    if success:
+                        st.success("Successfully closed all trades")
+                    else:
+                        st.error("Failed to close all trades")
+
+async def emergency_close_all_trades():
+    """Close all open trades"""
+    try:
+        db_pool = await create_db_pool()
+        trade_manager = TradeManager(db_pool)
+        
+        # Get all active trades
+        active_trades = await trade_manager.get_active_trades()
+        
+        success = True
+        for trade in active_trades:
+            # Use the current entry price as exit price (this could be improved)
+            result = await trade_manager.complete_trade(trade['trade_id'], trade['entry_price'])
+            if not result or not result.get('success', False):
+                success = False
+        
+        await db_pool.close()
+        return success
+    except Exception as e:
+        st.error(f"Error closing all trades: {e}")
+        return False
+
+def show_account_manager():
+    """Display account information and allow managing account settings"""
+    st.title("Account Manager")
+    
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["Account Summary", "Positions", "Account History"])
+    
+    with tab1:
+        st.header("Account Summary")
+        
+        # Add refresh button
+        refresh_account = st.button("Refresh Account Data", key="account_summary_refresh")
+        
+        # Get account details
+        try:
+            account_details = asyncio.run(fetch_ib_account_details())
+            
+            if account_details and 'summary' in account_details:
+                # Create a DataFrame from account summary
+                summary_data = account_details['summary']
+                
+                if summary_data:
+                    # Convert to DataFrame
+                    df_summary = pd.DataFrame(summary_data)
+                    
+                    # Display as metrics for important values
+                    col1, col2, col3 = st.columns(3)
+                    
+                    # Net Liquidation Value
+                    nlv = next((item['value'] for item in summary_data if item['tag'] == 'NetLiquidation'), 'N/A')
+                    col1.metric("Net Liquidation Value", f"${nlv}")
+                    
+                    # Cash Balance
+                    cash = next((item['value'] for item in summary_data if item['tag'] == 'TotalCashBalance'), 'N/A')
+                    col2.metric("Cash Balance", f"${cash}")
+                    
+                    # Buying Power
+                    bp = next((item['value'] for item in summary_data if item['tag'] == 'BuyingPower'), 'N/A')
+                    col3.metric("Buying Power", f"${bp}")
+                    
+                    # Display full summary as a table
+                    st.subheader("Complete Account Summary")
+                    st.dataframe(
+                        df_summary,
+                        column_config={
+                            "tag": "Metric",
+                            "value": "Value", 
+                            "currency": "Currency"
+                        },
+                        use_container_width=True
+                    )
+                else:
+                    # If no real data, use sample data
+                    st.warning("No live account data available - showing sample data")
+                    sample_data = get_sample_account_data()
+                    
+                    # Display sample metrics
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Net Liquidation Value", f"${sample_data['NetLiquidation']}")
+                    col2.metric("Cash Balance", f"${sample_data['TotalCashBalance']}")
+                    col3.metric("Buying Power", f"${sample_data['BuyingPower']}")
+            else:
+                st.warning("No account data available")
+        except Exception as e:
+            st.error(f"Error fetching account details: {e}")
+            # Fall back to sample data
+            st.warning("Using sample account data")
+            sample_data = get_sample_account_data()
+            
+            # Display sample metrics
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Net Liquidation Value", f"${sample_data['NetLiquidation']}")
+            col2.metric("Cash Balance", f"${sample_data['TotalCashBalance']}")
+            col3.metric("Buying Power", f"${sample_data['BuyingPower']}")
+    
+    with tab2:
+        st.header("Current Positions")
+        
+        try:
+            account_details = asyncio.run(fetch_ib_account_details())
+            
+            if account_details and 'positions' in account_details and account_details['positions']:
+                # Create DataFrame for positions
+                positions = account_details['positions']
+                df_positions = pd.DataFrame(positions)
+                
+                # Format and display the positions
+                st.dataframe(
+                    df_positions,
+                    column_config={
+                        "symbol": "Symbol",
+                        "position": st.column_config.NumberColumn("Position", format="%.2f"),
+                        "avgCost": st.column_config.NumberColumn("Avg Cost", format="$%.2f"),
+                        "marketValue": st.column_config.NumberColumn("Market Value", format="$%.2f"),
+                    },
+                    use_container_width=True
+                )
+            else:
+                st.info("No positions currently held")
+        except Exception as e:
+            st.error(f"Error fetching positions: {e}")
+    
+    with tab3:
+        st.header("Account History")
+        
+        # Time period selection
+        days = st.slider("History Period (Days)", min_value=7, max_value=90, value=30, step=1)
+        
+        try:
+            # Fetch historical account data
+            account_history = asyncio.run(fetch_account_history(days=days))
+            
+            if account_history and len(account_history) > 0:
+                # Convert to DataFrame
+                df_history = pd.DataFrame(account_history)
+                
+                # Convert timestamp to datetime
+                df_history['timestamp'] = pd.to_datetime(df_history['timestamp'])
+                
+                # Create account value chart
+                st.subheader("Account Value History")
+                
+                fig = px.line(
+                    df_history, 
+                    x='timestamp', 
+                    y='net_liquidation_value',
+                    title=f'Account Value - Last {days} Days'
+                )
+                
+                fig.update_layout(
+                    xaxis_title="Date",
+                    yaxis_title="Net Liquidation Value ($)",
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show raw data in expandable section
+                with st.expander("Show Raw Account History Data"):
+                    st.dataframe(df_history)
+            else:
+                st.warning("No account history data available")
+        except Exception as e:
+            st.error(f"Error fetching account history: {e}")
+
+# Run the Streamlit app
+if __name__ == "__main__":
+    # Database check
+    db_status = asyncio.run(check_database_schema())
+    
+    # Add the Fund Allocation Dashboard to navigation
+    if 'page' not in st.session_state:
+        st.session_state.page = 'dashboard'
+        
+    # Create sidebar navigation
+    with st.sidebar:
+        st.title("Navigation")
+        st.write("### Main Views")
+        
+        if st.button("System Dashboard", key="nav_dash"):
+            st.session_state.page = 'dashboard'
+        
+        if st.button("Bot Metrics", key="nav_metrics"):
+            st.session_state.page = 'metrics'
+        
+        if st.button("Trade Analysis", key="nav_trade"):
+            st.session_state.page = 'trade'
+        
+        if st.button("Variable Weights", key="nav_weights"):
+            st.session_state.page = 'weights'
+            
+        if st.button("Fund Allocation Dashboard", key="nav_fund_alloc"):
+            st.session_state.page = 'fund_allocation'
+            
+        if st.button("Account Manager", key="nav_account"):
+            st.session_state.page = 'account'
+        
+        st.write("---")
+        st.write("### Data Tools")
+        
+        if st.button("Raw Bot Metrics", key="nav_raw"):
+            st.session_state.page = 'raw_metrics'
+        
+        if st.button("Raw Rankings", key="nav_rank"):
+            st.session_state.page = 'raw_rankings'
+        
+        st.write("---")
+        st.write("### System Controls")
+        
+        if st.button("Database Check", key="nav_db"):
+            st.session_state.page = 'db_check'
+    
+    # Display the selected page based on session state
+    if st.session_state.page == 'dashboard':
+        show_dashboard()
+    elif st.session_state.page == 'metrics':
+        show_metrics()
+    elif st.session_state.page == 'trade':
+        trade_analysis()
+    elif st.session_state.page == 'weights':
+        weights_ui = WeightsManagementUI(DB_CONFIG)
+        weights_ui.render()
+    elif st.session_state.page == 'raw_metrics':
+        show_raw_metrics()
+    elif st.session_state.page == 'raw_rankings':
+        show_raw_rankings()
+    elif st.session_state.page == 'db_check':
+        show_db_check()
+    elif st.session_state.page == 'fund_allocation':
+        fund_allocation_dashboard()
+    elif st.session_state.page == 'account':
+        show_account_manager()
