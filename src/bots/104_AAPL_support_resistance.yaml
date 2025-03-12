@@ -1,0 +1,24 @@
+name: AAPL support resistance algorithm
+description: support resistance algorithm for AAPL
+version: 1.0
+
+# Bot Identification (Persistent IDs)
+bot_id: 104  # Permanent unique bot ID for database tracking
+algo_id: 6  # Algorithm identifier
+ticker: AAPL
+trade_direction: SHORT
+
+# Trading Parameters
+position_size: 2000.00  # Position size in USD
+trailing_stop_pct: 0.002  # 0.2% trailing stop
+
+# Algorithm Module (points to Python implementation)
+algorithm_module: "algorithms.support_resistance_algorithm"  # Python module with custom entry/exit logic
+
+# Algorithm Parameters (passed to the algorithm module)
+# parameters:
+#   lookback_seconds: 60
+#   momentum_threshold: 0.001  # 0.1% minimum price increase
+#   confirmation_seconds: 15
+#   use_volume: false
+#   min_bars: 2
