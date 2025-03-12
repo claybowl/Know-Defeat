@@ -113,6 +113,14 @@ with st.expander("📝 Development Blog", expanded=True):
     
     ### Latest Updates
 
+    #### March 10, 2025 - Fund Allocation Dashboard
+    Added a comprehensive real-time dashboard for monitoring and managing the fund allocation system:
+    - Bot Rankings Table: View all bots with their current rank scores and active status
+    - Fund Allocation Visualization: Interactive pie chart showing how funds are distributed
+    - Current Trades Monitoring: Real-time view of all open trades with key information
+    - Manual Trade Controls: Close trades individually or implement emergency measures
+    - Enhanced error handling to ensure dashboard reliability regardless of database state
+    
     #### March 7, 2025 - Interactive Brokers Integration
     Added comprehensive IB account monitoring to the trading dashboard:
     - Real-time account summary showing balances, P&L, and leverage
