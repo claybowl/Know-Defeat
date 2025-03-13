@@ -14,7 +14,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-class Minute_momentum_algorithmAlgorithm:
+class Minute_momentumAlgorithm:
     """
     Enhanced momentum algorithm that uses both tick-level data and minute OHLC data
     for detecting price trends and generating trade signals.

@@ -13,7 +13,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-class Support_resistance_algorithmAlgorithm:
+class Support_resistanceAlgorithm:
     def __init__(self, direction, parameters):
         """Initialize with direction and parameters from YAML config"""
         self.direction = direction

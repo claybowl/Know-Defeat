@@ -11,7 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class Momentum_algorithmAlgorithm:
+class MomentumAlgorithm:
     """
     Momentum algorithm for detecting price trends and generating trade signals.
     """

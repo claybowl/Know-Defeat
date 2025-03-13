@@ -1,0 +1,24 @@
+name: SLV price pattern algorithm
+description: price pattern algorithm for SLV
+version: 1.0
+
+# Bot Identification (Persistent IDs)
+bot_id: 65  # Permanent unique bot ID for database tracking
+algo_id: 5  # Algorithm identifier
+ticker: SLV
+trade_direction: LONG
+
+# Trading Parameters
+position_size: 2000.00  # Position size in USD
+trailing_stop_pct: 0.002  # 0.2% trailing stop
+
+# Algorithm Module (points to Python implementation)
+algorithm_module: "algorithms.price_pattern_algorithm"  # Python module with custom entry/exit logic
+
+# Algorithm Parameters (passed to the algorithm module)
+# parameters:
+#   lookback_seconds: 60
+#   momentum_threshold: 0.001  # 0.1% minimum price increase
+#   confirmation_seconds: 15
+#   use_volume: false
+#   min_bars: 2

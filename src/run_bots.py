@@ -12,11 +12,22 @@ import logging
 import os
 import sys
 import asyncpg
-from base_bot import BotFactory
 
-# Add the project root to the Python path
-# This ensures modules like 'src.algorithms.momentum_algorithm' can be imported
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add the project root and current directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.insert(0, project_root)
+sys.path.insert(0, current_dir)
+
+# Try different import approaches
+try:
+    from base_bot import BotFactory
+except ImportError:
+    try:
+        from src.base_bot import BotFactory
+    except ImportError:
+        print("ERROR: Could not import BotFactory. Python path:", sys.path)
+        sys.exit(1)
 
 # Configure logging
 logging.basicConfig(

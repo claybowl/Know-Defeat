@@ -1,4 +1,3 @@
-
 """
 Volatility Breakout Algorithm
 
@@ -10,21 +9,22 @@ import pandas as pd
 import numpy as np
 import logging
 from datetime import timedelta
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-class Volatility_breakout_algorithmAlgorithm:
+class Volatility_breakoutAlgorithm:
     def __init__(self, direction, parameters):
         """Initialize with direction and parameters from YAML config"""
         self.direction = direction
         
         # Extract parameters with defaults
         self.atr_lookback = parameters.get('atr_lookback', 100)  # Ticks for ATR calculation
-        self.volatility_factor = parameters.get('volatility_factor', 1.5)  # Breakout multiplier
-        self.consolidation_threshold = parameters.get('consolidation_threshold', 0.5)  # Max volatility for consolidation
+        self.volatility_factor = float(parameters.get('volatility_factor', 1.5))  # Breakout multiplier
+        self.consolidation_threshold = float(parameters.get('consolidation_threshold', 0.5))  # Max volatility for consolidation
         self.min_consolidation_ticks = parameters.get('min_consolidation_ticks', 30)  # Min consolidation period
-        self.profit_factor = parameters.get('profit_factor', 2.0)  # Target as multiple of ATR
-        self.stop_factor = parameters.get('stop_factor', 1.0)  # Stop as multiple of ATR
+        self.profit_factor = float(parameters.get('profit_factor', 2.0))  # Target as multiple of ATR
+        self.stop_factor = float(parameters.get('stop_factor', 1.0))  # Stop as multiple of ATR
         
         logger.info(f"Initialized {direction} volatility breakout algorithm with "
                    f"lookback={self.atr_lookback}, "
@@ -33,6 +33,8 @@ class Volatility_breakout_algorithmAlgorithm:
         
     def _calculate_atr(self, prices):
         """Calculate Average True Range for volatility measurement"""
+        # Convert all prices to float to avoid Decimal/float type issues
+        prices = [float(p) for p in prices]
         price_changes = np.abs(np.diff(prices))
         if len(price_changes) == 0:
             return 0
@@ -46,14 +48,16 @@ class Volatility_breakout_algorithmAlgorithm:
         if len(recent_prices) < self.min_consolidation_ticks:
             return False
             
-        # Calculate recent price range
-        price_range = max(recent_prices) - min(recent_prices)
+        # Calculate recent price range - convert to float
+        price_range = float(max(recent_prices)) - float(min(recent_prices))
         
         # Calculate average price for percentage comparison
-        avg_price = np.mean(recent_prices)
+        # Convert to list of floats first
+        recent_prices_float = [float(p) for p in recent_prices]
+        avg_price = np.mean(recent_prices_float)
         
         # Check if range is small relative to volatility
-        return price_range <= (atr * self.consolidation_threshold * self.min_consolidation_ticks)
+        return price_range <= (float(atr) * self.consolidation_threshold * self.min_consolidation_ticks)
         
     def check_entry_conditions(self, ticks_df):
         """Check if entry conditions are met based on tick data"""
@@ -61,7 +65,9 @@ class Volatility_breakout_algorithmAlgorithm:
             return False
             
         try:
+            # Extract prices and ensure they are floats
             prices = ticks_df['price'].values
+            # Convert current price to float to avoid Decimal/float issues
             current_price = float(prices[0])
             
             # Calculate ATR (Average True Range)
@@ -74,14 +80,15 @@ class Volatility_breakout_algorithmAlgorithm:
                 
             # Define breakout level based on consolidation
             consolidation_prices = prices[:self.min_consolidation_ticks]
-            consolidation_high = max(consolidation_prices)
-            consolidation_low = min(consolidation_prices)
+            consolidation_high = float(max(consolidation_prices))
+            consolidation_low = float(min(consolidation_prices))
             
-            # Calculate breakout thresholds
-            breakout_up = consolidation_high + (atr * self.volatility_factor)
-            breakout_down = consolidation_low - (atr * self.volatility_factor)
+            # Calculate breakout thresholds - ensure all values are floats
+            atr_float = float(atr)
+            breakout_up = consolidation_high + (atr_float * self.volatility_factor)
+            breakout_down = consolidation_low - (atr_float * self.volatility_factor)
             
-            logger.info(f"ATR: {atr:.4f}, Consolidation: {consolidation_low:.4f}-{consolidation_high:.4f}, "
+            logger.info(f"ATR: {atr_float:.4f}, Consolidation: {consolidation_low:.4f}-{consolidation_high:.4f}, "
                        f"Breakouts: {breakout_down:.4f}/{breakout_up:.4f}, Current: {current_price:.4f}")
             
             # Check breakout conditions based on direction
@@ -93,7 +100,7 @@ class Volatility_breakout_algorithmAlgorithm:
                     
                     # Store ATR for position management
                     position_data = {
-                        'atr': atr,
+                        'atr': atr_float,
                         'breakout_level': breakout_up
                     }
                     
@@ -107,7 +114,7 @@ class Volatility_breakout_algorithmAlgorithm:
                     
                     # Store ATR for position management
                     position_data = {
-                        'atr': atr,
+                        'atr': atr_float,
                         'breakout_level': breakout_down
                     }
                     
@@ -122,9 +129,11 @@ class Volatility_breakout_algorithmAlgorithm:
     def check_exit_conditions(self, current_price, position_data):
         """Check if exit conditions are met"""
         try:
-            entry_price = position_data.get('entry_price', current_price)
-            atr = position_data.get('atr', current_price * 0.005)  # Default to 0.5% if not stored
-            breakout_level = position_data.get('breakout_level', entry_price)
+            # Convert all values to float to avoid Decimal issues
+            current_price = float(current_price)
+            entry_price = float(position_data.get('entry_price', current_price))
+            atr = float(position_data.get('atr', current_price * 0.005))  # Default to 0.5% if not stored
+            breakout_level = float(position_data.get('breakout_level', entry_price))
             
             if self.direction == 'LONG':
                 # For long positions

@@ -16,9 +16,18 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from decimal import Decimal
 import importlib
+import sys
+
+# Add current directory to path to help with imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import from trade management system
-from bot_ranker import BotRanker
+try:
+    # Try relative import first
+    from bot_ranker import BotRanker
+except ImportError:
+    # Try with full path
+    from src.bot_ranker import BotRanker
 
 # Import IB API modules
 from ibapi.client import EClient
@@ -129,26 +138,72 @@ class BaseBot:
             return None
             
         try:
-            # Import the module
-            module = importlib.import_module(module_path)
-            
-            # For MomentumAlgorithm (named based on algorithm_module path's last component)
-            algorithm_class_name = module_path.split('.')[-1].capitalize() + 'Algorithm'
-            
-            # If the module has that class, get it
-            if hasattr(module, algorithm_class_name):
-                algorithm_class = getattr(module, algorithm_class_name)
-                # Create instance with parameters from config
-                parameters = self.config.get('parameters', {})
-                algorithm = algorithm_class(self.trade_direction, parameters)
-                return algorithm
-            else:
-                self.logger.error(f"Algorithm class {algorithm_class_name} not found in {module_path}")
-                return None
+            # Try to import the module directly
+            try:
+                module = importlib.import_module(module_path)
+                self.logger.info(f"Successfully imported module {module_path}")
+            except ImportError as e:
+                self.logger.error(f"Error importing algorithm module {module_path}: {e}")
+                self.logger.info(f"Trying alternative import paths...")
                 
-        except ImportError as e:
-            self.logger.error(f"Error importing algorithm module {module_path}: {e}")
+                # If this is specifying algorithms.X, try just importing X directly
+                # This handles the case where algorithms/ is in the Python path
+                if "." in module_path:
+                    module_name = module_path.split(".")[-1]
+                    try:
+                        module = importlib.import_module(module_name)
+                        self.logger.info(f"Successfully imported module {module_name}")
+                    except ImportError:
+                        # Try importing from parent directory
+                        try:
+                            module = importlib.import_module(f"..{module_path}", package="src")
+                            self.logger.info(f"Successfully imported module ..{module_path}")
+                        except ImportError as e2:
+                            self.logger.error(f"All import attempts failed for {module_path}: {e2}")
+                            return None
+            
+            # Get algorithm class name based on the module name
+            algo_name = module_path.split('.')[-1]  # e.g. "momentum_algorithm"
+            
+            # Try different naming patterns for the algorithm class
+            possible_class_names = [
+                f"{algo_name.capitalize()}Algorithm",  # MomentumAlgorithm
+                f"{algo_name.replace('_', '').capitalize()}Algorithm",  # MomentumAlgorithm
+                f"{algo_name.split('_')[0].capitalize()}Algorithm"  # MomentumAlgorithm
+            ]
+            
+            # Add the actual class names we found in our algorithm files
+            if algo_name == "momentum_algorithm":
+                possible_class_names.append("MomentumAlgorithm")
+            elif algo_name == "breakout_algorithm":
+                possible_class_names.append("BreakoutAlgorithm")
+            elif algo_name == "mean_reversion_algorithm":
+                possible_class_names.append("Mean_reversionAlgorithm")
+            elif algo_name == "minute_momentum_algorithm":
+                possible_class_names.append("Minute_momentumAlgorithm")
+            elif algo_name == "price_pattern_algorithm":
+                possible_class_names.append("Price_patternAlgorithm")
+            elif algo_name == "support_resistance_algorithm":
+                possible_class_names.append("Support_resistanceAlgorithm")
+            elif algo_name == "volatility_breakout_algorithm":
+                possible_class_names.append("Volatility_breakoutAlgorithm")
+            elif algo_name == "volume_surge_algorithm":
+                possible_class_names.append("Volume_surgeAlgorithm")
+            
+            # Try each possible class name
+            for class_name in possible_class_names:
+                if hasattr(module, class_name):
+                    algorithm_class = getattr(module, class_name)
+                    # Create instance with parameters from config
+                    parameters = self.config.get('parameters', {})
+                    algorithm = algorithm_class(self.trade_direction, parameters)
+                    self.logger.info(f"Successfully loaded algorithm class {class_name}")
+                    return algorithm
+            
+            # If we get here, we couldn't find a matching class
+            self.logger.error(f"No matching algorithm class found in {module_path}. Tried: {possible_class_names}")
             return None
+                
         except Exception as e:
             self.logger.error(f"Error initializing algorithm: {e}")
             return None

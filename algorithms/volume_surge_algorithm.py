@@ -13,7 +13,7 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-class Volume_surge_algorithmAlgorithm:
+class Volume_surgeAlgorithm:
     def __init__(self, direction, parameters):
         """Initialize with direction and parameters from YAML config"""
         self.direction = direction

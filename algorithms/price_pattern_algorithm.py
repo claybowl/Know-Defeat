@@ -14,7 +14,7 @@ from scipy.signal import find_peaks
 
 logger = logging.getLogger(__name__)
 
-class Price_pattern_algorithmAlgorithm:
+class Price_patternAlgorithm:
     def __init__(self, direction, parameters):
         """Initialize with direction and parameters from YAML config"""
         self.direction = direction

@@ -11,7 +11,7 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-class Mean_reversion_algorithmAlgorithm:
+class Mean_reversionAlgorithm:
     def __init__(self, direction, parameters):
         """Initialize with direction and parameters from YAML config"""
         self.direction = direction
@@ -33,8 +33,10 @@ class Mean_reversion_algorithmAlgorithm:
             
         try:
             # Calculate mean and standard deviation
-            mean_price = ticks_df['price'].mean()
-            std_dev = ticks_df['price'].std()
+            # Convert all prices to float to ensure consistent types
+            prices = ticks_df['price'].astype(float)
+            mean_price = float(prices.mean())
+            std_dev = float(prices.std())
             current_price = float(ticks_df['price'].iloc[0])
             
             # Calculate z-score (how many standard deviations from mean)
@@ -58,6 +60,10 @@ class Mean_reversion_algorithmAlgorithm:
         """Check if exit conditions are met"""
         try:
             entry_price = position_data.get('entry_price', current_price)
+            
+            # Convert to float to avoid decimal vs float issues
+            current_price = float(current_price)
+            entry_price = float(entry_price)
             
             # Calculate profit/loss percentage
             if self.direction == 'LONG':
