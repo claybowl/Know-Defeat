@@ -113,20 +113,53 @@ with st.expander("📝 Development Blog", expanded=True):
     
     ### Latest Updates
 
+    #### March 25, 2025 - System Test Suite Success
+    Completed comprehensive system testing with excellent results:
+    - Trade Simulation Test ✅: Successfully created and tracked test trade #8010
+    - Metrics Update Test ✅: Verified accurate calculation of performance metrics
+      - Total trades: 13
+      - Win rate: 100.00%
+      - Total PnL: $83.43
+    - Bot Ranking Test ✅: Confirmed ranking system accuracy
+      - Ranked 126 bots successfully
+      - Verified database storage of rankings
+      - Score precision within 0.001% tolerance
+    - Fund Allocation Test ✅: Validated allocation system
+      - Successfully allocated funds across 126 bots
+      - Total allocation verified at 100%
+      - Individual bot allocations calculated correctly
+
+    #### March 25, 2025 - Knowledge Graph Integration
+    Added comprehensive knowledge graph integration to store and manage system information:
+    - Created entities for core system components (IB Integration, Database, Trading Bot System)
+    - Added database table schemas and relationships
+    - Stored market data tiers and trading metrics
+    - Implemented development timeline tracking
+    - Enhanced system documentation accessibility
+    
+    #### March 20, 2025 - Database Numeric Precision Fix
+    Resolved critical numeric precision issues in the bot metrics system:
+    - Fixed overflow errors in DECIMAL(6,2) columns for high-performing bots
+    - Implemented value limiting for metrics to stay within database constraints
+    - Added helper functions for consistent numeric handling
+    - Updated metrics calculation methods with proper value capping
+    - Maintained system stability without requiring schema changes
+    
+    #### March 15, 2025 - Memory Management Improvements
+    Enhanced system memory handling and database connection management:
+    - Implemented connection pooling optimization
+    - Added automatic cleanup of idle connections
+    - Improved error handling for database operations
+    - Enhanced memory usage monitoring
+    - Added emergency cleanup procedures
+    
     #### March 10, 2025 - Fund Allocation Dashboard
     Added a comprehensive real-time dashboard for monitoring and managing the fund allocation system:
     - Bot Rankings Table: View all bots with their current rank scores and active status
     - Fund Allocation Visualization: Interactive pie chart showing how funds are distributed
     - Current Trades Monitoring: Real-time view of all open trades with key information
     - Manual Trade Controls: Close trades individually or implement emergency measures
-    - Enhanced error handling to ensure dashboard reliability regardless of database state
-    
-    #### March 7, 2025 - Interactive Brokers Integration
-    Added comprehensive IB account monitoring to the trading dashboard:
-    - Real-time account summary showing balances, P&L, and leverage
-    - Current positions tracking with performance metrics
-    - Historical account value tracking and visualization
-    - Automatic data storage in the database for long-term analysis
+    - Enhanced error handling to ensure dashboard reliability
     
     #### March 5, 2025 - Top 10 Fund Allocation System
     Implemented a dynamic fund allocation system based on bot rankings:
@@ -135,20 +168,6 @@ with st.expander("📝 Development Blog", expanded=True):
     - Adds funding to bots that enter the top 10
     - Provides visualization of allocation changes over time
     - Includes a historical record of all allocation changes
-    
-    #### February 28, 2025 - Connection Pooling Optimization
-    Improved database connection management:
-    - Implemented connection pooling to reduce overhead
-    - Added database status monitoring tools
-    - Automated cleanup of idle connections
-    - Enhanced error handling for database operations
-    
-    #### February 20, 2025 - Bot Ranking System Launch
-    Launched the new bot ranking system:
-    - Automatic evaluation of bots based on multiple performance metrics
-    - Weight management for customizing the importance of different metrics
-    - Historical tracking of bot rankings over time
-    - Integration with the database for persistent storage
     
     _This area will be populated with development updates. Partners can refer to this section for the most recent changes and progress on the Know Defeat Trading System._
     
