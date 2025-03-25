@@ -37,10 +37,8 @@ logger = logging.getLogger(__name__)
 TIER_1_SYMBOLS = [
     'TSLA',  # Tesla
     'COIN',  # Coinbase
-    'SLV',   # Silver ETF
     'NVDA',   # Nvidia
     'ARWR',   # Arrowhead Pharmaceuticals
-    'CYTK',   # Cytokinetics
     'ROOT',   # Root Pharmaceuticals
     'JANX',   # Janus Henderson Global Technology Fund
     'AMZN',   # Amazon
@@ -122,14 +120,14 @@ class IBDataIngestion(EWrapper, EClient):
         contract.currency = currency
 
         # For NASDAQ stocks, set the primary exchange
-        nasdaq_symbols = ['COIN','TSLA','NVDA','CEG','CVNA','VERA','CYTK','ROOT','JANX','AMZN','ARWR','FLYW']
+        nasdaq_symbols = ['COIN','TSLA','NVDA','CEG','CVNA','VERA','ROOT','JANX','AMZN','ARWR','FLYW']
         
-        # For ETFs, set the secType to 'ETF'
-        etf_symbols = ['SLV']
+        # Define ETF symbols
+        etf_symbols = []  # SLV was removed, keeping empty list for potential future ETFs
         
         if symbol in nasdaq_symbols:
             contract.primaryExchange = 'NASDAQ'
-            
+
         if symbol in etf_symbols:
             contract.secType = 'ETF'
             contract.primaryExchange = 'ARCA'  # Most ETFs trade on ARCA
@@ -179,7 +177,10 @@ class BotManager:
         self.logger.info(f"Added bot: {bot['bot_id']} for {bot['ticker']}")
 
     async def process_tick(self, ticker, price, timestamp, db_pool):
-        """Process tick data through all registered bots"""
+        """
+        Track tick data in memory cache only, without writing to bot_tick_data.
+        All actual tick data is already stored in the tick_data table.
+        """
         if not self.bots:
             # No bots loaded, try to load them
             bots_loaded = await self.load_bots_from_db(db_pool)
@@ -187,7 +188,7 @@ class BotManager:
                 self.logger.warning("No bots loaded, cannot process tick data")
                 return
 
-        # Store latest tick data in memory cache
+        # Store latest tick data in memory cache only
         self.last_processed_data[ticker] = {
             'price': price, 
             'timestamp': timestamp
@@ -198,45 +199,19 @@ class BotManager:
             # No bots for this ticker
             return
             
-        self.logger.debug(f"Processing tick data for {ticker} ({len(ticker_bots)} bots): ${price:.2f}")
-            
-        for bot in ticker_bots:
-            try:
-                # Store the tick processing in the database for the bot to pick up
-                async with db_pool.acquire() as conn:
-                    # First check if we already have recent tick data (within last 2 seconds)
-                    existing_tick = await conn.fetchrow('''
-                        SELECT id FROM bot_tick_data
-                        WHERE bot_id = $1 AND ticker = $2 
-                        AND timestamp > NOW() - INTERVAL '2 seconds'
-                        LIMIT 1
-                    ''', bot['bot_id'], ticker)
-                    
-                    if existing_tick:
-                        # Update existing tick if it's very recent
-                        await conn.execute('''
-                            UPDATE bot_tick_data
-                            SET price = $1, timestamp = $2, processed = FALSE
-                            WHERE id = $3
-                        ''', price, timestamp, existing_tick['id'])
-                    else:
-                        # Insert new tick data
-                        await conn.execute('''
-                            INSERT INTO bot_tick_data (bot_id, ticker, price, timestamp)
-                            VALUES ($1, $2, $3, $4)
-                        ''', bot['bot_id'], ticker, price, timestamp)
-                    
-                    self.logger.debug(f"Processed tick for bot {bot['bot_id']}: {ticker} @ ${price:.2f}")
-            except Exception as e:
-                self.logger.error(f"Error processing tick for bot {bot['bot_id']}: {e}")
+        # Log for informational purposes, but don't write to bot_tick_data
+        bot_ids = [bot['bot_id'] for bot in ticker_bots]
+        self.logger.debug(f"Received tick data for {ticker} (relevant for bots: {bot_ids}): ${price:.2f}")
+        
+        # No database operations - ticks are already in the tick_data table
 
     async def ensure_data_for_all_bots(self, db_pool):
         """
-        Ensure all bots have recent tick data by copying data between bots if needed.
-        This helps bots that aren't receiving direct ticks for their ticker.
+        Monitor data availability for tickers without writing to bot_tick_data.
+        Only retrieves info from tick_data table for monitoring purposes.
         """
         if not self.last_processed_data:
-            return  # No data to propagate
+            return  # No data to monitor
             
         try:
             # Get unique tickers that need data
@@ -246,7 +221,7 @@ class BotManager:
             if not missing_tickers:
                 return  # All tickers have data
                 
-            self.logger.info(f"Attempting to find data for missing tickers: {missing_tickers}")
+            self.logger.info(f"Checking for data on tickers: {missing_tickers}")
             
             async with db_pool.acquire() as conn:
                 for ticker in missing_tickers:
@@ -259,27 +234,19 @@ class BotManager:
                     ''', ticker)
                     
                     if recent_tick:
-                        # We found data, populate it for all bots with this ticker
+                        # We found data, just update our internal cache (no database inserts)
                         self.logger.info(f"Found recent data for {ticker}: ${recent_tick['price']:.2f}")
                         
-                        bots_for_ticker = [bot for bot in self.bots if bot['ticker'] == ticker]
-                        for bot in bots_for_ticker:
-                            await conn.execute('''
-                                INSERT INTO bot_tick_data (bot_id, ticker, price, timestamp)
-                                VALUES ($1, $2, $3, $4)
-                                ON CONFLICT (bot_id, ticker, timestamp) DO NOTHING
-                            ''', bot['bot_id'], ticker, recent_tick['price'], recent_tick['timestamp'])
-                            
-                        # Update our cache
+                        # Update our monitoring cache only
                         self.last_processed_data[ticker] = {
                             'price': recent_tick['price'],
-                            'timestamp': recent_tick['timestamp']
+                            'timestamp': datetime.utcnow()  # Use current time to avoid timezone issues
                         }
                     else:
                         self.logger.warning(f"No recent data found for ticker {ticker}")
                         
         except Exception as e:
-            self.logger.error(f"Error ensuring data for all bots: {e}")
+            self.logger.error(f"Error checking tick data availability: {e}")
 
 class DataIngestionManager:
     def __init__(self, symbols: list):

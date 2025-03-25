@@ -514,8 +514,8 @@ async def save_logs_to_db(bot_name=None):
         return False
 
 # Create main sections using tabs
-tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_account, tab_export = st.tabs([
-    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Bot Rankings", "Account Info", "Data Export"
+tab_controls, tab_logs, tab_tables, tab_trades, tab_params, tab_rankings, tab_account, tab_export, tab_docs = st.tabs([
+    "Controls", "Logs", "Tables", "Trade Data", "Parameters", "Bot Rankings", "Account Info", "Data Export", "Documentation"
 ])
 
 # Controls Section
