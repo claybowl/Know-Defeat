@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 
 # Add the project root to the Python path
-project_root = Path(__file__).parent.absolute()
-sys.path.append(str(project_root))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
 
 async def run_ranking():
     try:

@@ -345,44 +345,9 @@ class DataIngestionManager:
                         )
                     """)
                 
-                # Check if bot_tick_data table exists
-                tick_table_exists = await conn.fetchval("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'bot_tick_data'
-                    )
-                """)
-                
-                if not tick_table_exists:
-                    self.logger.info("Creating bot_tick_data table...")
-                    await conn.execute("""
-                        CREATE TABLE bot_tick_data (
-                            id SERIAL PRIMARY KEY,
-                            bot_id INTEGER NOT NULL,
-                            ticker VARCHAR(10) NOT NULL,
-                            price NUMERIC(15,6) NOT NULL,
-                            timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
-                            processed BOOLEAN DEFAULT FALSE,
-                            CONSTRAINT fk_bot_id
-                                FOREIGN KEY(bot_id) 
-                                REFERENCES sim_bots(bot_id)
-                        )
-                    """)
-                    
-                    # Create index on ticker for faster lookups
-                    await conn.execute("""
-                        CREATE INDEX idx_bot_tick_data_ticker ON bot_tick_data(ticker)
-                    """)
-                    
-                    # Create index on bot_id for faster lookups
-                    await conn.execute("""
-                        CREATE INDEX idx_bot_tick_data_bot_id ON bot_tick_data(bot_id)
-                    """)
-                    
-                    # Create index on processed status for faster lookups
-                    await conn.execute("""
-                        CREATE INDEX idx_bot_tick_data_processed ON bot_tick_data(processed)
-                    """)
+                # No longer creating bot_tick_data table as it's been deprecated
+                # The system now uses tick_data table for all price data storage
+                # and keeps processing status in memory
                 
                 self.logger.info("Database schema check completed")
                 

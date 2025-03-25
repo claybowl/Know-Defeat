@@ -1,6 +1,13 @@
 # test_bot_ranker.py
 import pytest
+import sys
+import os
 from unittest.mock import AsyncMock, patch
+
+# Add the project root directory to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now import from src
 from src.bot_ranker import BotRanker
 
 @pytest.fixture

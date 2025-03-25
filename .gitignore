@@ -3,3 +3,9 @@ ib_controller.log
 ib_controller.log
 *.log
 *.csv
+*.mdc
+*.json
+# Start Generation Here
+.cursor/
+# End Generation Here
+```
