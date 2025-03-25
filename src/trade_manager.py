@@ -207,20 +207,25 @@ class TradeManager:
         except Exception as e:
             self.logger.error(f"Error updating bot activations: {e}")
     
-    async def initiate_trade(self, bot_id, ticker, entry_price, trade_direction, trade_size):
+    async def initiate_trade(self, bot_id, ticker, entry_price, trade_direction, trade_size=None):
         """
-        Initiate a new trade with the dynamic allocation logic.
+        Initiate a new trade with the dynamic allocation logic using fixed trade size.
+        
+        All trades use exactly 10% of the total fund allocation ($2,000 out of $20,000).
         
         Args:
             bot_id: The ID of the bot initiating the trade
             ticker: The stock ticker symbol
             entry_price: The price at which to enter the trade
             trade_direction: 'LONG' or 'SHORT'
-            trade_size: The size of the trade in dollars
+            trade_size: Optional - if not provided, uses fixed 10% of total funds ($2,000)
             
         Returns:
             dict: Status information about the trade initiation
         """
+        # Set default trade size to fixed 10% of $20,000 total funds
+        if trade_size is None:
+            trade_size = 2000.0  # Fixed at 10% of $20,000
         try:
             # Check if this bot can open a trade
             can_trade, needs_to_close, lowest_trade = await self.can_open_new_trade(bot_id)

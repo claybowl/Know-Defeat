@@ -320,8 +320,8 @@ class TestTradingPipeline:
         logger.info("Starting fund allocation test")
         try:
             logger.info("Calling get_fund_allocation method...")
-            # Get allocation for a sample fund
-            allocations = await self.bot_ranker.get_fund_allocation(total_funds=100000)
+            # Get allocation using the new fixed 10% strategy with $20,000 fund
+            allocations = await self.bot_ranker.get_fund_allocation()
             
             logger.info(f"Fund allocation result: {type(allocations)}")
             

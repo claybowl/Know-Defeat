@@ -287,91 +287,89 @@ class BotRanker:
         except Exception as e:
             self.logger.error(f"Error updating bot rankings: {e}")
 
-    async def get_fund_allocation(self, total_funds, max_allocation_pct=10.0, min_allocation_pct=1.0):
+    async def get_fund_allocation(self, total_funds=20000):
         """
-        Calculate fund allocation based on bot rankings.
+        Calculate fund allocation based on fixed 10% per trade strategy.
+        
+        Each active trade receives exactly 10% of the total funds ($2,000 out of $20,000 default).
+        Maximum of 10 concurrent trades for 100% allocation.
+        Higher-ranked bots get priority for trading slots.
         
         Args:
-            total_funds: Total funds available for trading
-            max_allocation_pct: Maximum percentage to allocate to a single bot (default: 10%)
-            min_allocation_pct: Minimum percentage to allocate to a bot (default: 1%)
+            total_funds: Total funds available for trading (default: $20,000)
             
         Returns:
             List of dicts with bot_id, ticker, rank_score, and allocation_amount
         """
         try:
-            # Get ranked bots
+            # Get active trades ordered by rank score
+            active_trades = await self.trade_manager.get_active_trades()
+            
+            # Get all ranked bots for reference
             ranked_bots = await self.rank_bots()
-            if not ranked_bots:
-                return []
+            bot_info = {bot['bot_id']: bot for bot in ranked_bots}
             
-            # Get active bots
-            async with self.db_pool.acquire() as connection:
-                active_bots = await connection.fetch("""
-                    SELECT bot_id FROM bot_rankings
-                    WHERE is_active = true
-                    ORDER BY rank_score DESC
-                """)
-                
-                active_bot_ids = [row['bot_id'] for row in active_bots]
+            # Fixed allocation per trade (10% of total funds)
+            fixed_trade_amount = total_funds / 10
             
-            # Filter to only active bots
-            ranked_active_bots = [bot for bot in ranked_bots if bot['bot_id'] in active_bot_ids]
-            
-            if not ranked_active_bots:
-                return []
-            
-            # Calculate allocations based on rank scores
+            # Build allocations list
             allocations = []
-            total_score = sum(bot['rank_score'] for bot in ranked_active_bots)
             
-            # If total_score is 0, use equal distribution
-            if total_score == 0:
-                equal_share = total_funds / len(ranked_active_bots)
-                for bot in ranked_active_bots:
-                    allocations.append({
-                        'bot_id': bot['bot_id'],
-                        'ticker': bot['ticker'],
-                        'rank_score': bot['rank_score'],
-                        'rank': bot['rank'],
-                        'allocation_amount': equal_share,
-                        'allocation_percentage': 100.0 / len(ranked_active_bots)
-                    })
-            else:
-                # Proportional allocation based on rank score, with min and max limits
-                for bot in ranked_active_bots:
-                    # Calculate raw percentage based on score
-                    raw_percentage = (bot['rank_score'] / total_score) * 100.0
-                    
-                    # Apply min/max constraints
-                    allocation_percentage = max(min(raw_percentage, max_allocation_pct), min_allocation_pct)
-                    allocation_amount = (allocation_percentage / 100.0) * total_funds
-                    
-                    allocations.append({
-                        'bot_id': bot['bot_id'],
-                        'ticker': bot['ticker'],
-                        'rank_score': bot['rank_score'],
-                        'rank': bot['rank'],
-                        'allocation_amount': allocation_amount,
-                        'allocation_percentage': allocation_percentage
-                    })
+            # Calculate allocations for active trades (each gets 10%)
+            for trade in active_trades:
+                bot_id = trade['bot_id']
+                # Add ticker and rank from bot_info if available
+                ticker = trade['ticker']
+                rank = bot_info[bot_id]['rank'] if bot_id in bot_info else None
+                rank_score = trade['rank_score']
                 
-                # Normalize allocations to ensure they sum to 100%
-                total_allocated_pct = sum(alloc['allocation_percentage'] for alloc in allocations)
-                
-                if total_allocated_pct != 100.0:
-                    scale_factor = 100.0 / total_allocated_pct
-                    
-                    for alloc in allocations:
-                        alloc['allocation_percentage'] *= scale_factor
-                        alloc['allocation_amount'] = (alloc['allocation_percentage'] / 100.0) * total_funds
+                allocations.append({
+                    'bot_id': bot_id,
+                    'ticker': ticker,
+                    'rank_score': rank_score,
+                    'rank': rank,
+                    'trade_id': trade['trade_id'],
+                    'allocation_amount': fixed_trade_amount,
+                    'allocation_percentage': 10.0
+                })
             
-            # Sort by allocation amount (descending)
-            allocations.sort(key=lambda x: x['allocation_amount'], reverse=True)
+            # Sort by rank score (highest first)
+            allocations.sort(key=lambda x: x['rank_score'], reverse=True)
+            
+            # Calculate total allocation and available funds
+            allocated_pct = len(allocations) * 10.0
+            self.logger.info(f"Current allocation: {allocated_pct}% across {len(allocations)} active trades")
+            
+            # Add potential allocations for inactive bots
+            if allocated_pct < 100.0:
+                # Calculate how many more trades can be opened
+                available_slots = 10 - len(allocations)
+                self.logger.info(f"Available slots: {available_slots} ({available_slots * 10.0}% of funds)")
+                
+                # Add placeholder for potential additional allocations (for information only)
+                if ranked_bots and available_slots > 0:
+                    # Find bots not currently trading
+                    trading_bot_ids = [alloc['bot_id'] for alloc in allocations]
+                    available_bots = [bot for bot in ranked_bots 
+                                    if bot['bot_id'] not in trading_bot_ids]
+                    
+                    # Take top N available bots where N is the number of available slots
+                    for bot in available_bots[:available_slots]:
+                        allocations.append({
+                            'bot_id': bot['bot_id'],
+                            'ticker': bot['ticker'],
+                            'rank_score': bot['rank_score'],
+                            'rank': bot['rank'],
+                            'allocation_amount': fixed_trade_amount,
+                            'allocation_percentage': 10.0,
+                            'status': 'available_for_trade'  # Mark as potential allocation
+                        })
             
             return allocations
         except Exception as e:
             self.logger.error(f"Error calculating fund allocation: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return []
 
     async def toggle_bot_active_status(self, bot_id, is_active):
