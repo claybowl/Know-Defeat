@@ -300,21 +300,25 @@ class TradeManager:
                 trade = await connection.fetchrow("""
                     SELECT bot_id, ticker, entry_price, trade_direction, trade_size
                     FROM sim_bot_trades
-                    WHERE trade_id = $1 AND trade_status = 'open'
+                    WHERE trade_id = $1 AND trade_status IN ('open', 'pending_exit')
                 """, trade_id)
                 
                 if not trade:
-                    self.logger.error(f"Trade {trade_id} not found or not open")
+                    self.logger.error(f"Trade {trade_id} not found or not in open/pending_exit state")
                     return {
                         'success': False,
-                        'reason': 'Trade not found or not open'
+                        'reason': 'Trade not found or not in open/pending_exit state'
                     }
                     
-                # Calculate PnL
+                # Calculate PnL - convert all values to float to avoid type mismatches
+                exit_price_float = float(exit_price)
+                entry_price_float = float(trade['entry_price'])
+                trade_size_float = float(trade['trade_size'])
+                
                 if trade['trade_direction'] == 'LONG':
-                    pnl = (exit_price - trade['entry_price']) * (trade['trade_size'] / trade['entry_price'])
+                    pnl = (exit_price_float - entry_price_float) * (trade_size_float / entry_price_float)
                 else:  # SHORT
-                    pnl = (trade['entry_price'] - exit_price) * (trade['trade_size'] / trade['entry_price'])
+                    pnl = (entry_price_float - exit_price_float) * (trade_size_float / entry_price_float)
                     
                 # Update trade
                 await connection.execute("""
@@ -327,7 +331,12 @@ class TradeManager:
                     WHERE trade_id = $3
                 """, exit_price, pnl, trade_id)
                 
-                self.logger.info(f"Completed trade {trade_id} with PnL: ${pnl:.2f}")
+                # Get the trade status for better logging
+                trade_status = await connection.fetchval("""
+                    SELECT trade_status FROM sim_bot_trades WHERE trade_id = $1
+                """, trade_id)
+                
+                self.logger.info(f"Completed trade {trade_id} with PnL: ${pnl:.2f} (previous status: {trade_status})")
             
             # Update bot activations since we've completed a trade
             await self.update_bot_activations()

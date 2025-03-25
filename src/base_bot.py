@@ -376,21 +376,30 @@ class BaseBot:
                 await self.log_exit_signal(price, timestamp)
                 
                 # Complete the trade through the trade manager
-                trade_result = await self.bot_ranker.complete_bot_trade(
-                    self.current_trade_id,
-                    price
-                )
-                
-                if not trade_result['success']:
-                    self.logger.error(f"Failed to complete trade: {trade_result.get('reason', 'Unknown error')}")
-                
-                # Reset position state
-                self.position = None
-                self.entry_price = None
-                self.extreme_price = 0
-                self.current_trade_id = None
-                
-                self.logger.info(f"Position closed at {price:.4f}")
+                try:
+                    trade_result = await self.bot_ranker.complete_bot_trade(
+                        self.current_trade_id,
+                        price
+                    )
+                    
+                    if not trade_result['success']:
+                        self.logger.error(f"Failed to complete trade: {trade_result.get('reason', 'Unknown error')}")
+                        # Don't reset internal state if the trade wasn't completed successfully
+                        # This way the bot will try again on the next tick
+                        self.logger.warning(f"Trade {self.current_trade_id} still pending completion")
+                        return
+                        
+                    # Only reset position state if the trade was completed successfully
+                    self.position = None
+                    self.entry_price = None
+                    self.extreme_price = 0
+                    self.current_trade_id = None
+                    
+                    self.logger.info(f"Position closed at {price:.4f}")
+                except Exception as e:
+                    self.logger.error(f"Exception completing trade: {e}")
+                    self.logger.warning(f"Trade {self.current_trade_id} still pending completion")
+                    # Don't reset internal state so the bot will try again
 
         except Exception as e:
             self.logger.error(f"Error executing {action} trade: {e}")
