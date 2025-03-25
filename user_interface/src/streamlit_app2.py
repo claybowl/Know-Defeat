@@ -3992,7 +3992,7 @@ async def fetch_ib_account_details():
         
         # Connect to IB and fetch data
         client = AccountInfoClient()
-        client.connect("127.0.0.1", 7496, 0)  # Default IB Gateway port
+        client.connect("127.0.0.1", 4002, 0)  # Default IB Gateway port
         
         # Use a separate thread to process IB messages
         import threading

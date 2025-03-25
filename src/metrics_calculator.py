@@ -29,6 +29,36 @@ class MetricsCalculator:
             return result
         except (ValueError, TypeError, OverflowError):
             return default
+            
+    def _limit_decimal_value(self, value, precision, scale):
+        """
+        Limit a value to fit within the specified precision and scale.
+        
+        Args:
+            value: The numeric value to limit
+            precision: Total number of digits (both sides of decimal point)
+            scale: Number of digits after decimal point
+            
+        Returns:
+            float: The value limited to fit within the specified precision/scale
+        """
+        try:
+            # Convert to float if it's not already
+            float_value = float(value) if not isinstance(value, float) else value
+            
+            # Calculate the maximum allowed value based on precision and scale
+            digits_before_decimal = precision - scale
+            max_value = 10 ** digits_before_decimal - 10 ** (-scale)
+            min_value = -max_value
+            
+            # Limit the value to the allowed range
+            limited_value = max(min(float_value, max_value), min_value)
+            
+            # Round to the specified scale
+            return round(limited_value, scale)
+        except (TypeError, ValueError):
+            # Return 0 if the value can't be converted
+            return 0.0
 
     async def calculate_one_hour_performance(self, bot_id, ticker):
         async with self.db_pool.acquire() as connection:
@@ -64,7 +94,9 @@ class MetricsCalculator:
                     return 0.0
                     
                 win_rate = (winning_trades / total_trades) * 100
-                return win_rate
+                # Ensure win rate is within DECIMAL(6,2) limits
+                limited_win_rate = self._limit_decimal_value(win_rate, 6, 2)
+                return limited_win_rate
         except Exception as e:
             logging.error(f"Error calculating average win rate for bot {bot_id}, ticker {ticker}: {e}")
             return 0.0
@@ -390,9 +422,11 @@ class MetricsCalculator:
                 
                 # Update the win streak metrics in the database
                 try:
-                    # Ensure all values are converted to float for the SQL update
+                    # Ensure all values are converted to float and limited to fit within DECIMAL(6,2)
                     for key, value in win_streak_metrics.items():
-                        win_streak_metrics[key] = self._ensure_float(value)
+                        float_value = self._ensure_float(value)
+                        # Apply limits for DECIMAL(6,2)
+                        win_streak_metrics[key] = self._limit_decimal_value(float_value, 6, 2)
                     
                     await connection.execute("""
                         UPDATE bot_metrics
@@ -437,11 +471,13 @@ class MetricsCalculator:
             
             # Combine one-day performance and win rate for a score
             score = (win_rate * 0.7) + (min(max(one_day_perf, 0), 100) * 0.3)
-            return min(max(round(score, 2), 0), 100)  # Ensure score is between 0-100
+            # Ensure score is between 0-100 and fits within DECIMAL(6,2)
+            limited_score = self._limit_decimal_value(min(max(score, 0), 100), 6, 2)
+            return limited_score
                 
         except Exception as e:
             logging.error(f"Error calculating price model score: {e}")
-            return 50  # Return a neutral score on error
+            return 50.0  # Return a neutral score on error
     
     async def calculate_win_rate_over_period(self, bot_id, algo_id=None, start_time=None, end_time=None, period=None):
         """Calculate win rate over a specific time period.
@@ -495,7 +531,10 @@ class MetricsCalculator:
                 if total_trades == 0:
                     return 0.0
                     
-                return (winning_trades / total_trades) * 100
+                win_rate = (winning_trades / total_trades) * 100
+                # Ensure win rate is within DECIMAL(6,2) limits
+                limited_win_rate = self._limit_decimal_value(win_rate, 6, 2)
+                return limited_win_rate
         except Exception as e:
             logging.error(f"Error calculating win rate for bot {bot_id}: {e}")
             return 0.0
@@ -514,12 +553,14 @@ class MetricsCalculator:
                 score = min(daily_trade_count * profit_per_trade * 5, 100)  # Scale with some factor
             else:
                 score = 50  # Neutral score if not enough data
-                
-            return round(score, 2)
+            
+            # Ensure the score fits within DECIMAL(6,2)
+            limited_score = self._limit_decimal_value(score, 6, 2)
+            return limited_score
                 
         except Exception as e:
             logging.error(f"Error calculating volume model score: {e}")
-            return 50  # Return a neutral score on error
+            return 50.0  # Return a neutral score on error
     
     async def calculate_price_wall_score(self, bot_id, algo_id):
         """Calculate a score based on order book price walls."""
@@ -535,11 +576,13 @@ class MetricsCalculator:
             else:
                 score = 50  # Neutral score if not enough data
                 
-            return round(score, 2)
+            # Ensure the score fits within DECIMAL(6,2)
+            limited_score = self._limit_decimal_value(score, 6, 2)
+            return limited_score
                 
         except Exception as e:
             logging.error(f"Error calculating price wall score: {e}")
-            return 50  # Return a neutral score on error
+            return 50.0  # Return a neutral score on error
 
     async def calculate_sharpe_ratio(self, bot_id, algo_id):
         """Calculate the Sharpe Ratio for the bot."""

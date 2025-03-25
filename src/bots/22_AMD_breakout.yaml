@@ -1,19 +1,19 @@
-name: SLV Volitility Breakout Algorithm
-description:
+name: AMD breakout algorithm
+description: breakout algorithm for AMD
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 109  # Permanent unique bot ID for database tracking
-algo_id: 8  # Algorithm identifier
-ticker: SLV
-trade_direction: LONG
+bot_id: 22  # Permanent unique bot ID for database tracking
+algo_id: 3  # Algorithm identifier
+ticker: AMD
+trade_direction: SHORT
 
 # Trading Parameters
 position_size: 2000.00  # Position size in USD
 trailing_stop_pct: 0.002  # 0.2% trailing stop
 
 # Algorithm Module (points to Python implementation)
-algorithm_module: "algorithms.volatility_breakout_algorithm"  # Python module with custom entry/exit logic
+algorithm_module: "algorithms.breakout_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
 # parameters:

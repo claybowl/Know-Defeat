@@ -2,6 +2,10 @@
 
 # Instructions and Information for Claude
 
+- Check your knowledge-graph-memory when responding to user prompts.
+- After acheiving success in a task, or series of task, add that information to the knowledge-graph-memory.
+- When developing or learning new features of the Know Defeat system, add that information to the knowlege-graph-memory.
+
 - I'm using anaconda environment for this project. I'm also using bash terminal. The conda environment i'm using is:
   - `conda activate Autogen`
 
@@ -465,6 +469,35 @@ example_query()
 - Run Streamlit UI: `streamlit run user_interface/src/streamlit_app2.py`
 - Export trades: `python user_interface/src/export_all_trades.py`
 - Register bots: `bash register_bots.sh` or `python scripts/register_all_bots.py`
+
+- 1. test_trade_creation.py - A simple script that creates a single test trade and updates metrics for one bot 
+  2. test_metrics_system.py - A more comprehensive script that checks all bots, their trade counts, and updates metrics for bots with trades
+  3. test_trading_pipeline.py - A full end-to-end test that simulates the trading pipeline from trade creation through metrics calculation and bot ranking
+
+  To run these tests and ensure the system is working correctly, you can execute them in the following order:  
+
+  ### First, run the simple trade creation test
+  python tests/test_trade_creation.py
+
+  ### Then check the overall metrics system
+  python tests/test_metrics_system.py
+
+  ### Finally, run the full pipeline test
+  python tests/test_trading_pipeline.py
+
+  These tests will:
+  1. Create test trades for various bots
+  2. Update metrics based on those trades
+  3. Verify metrics are calculated correctly
+  4. Rank bots based on their metrics
+  5. Calculate fund allocations based on rankings
+
+  By running these tests, you can confirm that your system is correctly:
+  - Recording trades in the sim_bot_trades table
+  - Calculating metrics based on those trades
+  - Storing metrics in the bot_metrics table
+  - Ranking bots based on their metrics
+  - Allocating funds based on rankings
 
 ## Code Style Guidelines
 

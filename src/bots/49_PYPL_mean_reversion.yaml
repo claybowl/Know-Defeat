@@ -1,19 +1,19 @@
-name: CYTK support resistance algorithm
-description: support resistance algorithm for CYTK
+name: PYPL mean reversion algorithm
+description: mean reversion algorithm for PYPL
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 94  # Permanent unique bot ID for database tracking
-algo_id: 6  # Algorithm identifier
-ticker: CYTK
-trade_direction: SHORT
+bot_id: 49  # Permanent unique bot ID for database tracking
+algo_id: 4  # Algorithm identifier
+ticker: PYPL
+trade_direction: LONG
 
 # Trading Parameters
 position_size: 2000.00  # Position size in USD
 trailing_stop_pct: 0.002  # 0.2% trailing stop
 
 # Algorithm Module (points to Python implementation)
-algorithm_module: "algorithms.support_resistance_algorithm"  # Python module with custom entry/exit logic
+algorithm_module: "algorithms.mean_reversion_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
 # parameters:

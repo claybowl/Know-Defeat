@@ -6,6 +6,36 @@ class MetricsUpdater:
     def __init__(self, db_pool, metrics_calculator):
         self.db_pool = db_pool
         self.metrics_calculator = metrics_calculator
+        
+    def _limit_decimal_value(self, value, precision, scale):
+        """
+        Limit a value to fit within the specified precision and scale.
+        
+        Args:
+            value: The numeric value to limit
+            precision: Total number of digits (both sides of decimal point)
+            scale: Number of digits after decimal point
+            
+        Returns:
+            float: The value limited to fit within the specified precision/scale
+        """
+        try:
+            # Convert to float if it's not already
+            float_value = float(value) if not isinstance(value, float) else value
+            
+            # Calculate the maximum allowed value based on precision and scale
+            digits_before_decimal = precision - scale
+            max_value = 10 ** digits_before_decimal - 10 ** (-scale)
+            min_value = -max_value
+            
+            # Limit the value to the allowed range
+            limited_value = max(min(float_value, max_value), min_value)
+            
+            # Round to the specified scale
+            return round(limited_value, scale)
+        except (TypeError, ValueError):
+            # Return 0 if the value can't be converted
+            return 0.0
 
     async def update_bot_metrics(self, bot_id, ticker):
         try:
@@ -142,6 +172,25 @@ class MetricsUpdater:
                         )
                     """)
                     
+                    # Limit values to fit within database constraints
+                    # DECIMAL(6,2) fields need to be limited to -9999.99 to 9999.99
+                    limited_one_hour_perf = self._limit_decimal_value(one_hour_perf, 6, 2)
+                    limited_two_hour_perf = self._limit_decimal_value(two_hour_perf, 6, 2)
+                    limited_one_day_perf = self._limit_decimal_value(one_day_perf, 6, 2)
+                    limited_one_week_perf = self._limit_decimal_value(one_week_perf, 6, 2)
+                    limited_one_month_perf = self._limit_decimal_value(one_month_perf, 6, 2)
+                    limited_avg_win_rate = self._limit_decimal_value(avg_win_rate, 6, 2)
+                    limited_avg_drawdown = self._limit_decimal_value(drawdown_info['avg_drawdown'], 6, 2)
+                    limited_max_drawdown = self._limit_decimal_value(drawdown_info['max_drawdown'], 6, 2)
+                    limited_price_model_score = self._limit_decimal_value(price_model_score, 6, 2)
+                    limited_volume_model_score = self._limit_decimal_value(volume_model_score, 6, 2)
+                    limited_price_wall_score = self._limit_decimal_value(price_wall_score, 6, 2)
+                    
+                    # DECIMAL(10,4) and DECIMAL(10,2) fields have larger ranges
+                    limited_profit_per_second = self._limit_decimal_value(profit_per_second, 10, 4)
+                    limited_total_pnl = self._limit_decimal_value(total_pnl, 12, 2)
+                    limited_avg_profit_per_trade = self._limit_decimal_value(avg_profit_per_trade, 10, 2)
+                    
                     # Update all metrics in a single transaction
                     await connection.execute("""
                         INSERT INTO bot_metrics (
@@ -170,24 +219,47 @@ class MetricsUpdater:
                     bot_id, 
                     ticker, 
                     algo_id, 
-                    float(one_hour_perf), 
-                    float(two_hour_perf), 
-                    float(one_day_perf), 
-                    float(one_week_perf), 
-                    float(one_month_perf),
-                    float(avg_win_rate), 
-                    float(profit_per_second), 
-                    float(total_pnl), 
+                    limited_one_hour_perf, 
+                    limited_two_hour_perf, 
+                    limited_one_day_perf, 
+                    limited_one_week_perf, 
+                    limited_one_month_perf,
+                    limited_avg_win_rate, 
+                    limited_profit_per_second, 
+                    limited_total_pnl, 
                     int(total_trades), 
-                    float(avg_profit_per_trade),
-                    float(drawdown_info['avg_drawdown']), 
-                    float(drawdown_info['max_drawdown']),
-                    float(price_model_score), 
-                    float(volume_model_score), 
-                    float(price_wall_score))
+                    limited_avg_profit_per_trade,
+                    limited_avg_drawdown, 
+                    limited_max_drawdown,
+                    limited_price_model_score, 
+                    limited_volume_model_score, 
+                    limited_price_wall_score)
                 
-                # Calculate and update win streaks separately
+                # Calculate win streaks 
                 win_streaks = await self.metrics_calculator.calculate_and_insert_win_streaks(bot_id, algo_id)
+                
+                # Make sure the win_streak values are also constrained to DECIMAL(6,2)
+                if win_streaks:
+                    try:
+                        async with self.db_pool.acquire() as conn:
+                            # Apply limits to win streak values
+                            for streak_len in [2, 3, 4, 5]:
+                                streak_key = f"win_streak_{streak_len}"
+                                if streak_key in win_streaks:
+                                    limited_value = self._limit_decimal_value(win_streaks[streak_key], 6, 2)
+                                    
+                                    # Update the limited value
+                                    await conn.execute(f"""
+                                        UPDATE bot_metrics
+                                        SET {streak_key} = $1
+                                        WHERE bot_id = $2 AND timestamp = (
+                                            SELECT MAX(timestamp) 
+                                            FROM bot_metrics 
+                                            WHERE bot_id = $2
+                                        )
+                                    """, limited_value, bot_id)
+                    except Exception as e:
+                        logging.error(f"Error updating limited win streak values for bot {bot_id}: {e}")
                 
                 logging.info(f"Updated metrics for bot {bot_id}, ticker {ticker}, algorithm {algo_id}")
                 return True

@@ -1,12 +1,12 @@
-name: CYTK Volitility Breakout Algorithm
-description:
+name: AMD Volatility Breakout Algorithm
+description: Volatility breakout algorithm for AMD
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 115  # Permanent unique bot ID for database tracking
+bot_id: 110  # Permanent unique bot ID for database tracking
 algo_id: 8  # Algorithm identifier
-ticker: CYTK
-trade_direction: LONG
+ticker: AMD
+trade_direction: SHORT
 
 # Trading Parameters
 position_size: 2000.00  # Position size in USD

@@ -1,11 +1,11 @@
-name: CYTK support resistance algorithm
-description: support resistance algorithm for CYTK
+name: AMD price pattern algorithm
+description: price pattern algorithm for AMD
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 93  # Permanent unique bot ID for database tracking
-algo_id: 6  # Algorithm identifier
-ticker: CYTK
+bot_id: 65  # Permanent unique bot ID for database tracking
+algo_id: 5  # Algorithm identifier
+ticker: AMD
 trade_direction: LONG
 
 # Trading Parameters
@@ -13,7 +13,7 @@ position_size: 2000.00  # Position size in USD
 trailing_stop_pct: 0.002  # 0.2% trailing stop
 
 # Algorithm Module (points to Python implementation)
-algorithm_module: "algorithms.support_resistance_algorithm"  # Python module with custom entry/exit logic
+algorithm_module: "algorithms.price_pattern_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
 # parameters:

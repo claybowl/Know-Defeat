@@ -1,19 +1,19 @@
-name: CYTK price pattern algorithm
-description: price pattern algorithm for CYTK
+name: AMD mean reversion algorithm
+description: mean reversion algorithm for AMD
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 71  # Permanent unique bot ID for database tracking
-algo_id: 5  # Algorithm identifier
-ticker: CYTK
-trade_direction: LONG
+bot_id: 44  # Permanent unique bot ID for database tracking
+algo_id: 4  # Algorithm identifier
+ticker: AMD
+trade_direction: SHORT
 
 # Trading Parameters
 position_size: 2000.00  # Position size in USD
 trailing_stop_pct: 0.002  # 0.2% trailing stop
 
 # Algorithm Module (points to Python implementation)
-algorithm_module: "algorithms.price_pattern_algorithm"  # Python module with custom entry/exit logic
+algorithm_module: "algorithms.mean_reversion_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
 # parameters:

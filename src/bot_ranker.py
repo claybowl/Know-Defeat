@@ -1,7 +1,7 @@
 import logging
 import asyncpg
 from decimal import Decimal
-from trade_manager import TradeManager
+from src.trade_manager import TradeManager
 
 class BotRanker:
     """

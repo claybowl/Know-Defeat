@@ -43,7 +43,9 @@ TIER_1_SYMBOLS = [
     'JANX',   # Janus Henderson Global Technology Fund
     'AMZN',   # Amazon
     'FLYW',   # Flywire
-    'AAPL'   # Apple
+    'AAPL',   # Apple
+    'AMD',    # Advanced Micro Devices
+    'PYPL'    # PayPal
 ]
 
 class IBDataIngestion(EWrapper, EClient):
@@ -120,7 +122,7 @@ class IBDataIngestion(EWrapper, EClient):
         contract.currency = currency
 
         # For NASDAQ stocks, set the primary exchange
-        nasdaq_symbols = ['COIN','TSLA','NVDA','CEG','CVNA','VERA','ROOT','JANX','AMZN','ARWR','FLYW']
+        nasdaq_symbols = ['COIN','TSLA','NVDA','CEG','CVNA','VERA','ROOT','JANX','AMZN','ARWR','FLYW','AMD','PYPL']
         
         # Define ETF symbols
         etf_symbols = []  # SLV was removed, keeping empty list for potential future ETFs

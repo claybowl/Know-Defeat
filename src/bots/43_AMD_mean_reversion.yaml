@@ -1,11 +1,11 @@
-name: SLV support resistance algorithm
-description: support resistance algorithm for SLV
+name: AMD mean reversion algorithm
+description: mean reversion algorithm for AMD
 version: 1.0
 
 # Bot Identification (Persistent IDs)
-bot_id: 87  # Permanent unique bot ID for database tracking
-algo_id: 6  # Algorithm identifier
-ticker: SLV
+bot_id: 43  # Permanent unique bot ID for database tracking
+algo_id: 4  # Algorithm identifier
+ticker: AMD
 trade_direction: LONG
 
 # Trading Parameters
@@ -13,7 +13,7 @@ position_size: 2000.00  # Position size in USD
 trailing_stop_pct: 0.002  # 0.2% trailing stop
 
 # Algorithm Module (points to Python implementation)
-algorithm_module: "algorithms.support_resistance_algorithm"  # Python module with custom entry/exit logic
+algorithm_module: "algorithms.mean_reversion_algorithm"  # Python module with custom entry/exit logic
 
 # Algorithm Parameters (passed to the algorithm module)
 # parameters:

@@ -1,0 +1,172 @@
+# AgentStack Sample Configuration for Know-Defeat Trading System
+# Place this file in your AgentStack project root
+
+# Project name and description
+name: know_defeat_agents
+description: Multi-agent system for algorithmic trading with Know-Defeat
+
+# Framework specification
+framework: crew  # Use crew framework for agent orchestration
+
+# Default LLM configuration
+default_model: openai/gpt-4-turbo
+
+# Project inputs (can be overridden with --input-* flags)
+inputs:
+  # Trading parameters
+  trading_account: simulation
+  risk_tolerance: medium  # low, medium, high
+  max_position_size: 1000
+  trailing_stop_pct: 0.01
+  
+  # Market parameters
+  default_ticker: TSLA
+  tickers:
+    - TSLA
+    - COIN
+    - SPY
+    - QQQ
+    - AAPL
+  trading_hours:
+    start: "09:30"
+    end: "16:00"
+  
+  # Agent parameters
+  use_risk_manager: true
+  use_performance_tracker: true
+  
+# Agents configuration
+agents:
+  # Market Analyzer agent
+  market_analyzer:
+    name: "Market Analyzer"
+    role: "Trading Market Analyzer"
+    goal: "Analyze market data and identify potential trading opportunities"
+    backstory: "An expert trading analyst with years of experience in pattern recognition and market analysis"
+    llm: openai/gpt-4-turbo
+    tools:
+      - technical_indicators
+      - market_data_fetch
+      - chart_pattern_recognition
+      - sentiment_analysis
+  
+  # Strategy Executor agent
+  strategy_executor:
+    name: "Strategy Executor"
+    role: "Trading Strategy Executor"
+    goal: "Execute trading strategies based on signals from the analyzer"
+    backstory: "An execution specialist that can optimize order placement and execution quality"
+    llm: openai/gpt-4-turbo
+    tools:
+      - order_executor
+      - position_manager
+      - limit_order_placement
+      - market_order_placement
+  
+  # Risk Manager agent
+  risk_manager:
+    name: "Risk Manager"
+    role: "Trading Risk Manager"
+    goal: "Monitor positions and manage risk parameters"
+    backstory: "An expert in risk assessment and position sizing with focus on capital preservation"
+    llm: openai/gpt-4-turbo
+    tools:
+      - risk_calculator
+      - volatility_estimator
+      - position_sizer
+      - drawdown_monitor
+  
+  # Performance Tracker agent
+  performance_tracker:
+    name: "Performance Tracker"
+    role: "Trading Performance Analyzer"
+    goal: "Track and analyze trading performance metrics"
+    backstory: "A data analyst specialized in evaluating trading systems and providing optimization insights"
+    llm: openai/gpt-4-turbo
+    tools:
+      - performance_metrics
+      - equity_curve_generator
+      - trade_journal
+      - strategy_optimizer
+
+# Tasks configuration
+tasks:
+  # Market analysis task
+  analyze_market:
+    description: "Analyze current market conditions for trading signals"
+    expected_output: "JSON object with identified patterns and signal strength"
+    agent: market_analyzer
+    input_vars:
+      - ticker
+      - timeframe
+      - lookback_period
+  
+  # Trade execution task
+  execute_trade:
+    description: "Execute a trade based on the provided signal"
+    expected_output: "JSON object with execution details"
+    agent: strategy_executor
+    input_vars:
+      - ticker
+      - direction
+      - quantity
+      - order_type
+  
+  # Risk assessment task
+  assess_risk:
+    description: "Evaluate risk for a potential trade"
+    expected_output: "JSON object with risk metrics"
+    agent: risk_manager
+    input_vars:
+      - ticker
+      - direction
+      - account_balance
+      - volatility
+  
+  # Performance analysis task
+  analyze_performance:
+    description: "Analyze trading performance and provide insights"
+    expected_output: "JSON object with performance metrics and recommendations"
+    agent: performance_tracker
+    input_vars:
+      - start_date
+      - end_date
+      - trade_history
+
+# Database connection information
+database:
+  host: localhost
+  port: 5432
+  name: tick_data
+  user: clayb
+  
+# Tool mappings to custom implementations
+tools_mapping:
+  technical_indicators: tools.technical_indicators.calculate_indicators
+  market_data_fetch: tools.database.fetch_market_data
+  chart_pattern_recognition: tools.patterns.identify_patterns
+  sentiment_analysis: tools.sentiment.analyze_sentiment
+  order_executor: tools.orders.execute_order
+  position_manager: tools.positions.manage_position
+  limit_order_placement: tools.orders.place_limit_order
+  market_order_placement: tools.orders.place_market_order
+  risk_calculator: tools.risk.calculate_risk
+  volatility_estimator: tools.risk.estimate_volatility
+  position_sizer: tools.risk.size_position
+  drawdown_monitor: tools.risk.monitor_drawdown
+  performance_metrics: tools.performance.calculate_metrics
+  equity_curve_generator: tools.performance.generate_equity_curve
+  trade_journal: tools.performance.log_trade
+  strategy_optimizer: tools.performance.optimize_strategy
+
+# Logging configuration
+logging:
+  level: info  # debug, info, warning, error
+  file: logs/agents.log
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Output configuration
+output:
+  format: json  # json, yaml, text
+  save_to_file: true
+  file_path: output/agent_results.json 
