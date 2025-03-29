@@ -15,6 +15,8 @@
 
 - When creating new files that generate logs, please save those logs in my logs/ directory. When generating documents, please save them in my docs/ directiory.
 
+- Our to do for the next day: Create a breakdown document explaining all of our bot_metric table logic for our business partner who isn't skilled in coding, but is skilled in mathematics, and wants to help me improve the metrics. We're going to complete the Javascript user-interface MVP. We're going to plan out our database migration and prepare to deploy our app at the end of the day tomorrow!
+
 # Interactive Brokers Integration
 
 ## IB Gateway Setup
@@ -543,3 +545,55 @@ The Know Defeat project aims to create a sophisticated algorithmic trading syste
 - Curve AI autonomous trading system
 
 Our vision is to create a trading ecosystem where autonomous agents collaborate and compete to discover and exploit market opportunities while maintaining robust risk management. The system will continuously learn and adapt to changing market conditions through collective intelligence.
+
+# Today's UI Development Plan
+
+  Current Progress Assessment
+
+  We're building a React/Typescript-based UI using:
+  - Remix framework for routing and server-side rendering
+  - Chakra UI for component library
+  - ReCharts for data visualization
+
+  Key components already implemented:
+  - Basic layout structure (MainLayout, Header, Footer)
+  - Landing page with hero section and stats
+  - Dashboard with charts and metrics
+  - Bot management pages (list and detail)
+  - Trade monitoring pages (active and history)
+  - Metrics visualization page
+  - Fund allocation page
+
+  Most chart components needed for visualization are implemented:
+  - TradeActivityChart
+  - FundAllocationChart
+  - PerformanceMetricsChart
+  - BotComparisonChart
+  - TradeHistoryChart
+
+  Tasks for Today
+
+  1. Complete Bot Detail Page
+    - Enhance parameter display with better visualization
+    - Add trade history filtering capability
+    - Implement trade performance metrics visualization
+  2. Enhance Metrics Page
+    - Improve sorting and filtering for metrics table
+    - Add period comparison (day/week/month/year)
+    - Create metric trend visualization
+  3. Implement Settings Page
+    - Create UI for system configuration
+    - Add weight adjustment controls for ranking algorithm
+    - Implement database management options
+  4. Live Data Integration
+    - Connect WebSocket for real-time trade updates
+    - Implement notification system for new trades/events
+    - Add real-time price chart
+  5. Mobile Optimization
+    - Test and refine responsive behavior
+    - Create simplified mobile views for key screens
+    - Optimize charts for mobile display
+  6. Documentation
+    - Update component documentation
+    - Create technical implementation guide
+    - Document API endpoints and data models

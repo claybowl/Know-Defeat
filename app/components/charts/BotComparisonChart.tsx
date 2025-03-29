@@ -42,15 +42,21 @@ const sampleBots = [
   },
 ];
 
-// Normalize bot data for radar chart comparison
+// Normalize bot data for radar chart comparison with safe handling of missing data
 const normalizeData = (bots: any[]) => {
-  // Find max values for each metric
+  // Helper function to safely get maximum value
+  const safeMax = (values: any[], defaultValue = 1) => {
+    const validValues = values.filter(v => typeof v === 'number' && !isNaN(v) && v !== null && v !== undefined);
+    return validValues.length > 0 ? Math.max(...validValues) : defaultValue;
+  };
+  
+  // Find max values for each metric with safety checks
   const maxValues = {
-    'Win Rate': Math.max(...bots.map(bot => bot.win_rate)),
-    'Profit Factor': Math.max(...bots.map(bot => bot.profit_factor)),
-    'Sharpe Ratio': Math.max(...bots.map(bot => bot.sharpe_ratio)),
-    'Risk Control': 1 - Math.max(...bots.map(bot => bot.max_drawdown)), // Invert drawdown
-    'Expectancy': Math.max(...bots.map(bot => bot.expectancy)),
+    'Win Rate': safeMax(bots.map(bot => bot.win_rate || 0), 0.7),
+    'Profit Factor': safeMax(bots.map(bot => bot.profit_factor || 0), 1.5),
+    'Sharpe Ratio': safeMax(bots.map(bot => bot.sharpe_ratio || 0), 1.0),
+    'Risk Control': 1 - safeMax(bots.map(bot => bot.max_drawdown || 0), 0.15), // Invert drawdown
+    'Expectancy': safeMax(bots.map(bot => bot.expectancy || 0), 0.5),
   };
   
   // Create normalized data for the radar chart
@@ -59,21 +65,28 @@ const normalizeData = (bots: any[]) => {
     
     bots.forEach(bot => {
       let value;
+      // Get bot values with fallbacks
+      const winRate = typeof bot.win_rate === 'number' ? bot.win_rate : 0;
+      const profitFactor = typeof bot.profit_factor === 'number' ? bot.profit_factor : 0;
+      const sharpeRatio = typeof bot.sharpe_ratio === 'number' ? bot.sharpe_ratio : 0;
+      const maxDrawdown = typeof bot.max_drawdown === 'number' ? bot.max_drawdown : 0;
+      const expectancy = typeof bot.expectancy === 'number' ? bot.expectancy : 0;
+      
       switch (key) {
         case 'Win Rate':
-          value = bot.win_rate / maxValues[key];
+          value = winRate / (maxValues[key] || 1); // Avoid division by zero
           break;
         case 'Profit Factor':
-          value = bot.profit_factor / maxValues[key];
+          value = profitFactor / (maxValues[key] || 1);
           break;
         case 'Sharpe Ratio':
-          value = bot.sharpe_ratio / maxValues[key];
+          value = sharpeRatio / (maxValues[key] || 1);
           break;
         case 'Risk Control':
-          value = (1 - bot.max_drawdown) / maxValues[key];
+          value = (1 - maxDrawdown) / (maxValues[key] || 1);
           break;
         case 'Expectancy':
-          value = bot.expectancy / maxValues[key];
+          value = expectancy / (maxValues[key] || 1);
           break;
         default:
           value = 0;

@@ -33,18 +33,30 @@ export default function PerformanceMetricsChart({
   const positiveColor = useColorModeValue('green.500', 'green.300');
   const negativeColor = useColorModeValue('red.500', 'red.300');
   
-  // Normalize data for visualization
-  const chartData = data.map(bot => ({
-    name: `Bot ${bot.bot_id}`,
-    value: metric === 'win_rate'
-      ? bot.win_rate * 100 // Convert to percentage
-      : metric === 'max_drawdown'
-        ? Math.abs(bot.max_drawdown * 100) // Make positive for visualization
-        : bot[metric],
-    actualValue: bot[metric],
-  })).sort((a, b) => b.value - a.value); // Sort in descending order
+  // Normalize data for visualization and handle missing data
+  const chartData = data.map(bot => {
+    // Get values with fallbacks for missing data
+    const winRate = typeof bot.win_rate === 'number' ? bot.win_rate : 0;
+    const maxDrawdown = typeof bot.max_drawdown === 'number' ? bot.max_drawdown : 0;
+    const metricValue = typeof bot[metric] === 'number' ? bot[metric] : 0;
+    
+    return {
+      name: `Bot ${bot.bot_id}`,
+      value: metric === 'win_rate'
+        ? winRate * 100 // Convert to percentage
+        : metric === 'max_drawdown'
+          ? Math.abs(maxDrawdown * 100) // Make positive for visualization
+          : metricValue,
+      actualValue: metricValue,
+    };
+  }).sort((a, b) => b.value - a.value); // Sort in descending order
   
-  // Configure metrics settings
+  // Configure metrics settings with safer calculations
+  const safeMax = (values: any[], defaultValue = 1) => {
+    const validValues = values.filter(v => typeof v === 'number' && !isNaN(v));
+    return validValues.length > 0 ? Math.max(...validValues) : defaultValue;
+  };
+  
   const metricConfig = {
     win_rate: {
       label: 'Win Rate (%)',
@@ -56,19 +68,19 @@ export default function PerformanceMetricsChart({
       label: 'Profit Factor',
       color: positiveColor,
       format: (value: number) => value.toFixed(2),
-      domain: [0, Math.max(...data.map(bot => bot.profit_factor)) * 1.1],
+      domain: [0, safeMax(data.map(bot => bot.profit_factor || 0), 2) * 1.1],
     },
     sharpe_ratio: {
       label: 'Sharpe Ratio',
       color: positiveColor,
       format: (value: number) => value.toFixed(2),
-      domain: [0, Math.max(...data.map(bot => bot.sharpe_ratio)) * 1.1],
+      domain: [0, safeMax(data.map(bot => bot.sharpe_ratio || 0), 2) * 1.1],
     },
     max_drawdown: {
       label: 'Max Drawdown (%)',
       color: negativeColor,
       format: (value: number) => `-${value.toFixed(1)}%`,
-      domain: [0, Math.max(...data.map(bot => Math.abs(bot.max_drawdown) * 100)) * 1.1],
+      domain: [0, safeMax(data.map(bot => Math.abs(bot.max_drawdown || 0) * 100), 10) * 1.1],
     },
   };
   

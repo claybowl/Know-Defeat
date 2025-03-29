@@ -75,15 +75,21 @@ export default function Metrics() {
   
   // Get top 5 bots for comparison
   const topBots = [...botsWithTrades]
-    .sort((a, b) => parseFloat(b.rank_score) - parseFloat(a.rank_score))
+    .sort((a, b) => {
+      // Fall back to total_pnl if rank_score is not available
+      if (a.rank_score !== undefined && b.rank_score !== undefined) {
+        return parseFloat(b.rank_score) - parseFloat(a.rank_score);
+      }
+      return parseFloat(b.total_pnl || 0) - parseFloat(a.total_pnl || 0);
+    })
     .slice(0, 5)
     .map(bot => ({
       bot_id: bot.bot_id,
       name: `Bot ${bot.bot_id}`,
       win_rate: parseFloat(bot.win_rate),
-      profit_factor: parseFloat(bot.profit_factor),
-      sharpe_ratio: parseFloat(bot.sharpe_ratio),
-      max_drawdown: parseFloat(bot.max_drawdown),
+      profit_factor: parseFloat(bot.profit_factor || 0),
+      sharpe_ratio: parseFloat(bot.sharpe_ratio || 0),
+      max_drawdown: parseFloat(bot.max_drawdown || 0),
       expectancy: parseFloat(bot.expectancy || 0),
     }));
   
@@ -198,7 +204,13 @@ export default function Metrics() {
               <Tbody>
                 {metrics
                   .filter(bot => bot.total_trades > 0)
-                  .sort((a, b) => parseFloat(b.rank_score) - parseFloat(a.rank_score))
+                  .sort((a, b) => {
+                    // Fall back to total_pnl if rank_score is not available
+                    if (a.rank_score !== undefined && b.rank_score !== undefined) {
+                      return parseFloat(b.rank_score) - parseFloat(a.rank_score);
+                    }
+                    return parseFloat(b.total_pnl || 0) - parseFloat(a.total_pnl || 0);
+                  })
                   .map((bot, index) => (
                     <Tr key={bot.bot_id}>
                       <Td>{index + 1}</Td>
