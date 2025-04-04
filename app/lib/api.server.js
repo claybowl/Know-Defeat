@@ -1,4 +1,16 @@
-import db from './db.server';
+// Import the appropriate database module based on environment
+const isProduction = process.env.NODE_ENV === 'production';
+let db;
+
+if (isProduction) {
+  // Use cloud DB connection in production
+  console.log("Using Cloud SQL connection...");
+  db = require('./cloud-db.server').default;
+} else {
+  // Use local DB connection in development
+  console.log("Using local DB connection...");
+  db = require('./db.server').default;
+}
 
 export async function getDashboardData() {
   try {

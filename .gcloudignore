@@ -1,0 +1,21 @@
+# Exclude files and directories for Cloud Build
+.git
+.github
+.gitignore
+.gcloudignore
+node_modules/
+scripts/
+tests/
+algorithms/
+src/
+docs/
+logs/
+backups/
+data/
+.vscode/
+.DS_Store
+*.md
+*.log
+*.sh
+*.bat
+.env
