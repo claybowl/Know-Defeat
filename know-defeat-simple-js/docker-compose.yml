@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_USER=clayb
+      - DB_PASSWORD=musicman
+      - DB_NAME=tick_data
+      - NODE_ENV=development
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+
+  ui:
+    build: ./ui
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    depends_on:
+      - api

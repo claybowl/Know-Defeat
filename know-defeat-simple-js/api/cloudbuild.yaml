@@ -1,0 +1,29 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/know-defeat-api', '.']
+    
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/know-defeat-api']
+    
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'know-defeat-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/know-defeat-api'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/know-defeat-api'

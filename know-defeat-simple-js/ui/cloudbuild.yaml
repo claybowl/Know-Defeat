@@ -1,0 +1,43 @@
+steps:
+  # Install dependencies and build with legacy-peer-deps to handle React 19 with MUI 5
+  - name: 'node:18'
+    entrypoint: npm
+    args: ['install', '--legacy-peer-deps']
+    dir: '.'
+  
+  # Set NODE_ENV to production to avoid platform-specific dependencies
+  - name: 'node:18'
+    entrypoint: bash
+    args: ['-c', 'echo "Building with NODE_ENV=production to avoid platform-specific dependencies" && export NODE_ENV=production && NODE_OPTIONS=--legacy-peer-deps npm run build']
+    dir: '.'
+    
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/know-defeat-ui', '.']
+    
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/know-defeat-ui']
+    
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'know-defeat-ui'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/know-defeat-ui'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '80'
+      - '--set-env-vars'
+      - 'VITE_API_URL=https://know-defeat-api-fqag4rwuia-uc.a.run.app/api'
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/know-defeat-ui'
