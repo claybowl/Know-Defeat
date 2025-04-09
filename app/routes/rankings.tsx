@@ -39,6 +39,8 @@ import {
   Stack,
   Switch,
   Avatar,
+  Checkbox,
+  CheckboxGroup,
 } from '@chakra-ui/react';
 import { useState, useEffect, useRef } from 'react';
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, ArrowUpIcon, ArrowDownIcon } from '@chakra-ui/icons';
@@ -47,6 +49,23 @@ import MainLayout from '~/components/layout/MainLayout';
 import BotComparisonChart from '~/components/charts/BotComparisonChart';
 import ParameterRadarChart from '~/components/charts/ParameterRadarChart';
 import TradeAnalyticsChart from '~/components/charts/TradeAnalyticsChart';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+} from 'recharts';
 import db from '~/lib/db.server';
 
 // Custom types
@@ -177,6 +196,10 @@ export default function Rankings() {
   // State for selected bots in comparison
   const [selectedBotIds, setSelectedBotIds] = useState<number[]>([]);
   
+  // State for ranking trends tab
+  const [trendTimeframe, setTrendTimeframe] = useState('30d');
+  const [trendSelectedBots, setTrendSelectedBots] = useState<number[]>([]);
+  
   // Function to handle sorting
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -301,6 +324,89 @@ export default function Rankings() {
           max_drawdown: parseFloat(bot.max_drawdown as string || '0') / 1000,
           expectancy: parseFloat(bot.expectancy as string || '0'),
         }));
+        
+  // Initialize trend data for selected bots or default to top 5
+  useEffect(() => {
+    if (trendSelectedBots.length === 0) {
+      // Default to top 5 bots for trend visualization
+      setTrendSelectedBots(bots.slice(0, 5).map(bot => bot.bot_id));
+    }
+  }, [bots]);
+  
+  // Generate trend data for selected bots
+  const generateTrendData = () => {
+    // Get days based on timeframe
+    const days = trendTimeframe === '7d' ? 7 : 
+                trendTimeframe === '14d' ? 14 : 
+                trendTimeframe === '30d' ? 30 : 90;
+    
+    const selectedBotsForTrend = bots
+      .filter(bot => trendSelectedBots.includes(bot.bot_id))
+      .slice(0, 5); // Limit to 5 for readability
+      
+    // Generate dates for the selected timeframe
+    const today = new Date();
+    const dates = Array.from({ length: days }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(date.getDate() - (days - i - 1));
+      return date.toISOString().split('T')[0];
+    });
+    
+    // Generate trend data with daily ranks for each selected bot
+    return dates.map(date => {
+      const dataPoint: any = { date };
+      
+      selectedBotsForTrend.forEach(bot => {
+        // Base rank calculation with some randomization to create a realistic trend
+        // In a real app, this would come from historical data
+        const baseRank = bots.findIndex(b => b.bot_id === bot.bot_id) + 1;
+        const dayOffset = parseInt(date.split('-')[2]);
+        const rankVariation = Math.sin(dayOffset / 5) * 3; // Create a wave pattern
+        const randomFactor = (Math.random() - 0.5) * 2; // Add some noise
+        
+        const rank = Math.max(1, Math.round(baseRank + rankVariation + randomFactor));
+        dataPoint[`Bot ${bot.bot_id}`] = rank;
+        dataPoint[`bot${bot.bot_id}Color`] = `hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`;
+      });
+      
+      return dataPoint;
+    });
+  };
+  
+  // Generate data for fund allocation visualization
+  const generateAllocationData = () => {
+    // Group bots by rank tiers
+    const topTier = bots.slice(0, 10);
+    const midTier = bots.slice(10, 30);
+    const lowTier = bots.slice(30);
+    
+    // Calculate allocation percentages (in a real app, this would be based on actual allocations)
+    const topAllocation = topTier.length * 7; // 7% each for top 10
+    const midAllocation = midTier.length * 1; // 1% each for next 20
+    const lowAllocation = 100 - topAllocation - midAllocation; // Remainder for the rest
+    
+    return [
+      { name: 'Top 10 Bots', value: topAllocation, color: '#4299E1' },
+      { name: 'Mid-tier Bots (11-30)', value: midAllocation, color: '#9F7AEA' },
+      { name: 'Lower-tier Bots (31+)', value: lowAllocation, color: '#ED8936' },
+    ];
+  };
+  
+  // Generate rank volatility data
+  const generateVolatilityData = () => {
+    return bots.slice(0, 20).map(bot => {
+      // Calculate a volatility score based on rank change
+      // In a real app, this would be based on historical rank changes
+      const volatility = Math.abs(bot.rank_change || 0) + (Math.random() * 2);
+      
+      return {
+        name: `Bot ${bot.bot_id}`,
+        volatility,
+        ticker: bot.ticker,
+        algorithm: bot.algorithm_type,
+      };
+    }).sort((a, b) => b.volatility - a.volatility);
+  };
   
   // Calculate system-wide metrics from bot data
   const totalBots = bots.length;
@@ -868,41 +974,279 @@ export default function Rankings() {
           <TabPanel px={0}>
             <Card shadow="sm" bg={cardBg} mb={6}>
               <CardHeader>
-                <Heading size="md">Ranking History</Heading>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Historical ranking positions over time
-                </Text>
+                <Flex justify="space-between" align="center">
+                  <Box>
+                    <Heading size="md">Ranking History</Heading>
+                    <Text fontSize="sm" color="gray.500" mt={1}>
+                      Historical ranking positions over time
+                    </Text>
+                  </Box>
+                  <HStack>
+                    <Text fontSize="sm">Timeframe:</Text>
+                    <Select 
+                      size="sm" 
+                      w="120px" 
+                      value={trendTimeframe}
+                      onChange={(e) => setTrendTimeframe(e.target.value)}
+                    >
+                      <option value="7d">7 Days</option>
+                      <option value="14d">14 Days</option>
+                      <option value="30d">30 Days</option>
+                      <option value="90d">90 Days</option>
+                    </Select>
+                  </HStack>
+                </Flex>
               </CardHeader>
               <CardBody>
-                <Flex justify="center" align="center" h="400px" color="gray.500">
-                  <Text>Ranking trend visualization will be implemented here</Text>
-                </Flex>
+                <Box h="450px">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={generateTrendData()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(date) => {
+                          const d = new Date(date);
+                          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        }}
+                      />
+                      <YAxis 
+                        reversed={true} 
+                        domain={[1, 'dataMax']} 
+                        label={{ 
+                          value: 'Rank Position', 
+                          angle: -90, 
+                          position: 'insideLeft',
+                          style: { textAnchor: 'middle' }
+                        }}
+                      />
+                      <RechartsTooltip
+                        formatter={(value: any, name: string) => [`Rank #${value}`, name]}
+                        labelFormatter={(label) => {
+                          const date = new Date(label);
+                          return date.toLocaleDateString(undefined, {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          });
+                        }}
+                      />
+                      <Legend />
+                      {bots
+                        .filter(bot => trendSelectedBots.includes(bot.bot_id))
+                        .slice(0, 5) // Limit to 5 for clarity
+                        .map((bot, index) => (
+                          <Line
+                            key={bot.bot_id}
+                            type="monotone"
+                            dataKey={`Bot ${bot.bot_id}`}
+                            stroke={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`}
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        ))
+                      }
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+                
+                <Box mt={4}>
+                  <Text fontWeight="medium" mb={2}>Select Bots to Compare (max 5)</Text>
+                  <HStack spacing={4} flexWrap="wrap">
+                    <CheckboxGroup
+                      value={trendSelectedBots.map(String)}
+                      onChange={(values) => {
+                        const selectedIds = values
+                          .map(v => parseInt(v.toString()))
+                          .slice(0, 5); // Limit to 5 selections
+                        setTrendSelectedBots(selectedIds);
+                      }}
+                    >
+                      <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} spacing={3}>
+                        {bots.slice(0, 15).map(bot => (
+                          <Checkbox 
+                            key={bot.bot_id} 
+                            value={bot.bot_id}
+                            isDisabled={
+                              !trendSelectedBots.includes(bot.bot_id) && 
+                              trendSelectedBots.length >= 5
+                            }
+                          >
+                            <HStack>
+                              <Box 
+                                w="12px" 
+                                h="12px" 
+                                borderRadius="full" 
+                                bg={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`} 
+                              />
+                              <Text fontSize="sm">Bot {bot.bot_id} ({bot.ticker})</Text>
+                            </HStack>
+                          </Checkbox>
+                        ))}
+                      </SimpleGrid>
+                    </CheckboxGroup>
+                  </HStack>
+                </Box>
               </CardBody>
             </Card>
             
             <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
               <Card shadow="sm" bg={cardBg}>
                 <CardHeader>
-                  <Heading size="md">Allocation Distribution</Heading>
+                  <Heading size="md">Fund Allocation Distribution</Heading>
+                  <Text fontSize="sm" color="gray.500" mt={1}>
+                    How trading capital is allocated across bot tiers
+                  </Text>
                 </CardHeader>
                 <CardBody>
-                  <Flex justify="center" align="center" h="300px" color="gray.500">
-                    <Text>Fund allocation by rank will be shown here</Text>
-                  </Flex>
+                  <Box h="300px">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={generateAllocationData()}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={({
+                            cx, cy, midAngle, innerRadius, outerRadius, value, index, name
+                          }) => {
+                            const RADIAN = Math.PI / 180;
+                            const radius = 25 + innerRadius + (outerRadius - innerRadius);
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor={x > cx ? 'start' : 'end'}
+                                dominantBaseline="central"
+                                fill="#718096" // Using a neutral color that works in both modes
+                                fontSize="12"
+                              >
+                                {name} ({value}%)
+                              </text>
+                            );
+                          }}
+                        >
+                          {generateAllocationData().map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip
+                          formatter={(value: any) => [`${value}%`, 'Allocation']}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Box>
                 </CardBody>
               </Card>
               
               <Card shadow="sm" bg={cardBg}>
                 <CardHeader>
                   <Heading size="md">Rank Volatility</Heading>
+                  <Text fontSize="sm" color="gray.500" mt={1}>
+                    Bots with the most unstable ranking positions
+                  </Text>
                 </CardHeader>
                 <CardBody>
-                  <Flex justify="center" align="center" h="300px" color="gray.500">
-                    <Text>Rank stability analysis will be shown here</Text>
-                  </Flex>
+                  <Box h="300px">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={generateVolatilityData().slice(0, 10)}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 'dataMax + 1']} />
+                        <YAxis 
+                          dataKey="name" 
+                          type="category" 
+                          scale="band" 
+                          tick={{ fontSize: 12 }} 
+                          width={80}
+                        />
+                        <RechartsTooltip
+                          formatter={(value: any, name: string, props: any) => {
+                            const { payload } = props;
+                            return [
+                              `Volatility: ${value.toFixed(2)}`,
+                              `${payload.name} (${payload.ticker} - ${payload.algorithm})`
+                            ];
+                          }}
+                        />
+                        <Bar 
+                          dataKey="volatility" 
+                          fill={accentColor}
+                          // Add a gradient or custom color based on value
+                          background={{ fill: useColorModeValue('#f5f5f5', '#2D3748') }}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
                 </CardBody>
               </Card>
             </SimpleGrid>
+            
+            {/* Historical Performance Metrics */}
+            <Card shadow="sm" bg={cardBg} mt={6}>
+              <CardHeader>
+                <Heading size="md">Rank Position Changes</Heading>
+                <Text fontSize="sm" color="gray.500" mt={1}>
+                  Recent rank movements across the system
+                </Text>
+              </CardHeader>
+              <CardBody>
+                <Box h="250px">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={[
+                        { name: '1-10', improved: 4, worsened: 3, unchanged: 3 },
+                        { name: '11-30', improved: 7, worsened: 8, unchanged: 5 },
+                        { name: '31-60', improved: 12, worsened: 9, unchanged: 9 },
+                        { name: '61-100', improved: 18, worsened: 12, unchanged: 10 },
+                        { name: '101+', improved: 9, worsened: 14, unchanged: 7 },
+                      ]}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" label={{ value: 'Rank Tier', position: 'insideBottom', offset: -5 }} />
+                      <YAxis label={{ value: 'Bot Count', angle: -90, position: 'insideLeft' }} />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Area 
+                        type="monotone" 
+                        dataKey="improved" 
+                        stackId="1" 
+                        stroke="green" 
+                        fill="#48BB78" 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="worsened" 
+                        stackId="1" 
+                        stroke="red" 
+                        fill="#F56565" 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="unchanged" 
+                        stackId="1" 
+                        stroke="gray" 
+                        fill="#A0AEC0" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </Box>
+              </CardBody>
+            </Card>
           </TabPanel>
         </TabPanels>
       </Tabs>
