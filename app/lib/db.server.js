@@ -1,18 +1,22 @@
 import pkg from 'pg';
+import { getEnv } from './env.server';
 const { Pool } = pkg;
 
+// Get environment configuration
+const env = getEnv();
+
 // Flag to use mock data instead of real database
-const USE_MOCK_DATA = false;
+const USE_MOCK_DATA = env.USE_MOCK_DATA || false;
 
 // Create a PostgreSQL connection pool (only if not using mock data)
 let pool;
 if (!USE_MOCK_DATA) {
   pool = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'tick_data',
-    user: process.env.DB_USER || 'clayb',
-    password: process.env.DB_PASSWORD || 'musicman',
+    host: env.DB_HOST,
+    port: env.DB_PORT,
+    database: env.DB_NAME,
+    user: env.DB_USER,
+    password: env.DB_PASSWORD,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000, // Extended timeout for initial connection

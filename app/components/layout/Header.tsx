@@ -295,7 +295,7 @@ const NAV_ITEMS: Array<NavItem> = [
       {
         label: 'Bot Rankings',
         subLabel: 'Performance rankings of all bots',
-        href: '/bots/rankings',
+        href: '/rankings',
       },
     ],
   },
