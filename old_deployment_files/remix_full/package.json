@@ -1,0 +1,37 @@
+{
+  "name": "know-defeat-remix-minimal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "remix build",
+    "dev": "remix dev",
+    "dev:api": "node dev.js",
+    "start": "node server.js",
+    "start:simple": "node simple.js",
+    "setup": "./setup-dev.sh",
+    "test:db": "./test-db-connection.sh",
+    "test:db:proxy": "./test-db-connection.sh proxy"
+  },
+  "dependencies": {
+    "@remix-run/css-bundle": "^2.8.1",
+    "@remix-run/express": "^2.8.1",
+    "@remix-run/node": "^2.8.1",
+    "@remix-run/react": "^2.8.1",
+    "@remix-run/serve": "^2.8.1",
+    "express": "^4.18.2",
+    "isbot": "^4.1.0",
+    "pg": "^8.11.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.8.0"
+  },
+  "devDependencies": {
+    "@remix-run/dev": "^2.16.4",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.6",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
