@@ -1,18 +1,23 @@
 // Import the appropriate database module based on environment
 const isProduction = process.env.NODE_ENV === 'production';
-let db;
+let dbPromise = null;
 
-if (isProduction) {
-  // Use cloud DB connection in production
-  console.log("Using Cloud SQL connection...");
-  db = require('./cloud-db.server').default;
-} else {
-  // Use local DB connection in development
-  console.log("Using local DB connection...");
-  db = require('./db.server').default;
+// Function to get the DB module asynchronously, caching the promise
+async function getDb() {
+  if (!dbPromise) {
+    if (isProduction) {
+      console.log("Using Cloud SQL connection...");
+      dbPromise = import('./cloud-db.server').then(module => module.default);
+    } else {
+      console.log("Using local DB connection...");
+      dbPromise = import('./db.server').then(module => module.default);
+    }
+  }
+  return dbPromise;
 }
 
 export async function getDashboardData() {
+  const db = await getDb(); // Await the DB connection
   try {
     console.log("Fetching dashboard data...");
     
@@ -100,6 +105,7 @@ export async function getDashboardData() {
 }
 
 export async function getAllBots() {
+  const db = await getDb(); // Await the DB connection
   try {
     console.log("Fetching all bots...");
     const bots = await db.getBots();
@@ -114,6 +120,7 @@ export async function getAllBots() {
 }
 
 export async function getBotById(botId) {
+  const db = await getDb(); // Await the DB connection
   try {
     console.log(`Fetching bot with ID ${botId}...`);
     const bot = await db.getBotById(botId);

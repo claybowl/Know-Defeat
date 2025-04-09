@@ -5,7 +5,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
   plugins: [
     remix({
-      serverModuleFormat: 'esm',
+      serverModuleFormat: 'cjs', // Changed from 'esm' to 'cjs' for compatibility with Express server
     }),
     tsconfigPaths(),
   ],

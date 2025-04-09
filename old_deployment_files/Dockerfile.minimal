@@ -1,0 +1,30 @@
+# Minimal Dockerfile for Remix app
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy minimal files needed for installation
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy everything else
+COPY . .
+
+# Force CJS mode for server
+RUN sed -i 's/serverModuleFormat: .esm./serverModuleFormat: "cjs"/' vite.config.js
+
+# Set env vars
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV USE_MOCK_DATA=true
+
+# Build the app
+RUN npm run build
+
+# Expose port
+EXPOSE 8080
+
+# Start just the server.js
+CMD ["node", "server.js"]

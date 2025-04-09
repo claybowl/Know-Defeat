@@ -1,0 +1,34 @@
+# Simple test Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Create a simple Express server
+RUN echo 'const express = require("express"); \
+const app = express(); \
+const port = process.env.PORT || 8080; \
+\
+app.get("/", (req, res) => { \
+  res.send("Hello from Know-Defeat test server!"); \
+}); \
+\
+app.get("/health", (req, res) => { \
+  res.send("OK"); \
+}); \
+\
+app.get("/healthcheck", (req, res) => { \
+  res.send("OK"); \
+}); \
+\
+app.listen(port, () => { \
+  console.log(`Test server listening on port ${port}`); \
+});' > server.js
+
+# Install Express
+RUN npm init -y && npm install express
+
+# Expose port
+EXPOSE 8080
+
+# Start the server
+CMD ["node", "server.js"]
