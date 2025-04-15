@@ -1,0 +1,30 @@
+Metric,Expected,Original,Enhanced,Error Reduction,Status
+avg_drawdown,17.71,17.0,0.0,4.0% → 100.0%,❌ Regression
+avg_profit_per_trade,10.08,10.0758,10.0758,0.0% → 0.0%,🟰 Same
+avg_trade_duration,1581.82,N/A,1581.82,N/A,➕ New
+avg_win_rate,71.21,70.15,71.21,1.5% → 0.0%,✅ Improved
+calmar_ratio,N/A,N/A,0.0,N/A,➕ New
+drawdown_percent,N/A,N/A,0.0,N/A,➕ New
+max_drawdown,45.0,45.0,0.0,0.0% → 100.0%,❌ Regression
+max_drawdown_duration,N/A,N/A,0.0,N/A,➕ New
+one_day_performance,300.0,N/A,300.0,N/A,➕ New
+one_hour_performance,75.0,25.0,75.0,66.7% → 0.0%,✅ Improved
+one_month_performance,625.0,N/A,625.0,N/A,➕ New
+one_week_performance,465.0,N/A,465.0,N/A,➕ New
+price_model_score,71.36,N/A,N/A,N/A,❓ Unknown
+price_wall_score,58.33,N/A,N/A,N/A,❓ Unknown
+profit_factor,4.17,4.1667,4.1667,0.1% → 0.1%,🟰 Same
+profit_per_second,0.0001,0.0001,N/A,N/A,❓ Unknown
+r_multiple,N/A,N/A,1.68,N/A,➕ New
+recovery_factor,N/A,N/A,0.0,N/A,➕ New
+sharpe_ratio,0.4247,0.0,6.605,100.0% → 1455.2%,❌ Regression
+sortino_ratio,N/A,N/A,43.0968,N/A,➕ New
+time_in_drawdown,N/A,N/A,0.0,N/A,➕ New
+total_pnl,665.0,665.0,665.0,0.0% → 0.0%,🟰 Same
+total_trades,66,N/A,N/A,N/A,❓ Unknown
+two_hour_performance,175.0,21.875,175.0,87.5% → 0.0%,✅ Improved
+volume_model_score,64.24,N/A,N/A,N/A,❓ Unknown
+win_streak_2,50.0,N/A,N/A,N/A,❓ Unknown
+win_streak_3,36.36,N/A,N/A,N/A,❓ Unknown
+win_streak_4,22.73,N/A,N/A,N/A,❓ Unknown
+win_streak_5,16.67,N/A,N/A,N/A,❓ Unknown
