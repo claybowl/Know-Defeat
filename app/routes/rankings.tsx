@@ -49,6 +49,7 @@ import MainLayout from '~/components/layout/MainLayout';
 import BotComparisonChart from '~/components/charts/BotComparisonChart';
 import ParameterRadarChart from '~/components/charts/ParameterRadarChart';
 import TradeAnalyticsChart from '~/components/charts/TradeAnalyticsChart';
+import MetricInfoTooltip from '~/components/dashboard/MetricInfoTooltip';
 import {
   ResponsiveContainer,
   LineChart,
@@ -602,7 +603,9 @@ export default function Rankings() {
                           width="80px"
                         >
                           <Flex align="center">
-                            Rank {renderSortIndicator('rank_score')}
+                            <MetricInfoTooltip metricKey="rank_score">
+                              Rank {renderSortIndicator('rank_score')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th>Bot</Th>
@@ -621,7 +624,9 @@ export default function Rankings() {
                           userSelect="none"
                         >
                           <Flex align="center">
-                            Win Rate {renderSortIndicator('win_rate')}
+                            <MetricInfoTooltip metricKey="win_rate">
+                              Win Rate {renderSortIndicator('win_rate')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th 
@@ -630,7 +635,9 @@ export default function Rankings() {
                           userSelect="none"
                         >
                           <Flex align="center">
-                            Profit Factor {renderSortIndicator('profit_factor')}
+                            <MetricInfoTooltip metricKey="profit_factor">
+                              Profit Factor {renderSortIndicator('profit_factor')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th 
@@ -639,7 +646,9 @@ export default function Rankings() {
                           userSelect="none"
                         >
                           <Flex align="center">
-                            Sharpe {renderSortIndicator('sharpe_ratio')}
+                            <MetricInfoTooltip metricKey="sharpe_ratio">
+                              Sharpe {renderSortIndicator('sharpe_ratio')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th 
@@ -648,7 +657,9 @@ export default function Rankings() {
                           userSelect="none"
                         >
                           <Flex align="center">
-                            Expectancy {renderSortIndicator('expectancy')}
+                            <MetricInfoTooltip metricKey="expectancy">
+                              Expectancy {renderSortIndicator('expectancy')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th 
@@ -657,7 +668,9 @@ export default function Rankings() {
                           userSelect="none"
                         >
                           <Flex align="center">
-                            P&L {renderSortIndicator('total_pnl')}
+                            <MetricInfoTooltip metricKey="total_pnl">
+                              P&L {renderSortIndicator('total_pnl')}
+                            </MetricInfoTooltip>
                           </Flex>
                         </Th>
                         <Th width="100px">Trend</Th>

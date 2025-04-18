@@ -287,6 +287,22 @@ class BotRanker:
         except Exception as e:
             self.logger.error(f"Error updating bot rankings: {e}")
 
+    async def rerank_bots(self):
+        """
+        Re-rank all bots and update their rankings in the database.
+        This is a convenience method that calls rank_bots().
+        
+        Returns:
+            Boolean indicating success or failure
+        """
+        try:
+            ranked_bots = await self.rank_bots()
+            self.logger.info(f"Successfully re-ranked {len(ranked_bots)} bots")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error re-ranking bots: {e}")
+            return False
+
     async def get_fund_allocation(self, total_funds=20000):
         """
         Calculate fund allocation based on fixed 10% per trade strategy.

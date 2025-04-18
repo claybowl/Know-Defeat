@@ -7,7 +7,7 @@ improved EnhancedMetricsCalculator for more accurate and comprehensive metrics.
 
 import asyncpg
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, Any, Optional, Union
 
@@ -72,6 +72,7 @@ class EnhancedMetricsUpdater:
         Args:
             connection: Database connection
         """
+        # Create table if it doesn't exist
         await connection.execute("""
             CREATE TABLE IF NOT EXISTS bot_metrics (
                 -- Identifiers
@@ -123,14 +124,6 @@ class EnhancedMetricsUpdater:
                 win_streak_6 DECIMAL(6,2),
                 win_streak_7 DECIMAL(6,2),
                 
-                -- Enhanced Risk Metrics
-                sortino_ratio DECIMAL(12,6),
-                calmar_ratio DECIMAL(12,6),
-                r_multiple DECIMAL(12,6),
-                max_drawdown_duration DECIMAL(20,4),
-                recovery_factor DECIMAL(12,6),
-                drawdown_percent DECIMAL(8,4),
-                
                 -- Final Rankings
                 current_rank DECIMAL(6,2),
                 last_updated TIMESTAMP DEFAULT NOW(),
@@ -140,6 +133,26 @@ class EnhancedMetricsUpdater:
             )
         """)
         
+        # Add missing columns using ALTER TABLE IF EXISTS... ADD COLUMN IF NOT EXISTS
+        # This is safer than assuming the CREATE TABLE worked perfectly or handled all columns
+        missing_columns = {
+            'sortino_ratio': 'DECIMAL(12,6)',
+            'calmar_ratio': 'DECIMAL(12,6)',
+            'r_multiple': 'DECIMAL(12,6)',
+            'max_drawdown_duration': 'DECIMAL(20,4)',
+            'recovery_factor': 'DECIMAL(12,6)',
+            'drawdown_percent': 'DECIMAL(8,4)'
+        }
+        
+        for col_name, col_type in missing_columns.items():
+            try:
+                await connection.execute(f"""
+                    ALTER TABLE bot_metrics
+                    ADD COLUMN IF NOT EXISTS {col_name} {col_type}
+                """)
+            except Exception as e:
+                logger.warning(f"Could not add column {col_name}: {e}")
+
         # Create index for faster lookups
         await connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_bot_metrics_bot_id_timestamp 
@@ -148,26 +161,19 @@ class EnhancedMetricsUpdater:
     
     async def get_algorithm_id(self, connection, bot_id: int) -> int:
         """
-        Get the algorithm ID for a bot, falling back to bot_id if not found.
+        Get the algorithm ID for a bot. Currently returns bot_id as algo_id.
         
         Args:
             connection: Database connection
             bot_id: Bot ID
             
         Returns:
-            int: Algorithm ID
+            int: Algorithm ID (currently bot_id)
         """
-        try:
-            # Try to get algorithm_id from sim_bots table
-            algo_id = await connection.fetchval("""
-                SELECT algorithm_id FROM sim_bots WHERE bot_id = $1
-            """, bot_id)
-            
-            # Fall back to bot_id if not found
-            return algo_id if algo_id is not None else bot_id
-        except Exception as e:
-            logger.warning(f"Could not retrieve algorithm_id for bot {bot_id}: {e}")
-            return bot_id
+        # Original attempt queried sim_bots.algorithm_id which doesn't exist.
+        # Falling back to using bot_id as algo_id for now.
+        # If a specific algorithm mapping is needed later, this function can be updated.
+        return bot_id
     
     async def update_bot_metrics(self, bot_id: int, ticker: str) -> bool:
         """
@@ -223,11 +229,14 @@ class EnhancedMetricsUpdater:
                         
                         # Handle different data types
                         if key in ['avg_trade_duration', 'time_in_drawdown', 'time_slippage']:
-                            # For interval types, store as seconds
-                            if isinstance(value, (int, float, Decimal)):
-                                values.append(f"{value} seconds")
-                            else:
-                                values.append(value)
+                            # For interval types, convert seconds (float/Decimal) to timedelta
+                            try:
+                                seconds = float(value) # Ensure it's a float
+                                td = timedelta(seconds=seconds)
+                                values.append(td) # Pass the timedelta object
+                            except (ValueError, TypeError):
+                                logger.warning(f"Could not convert value '{value}' to timedelta for key '{key}'. Using NULL.")
+                                values.append(None) # Use None if conversion fails
                         else:
                             # For numeric types, apply appropriate limits
                             if key in ['one_hour_performance', 'two_hour_performance', 

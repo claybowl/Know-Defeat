@@ -483,22 +483,19 @@ class EnhancedMetricsCalculator:
                     }
                 
                 # Calculate running PnL and track drawdowns
-                running_pnl = 0.0
-                peak_pnl = 0.0
+                running_pnl = Decimal('0.0') # Use Decimal for consistency
+                peak_pnl = Decimal('0.0')    # Use Decimal
                 drawdowns = []
                 current_drawdown_start = None
                 drawdown_periods = []
-                total_time_in_drawdown = 0.0
+                total_time_in_drawdown = Decimal('0.0') # Use Decimal
                 
                 for i, trade in enumerate(trades):
-                    # Convert trade_pnl to float
+                    # Ensure trade_pnl is Decimal
                     if trade['trade_pnl'] is not None:
-                        if isinstance(trade['trade_pnl'], Decimal):
-                            pnl = float(trade['trade_pnl'])
-                        else:
-                            pnl = float(trade['trade_pnl'])
+                        pnl = Decimal(str(trade['trade_pnl'])) # Convert DB Decimal/float to Decimal
                     else:
-                        pnl = 0.0
+                        pnl = Decimal('0.0')
                         
                     running_pnl += pnl
                     
@@ -508,48 +505,52 @@ class EnhancedMetricsCalculator:
                         
                         # If we were in a drawdown, record its duration
                         if current_drawdown_start is not None:
-                            drawdown_end = trade['entry_time']
-                            drawdown_duration = (drawdown_end - current_drawdown_start).total_seconds()
-                            drawdown_periods.append(drawdown_duration)
-                            total_time_in_drawdown += drawdown_duration
+                            drawdown_end = trade['entry_time'] # entry_time should be datetime
+                            if drawdown_end and current_drawdown_start:
+                                drawdown_duration_td = drawdown_end - current_drawdown_start
+                                drawdown_duration = Decimal(str(drawdown_duration_td.total_seconds()))
+                                drawdown_periods.append(drawdown_duration)
+                                total_time_in_drawdown += drawdown_duration
                             current_drawdown_start = None
                     else:
                         # In drawdown
-                        current_drawdown = peak_pnl - running_pnl
+                        current_drawdown = peak_pnl - running_pnl # Decimal calculation
                         drawdowns.append(current_drawdown)
                         
                         # Track drawdown start time
                         if current_drawdown_start is None:
-                            current_drawdown_start = trade['entry_time']
+                            current_drawdown_start = trade['entry_time'] # entry_time should be datetime
                 
                 # Calculate drawdown metrics
                 if drawdowns:
-                    avg_drawdown = sum(drawdowns) / len(drawdowns)
+                    # Ensure all calculations use Decimal
+                    avg_drawdown = sum(drawdowns) / Decimal(len(drawdowns))
                     max_drawdown = max(drawdowns)
                     
                     # Calculate max drawdown duration
-                    max_drawdown_duration = max(drawdown_periods) if drawdown_periods else 0.0
+                    max_drawdown_duration = max(drawdown_periods) if drawdown_periods else Decimal('0.0')
                     
                     # Calculate recovery factor (total return / max drawdown)
-                    total_return = trades[-1]['trade_pnl'] if trades else 0.0
-                    recovery_factor = abs(total_return / max_drawdown) if max_drawdown > 0 else 0.0
+                    total_return = Decimal(str(trades[-1]['trade_pnl'])) if trades and trades[-1]['trade_pnl'] is not None else Decimal('0.0')
+                    recovery_factor = abs(total_return / max_drawdown) if max_drawdown > Decimal('0.0') else Decimal('0.0')
                     
                     # Calculate drawdown as percentage of peak equity
-                    drawdown_percent = (max_drawdown / peak_pnl * 100) if peak_pnl > 0 else 0.0
+                    drawdown_percent = (max_drawdown / peak_pnl * Decimal('100.0')) if peak_pnl > Decimal('0.0') else Decimal('0.0')
                 else:
-                    avg_drawdown = 0.0
-                    max_drawdown = 0.0
-                    max_drawdown_duration = 0.0
-                    recovery_factor = 0.0
-                    drawdown_percent = 0.0
+                    avg_drawdown = Decimal('0.0')
+                    max_drawdown = Decimal('0.0')
+                    max_drawdown_duration = Decimal('0.0')
+                    recovery_factor = Decimal('0.0')
+                    drawdown_percent = Decimal('0.0')
                 
+                # Return results as floats for compatibility, using _ensure_float
                 return {
-                    "avg_drawdown": avg_drawdown, 
-                    "max_drawdown": max_drawdown,
-                    "max_drawdown_duration": max_drawdown_duration,
-                    "recovery_factor": recovery_factor,
-                    "time_in_drawdown": total_time_in_drawdown,
-                    "drawdown_percent": drawdown_percent
+                    "avg_drawdown": self._ensure_float(avg_drawdown),
+                    "max_drawdown": self._ensure_float(max_drawdown),
+                    "max_drawdown_duration": self._ensure_float(max_drawdown_duration),
+                    "recovery_factor": self._ensure_float(recovery_factor),
+                    "time_in_drawdown": self._ensure_float(total_time_in_drawdown), # Time stored as seconds
+                    "drawdown_percent": self._ensure_float(drawdown_percent)
                 }
                 
         except Exception as e:

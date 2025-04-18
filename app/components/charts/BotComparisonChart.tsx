@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, useColorModeValue } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Divider, useColorModeValue } from '@chakra-ui/react';
 import {
   RadarChart,
   PolarGrid,
@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
+import { getMetricDocumentation } from '~/components/dashboard/MetricInfoTooltip';
 
 // This would be populated with real data from your API
 const sampleBots = [
@@ -108,24 +109,72 @@ interface BotComparisonChartProps {
 
 export default function BotComparisonChart({ bots = sampleBots }: BotComparisonChartProps) {
   const chartData = normalizeData(bots);
+  const tooltipBg = useColorModeValue('white', 'gray.700');
+  const tooltipBorder = useColorModeValue('gray.200', 'gray.600');
   
-  // Custom tooltip
+  // Mapping of metrics from chart to documentation keys
+  const metricToDocKey = {
+    'Win Rate': 'win_rate',
+    'Profit Factor': 'profit_factor',
+    'Sharpe Ratio': 'sharpe_ratio',
+    'Risk Control': 'max_drawdown',
+    'Expectancy': 'expectancy'
+  };
+  
+  // Enhanced tooltip with metric documentation
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const metricName = payload[0].payload.metric;
+      const docKey = metricToDocKey[metricName] || '';
+      const metricDoc = getMetricDocumentation(docKey);
+      
       return (
         <Box 
-          bg="white" 
-          p={2} 
+          bg={tooltipBg} 
+          p={3} 
           shadow="md" 
           borderRadius="md" 
           borderWidth="1px"
+          borderColor={tooltipBorder}
+          maxW="300px"
         >
-          <p><strong>{payload[0].payload.metric}</strong></p>
-          {payload.map((entry: any, index: number) => (
-            <p key={`item-${index}`} style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value.toFixed(1)}%`}
-            </p>
-          ))}
+          <VStack align="start" spacing={2}>
+            <Text fontWeight="bold">{metricName}</Text>
+            <Text fontSize="sm" fontStyle="italic">{metricDoc.description}</Text>
+            
+            <Divider />
+            
+            <Text fontSize="sm" fontWeight="semibold">Bot Comparison:</Text>
+            {payload.map((entry: any, index: number) => (
+              <HStack key={`item-${index}`}>
+                <Box w="12px" h="12px" bg={entry.color} borderRadius="sm" />
+                <Text color={entry.color}>
+                  {`${entry.name}: ${entry.value.toFixed(1)}%`}
+                </Text>
+              </HStack>
+            ))}
+            
+            <Divider my={1} />
+            
+            {metricName === 'Win Rate' && (
+              <Text fontSize="xs">
+                Win rate is valuable when viewed together with profit factor to understand 
+                overall strategy effectiveness.
+              </Text>
+            )}
+            
+            {metricName === 'Profit Factor' && (
+              <Text fontSize="xs">
+                Higher values indicate more profit per dollar risked. Target above 1.5 for good performance.
+              </Text>
+            )}
+            
+            {metricName === 'Risk Control' && (
+              <Text fontSize="xs">
+                Based on maximum drawdown. Higher values indicate better risk management.
+              </Text>
+            )}
+          </VStack>
         </Box>
       );
     }

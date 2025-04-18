@@ -36,23 +36,29 @@ import { useState } from 'react';
 import MainLayout from '~/components/layout/MainLayout';
 import PerformanceMetricsChart from '~/components/charts/PerformanceMetricsChart';
 import BotComparisonChart from '~/components/charts/BotComparisonChart';
+import MetricInfoTooltip from '~/components/dashboard/MetricInfoTooltip';
 import db from '~/lib/db.server';
+import { InfoIcon } from '@chakra-ui/icons';
 
 export async function loader() {
   const metrics = await db.getBotMetrics();
   return json({ metrics });
 }
 
-function formatCurrency(value: number | string) {
+function formatCurrency(value: number | string | null | undefined) {
+  if (value === null || value === undefined) return '$0.00';
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '$0.00';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(numValue);
 }
 
-function formatPercent(value: number | string) {
+function formatPercent(value: number | string | null | undefined) {
+  if (value === null || value === undefined) return '0.00%';
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '0.00%';
   return (numValue * 100).toFixed(2) + '%';
 }
 
@@ -95,7 +101,19 @@ export default function Metrics() {
   
   return (
     <MainLayout>
-      <Heading mb={8}>Performance Metrics</Heading>
+      <Flex justify="space-between" align="center" mb={8}>
+        <Heading>Performance Metrics</Heading>
+        <Button
+          as={Link}
+          to="/metrics/documentation"
+          rightIcon={<InfoIcon />}
+          colorScheme="blue"
+          variant="outline"
+          size="sm"
+        >
+          Metrics Documentation
+        </Button>
+      </Flex>
       
       {/* System Overview Stats */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
@@ -107,12 +125,14 @@ export default function Metrics() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Total P&L</StatLabel>
-          <StatNumber fontSize="3xl" color={totalPnl >= 0 ? 'green.500' : 'red.500'}>
+          <StatLabel fontSize="md">
+            <MetricInfoTooltip metricKey="total_pnl">Total P&L</MetricInfoTooltip>
+          </StatLabel>
+          <StatNumber fontSize="3xl" color={parseFloat(totalPnl || 0) >= 0 ? 'green.500' : 'red.500'}>
             {formatCurrency(totalPnl)}
           </StatNumber>
           <StatHelpText>
-            <StatArrow type={totalPnl >= 0 ? 'increase' : 'decrease'} />
+            <StatArrow type={parseFloat(totalPnl || 0) >= 0 ? 'increase' : 'decrease'} />
             {profitableBots} out of {botsWithTrades.length} bots profitable
           </StatHelpText>
         </Stat>
@@ -125,10 +145,12 @@ export default function Metrics() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Win Rate</StatLabel>
+          <StatLabel fontSize="md">
+            <MetricInfoTooltip metricKey="win_rate">Win Rate</MetricInfoTooltip>
+          </StatLabel>
           <StatNumber fontSize="3xl">{formatPercent(overallWinRate)}</StatNumber>
           <StatHelpText>
-            <StatArrow type={overallWinRate >= 0.5 ? 'increase' : 'decrease'} />
+            <StatArrow type={parseFloat(overallWinRate || 0) >= 0.5 ? 'increase' : 'decrease'} />
             {totalWinningTrades} out of {totalTrades} trades
           </StatHelpText>
         </Stat>
@@ -141,7 +163,9 @@ export default function Metrics() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Average P&L Per Trade</StatLabel>
+          <StatLabel fontSize="md">
+            <MetricInfoTooltip metricKey="average_pnl_per_trade">Average P&L Per Trade</MetricInfoTooltip>
+          </StatLabel>
           <StatNumber fontSize="3xl">
             {formatCurrency(totalTrades > 0 ? totalPnl / totalTrades : 0)}
           </StatNumber>
@@ -192,13 +216,13 @@ export default function Metrics() {
                   <Th>Rank</Th>
                   <Th>Bot ID</Th>
                   <Th>Trades</Th>
-                  <Th>Win Rate</Th>
-                  <Th>Profit Factor</Th>
-                  <Th>Avg Win</Th>
-                  <Th>Avg Loss</Th>
-                  <Th>Max Drawdown</Th>
-                  <Th>Sharpe Ratio</Th>
-                  <Th>Total P&L</Th>
+                  <Th><MetricInfoTooltip metricKey="win_rate">Win Rate</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="profit_factor">Profit Factor</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="average_win_amount">Avg Win</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="average_loss_amount">Avg Loss</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="max_drawdown">Max Drawdown</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="sharpe_ratio">Sharpe Ratio</MetricInfoTooltip></Th>
+                  <Th><MetricInfoTooltip metricKey="total_pnl">Total P&L</MetricInfoTooltip></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -253,6 +277,9 @@ export default function Metrics() {
           <TabList>
             <Tab>Bot Performance Metrics</Tab>
             <Tab>Bot Comparison</Tab>
+            <Tab as={Link} to="/metrics/documentation?tab=relationships">
+              Metric Relationships
+            </Tab>
           </TabList>
           
           <TabPanels>

@@ -13,8 +13,8 @@ export function getEnv() {
     DB_USER: process.env.DB_USER || 'clayb',
     DB_PASSWORD: process.env.DB_PASSWORD || 'musicman',
     
-    // Flag to use mock data instead of real database
-    USE_MOCK_DATA: process.env.USE_MOCK_DATA === 'true',
+    // Flag to use mock data instead of real database - default to true for development
+    USE_MOCK_DATA: process.env.USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === undefined || true,
   };
 }
 

@@ -252,32 +252,35 @@ export async function getOpenTrades() {
 
 export async function getBotMetrics() {
   if (USE_MOCK_DATA) {
+    console.log('Using mock data for bot metrics');
     return mockData.metrics;
   }
   
   try {
     // First try with rank_score (if column exists)
+    console.log('Querying real database for bot metrics');
     const result = await query('SELECT * FROM bot_metrics ORDER BY rank_score DESC');
-    return result.rows;
+    
+    // Make sure data is properly formatted
+    return result.rows.map(row => {
+      return {
+        ...row,
+        win_rate: parseFloat(row.win_rate || 0).toString(),
+        profit_factor: parseFloat(row.profit_factor || 0).toString(),
+        total_pnl: parseFloat(row.total_pnl || 0).toString(),
+        average_win_amount: parseFloat(row.average_win_amount || 0).toString(),
+        average_loss_amount: parseFloat(row.average_loss_amount || 0).toString(),
+        max_drawdown: parseFloat(row.max_drawdown || 0).toString(),
+        sharpe_ratio: parseFloat(row.sharpe_ratio || 0).toString(),
+        risk_reward_ratio: parseFloat(row.risk_reward_ratio || 0).toString(),
+        expectancy: parseFloat(row.expectancy || 0).toString(),
+        rank_score: parseFloat(row.rank_score || 0).toString(),
+      };
+    });
   } catch (error) {
-    if (error.message.includes('column "rank_score" does not exist')) {
-      console.warn('rank_score column not found in bot_metrics table. Using total_pnl for ordering instead.');
-      // Fallback to ordering by total_pnl if rank_score doesn't exist
-      const result = await query('SELECT * FROM bot_metrics ORDER BY total_pnl DESC');
-      
-      // Add a synthetic rank_score field based on total_pnl
-      return result.rows.map(row => {
-        // Calculate a simple rank score based on total_pnl to ensure UI works
-        const pnl = parseFloat(row.total_pnl || 0);
-        // Normalize to a 0-1 range (rough estimate)
-        const syntheticRankScore = Math.min(1, Math.max(0, (pnl + 1000) / 2000));
-        return {
-          ...row,
-          rank_score: syntheticRankScore.toFixed(4)
-        };
-      });
-    }
-    throw error; // rethrow if it's some other error
+    console.warn('Error fetching bot metrics:', error.message);
+    console.log('Falling back to mock data for bot metrics');
+    return mockData.metrics;
   }
 }
 

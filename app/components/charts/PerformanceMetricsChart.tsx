@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, useColorModeValue } from '@chakra-ui/react';
+import { Box, Text, VStack, Divider, useColorModeValue } from '@chakra-ui/react';
 import {
   BarChart,
   Bar,
@@ -11,6 +11,10 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import MetricInfoTooltip from '~/components/dashboard/MetricInfoTooltip';
+
+// Import metric documentations
+import { getMetricDocumentation } from '~/components/dashboard/MetricInfoTooltip';
 
 // Sample data - this would come from your API in a real implementation
 const sampleData = [
@@ -32,6 +36,8 @@ export default function PerformanceMetricsChart({
 }: PerformanceMetricsChartProps) {
   const positiveColor = useColorModeValue('green.500', 'green.300');
   const negativeColor = useColorModeValue('red.500', 'red.300');
+  const tooltipBg = useColorModeValue('white', 'gray.700');
+  const tooltipBorder = useColorModeValue('gray.200', 'gray.600');
   
   // Normalize data for visualization and handle missing data
   const chartData = data.map(bot => {
@@ -86,7 +92,7 @@ export default function PerformanceMetricsChart({
   
   const currentMetric = metricConfig[metric];
   
-  // Custom tooltip
+  // Enhanced tooltip with metric documentation
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const value = payload[0].payload.actualValue;
@@ -95,16 +101,52 @@ export default function PerformanceMetricsChart({
         : metric === 'max_drawdown'
           ? `-${(Math.abs(value) * 100).toFixed(1)}%`
           : value.toFixed(2);
+      
+      // Get metric documentation
+      const metricDoc = getMetricDocumentation(metric);
           
       return (
         <Box 
-          bg="white" 
-          p={2} 
+          bg={tooltipBg} 
+          p={3} 
           shadow="md" 
           borderRadius="md" 
           borderWidth="1px"
+          borderColor={tooltipBorder}
+          maxW="300px"
         >
-          <p>{`${label}: ${formattedValue}`}</p>
+          <VStack align="start" spacing={1}>
+            <Text fontWeight="bold">{label}</Text>
+            <Text fontSize="lg">{`${currentMetric.label}: ${formattedValue}`}</Text>
+            
+            <Divider my={1} />
+            
+            <Text fontSize="sm" fontStyle="italic">{metricDoc.description}</Text>
+            
+            {metric === 'win_rate' && value < 0.5 && (
+              <Text fontSize="xs" color="orange.500">
+                Below 50% - Consider reviewing this bot's strategy
+              </Text>
+            )}
+            
+            {metric === 'profit_factor' && value < 1 && (
+              <Text fontSize="xs" color="red.500">
+                Below 1.0 - This bot is losing more than it's winning
+              </Text>
+            )}
+            
+            {metric === 'sharpe_ratio' && value < 1 && (
+              <Text fontSize="xs" color="orange.500">
+                Below 1.0 - Low risk-adjusted returns
+              </Text>
+            )}
+            
+            {metric === 'max_drawdown' && Math.abs(value) > 0.2 && (
+              <Text fontSize="xs" color="red.500">
+                High drawdown - Consider adjusting risk parameters
+              </Text>
+            )}
+          </VStack>
         </Box>
       );
     }
