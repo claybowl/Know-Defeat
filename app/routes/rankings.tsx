@@ -77,7 +77,7 @@ interface BotMetrics {
   losing_trades: number;
   total_pnl: number | string;
   total_pnl_percent: number | string; // Add percentage representation
-  average_pnl_per_trade: number | string;
+  avg_profit_per_trade: number | string;
   average_pnl_per_trade_percent: number | string; // Add percentage representation
   win_rate: number | string;
   average_win_amount: number | string;
@@ -203,14 +203,14 @@ function useTradeWebSocket(url = 'ws://localhost:8765/trades') {
 export async function loader() {
   try {
     // Fetch all bots
-    const bots = await db.getBots();
+    const bots: BotDetails[] = await db.getBots();
     
     // Fetch metrics for ranking
-    const metrics = await db.getBotMetrics();
+    const metrics: BotMetrics[] = await db.getBotMetrics();
     
     // Create merged bot data with metrics
-    const botsWithMetrics = bots.map(bot => {
-      const botMetrics = metrics.find(m => m.bot_id === bot.bot_id) || {};
+    const botsWithMetrics = bots.map((bot: BotDetails) => {
+      const botMetrics = metrics.find((m: BotMetrics) => m.bot_id === bot.bot_id) || {};
       return {
         ...bot,
         ...botMetrics,
@@ -218,7 +218,7 @@ export async function loader() {
     });
     
     // For demo purposes, add some mock historical ranking data
-    const rankedBots = botsWithMetrics.map((bot, index) => {
+    const rankedBots = botsWithMetrics.map((bot: any, index: number) => {
       const previousRank = index + 1 + (Math.random() > 0.7 ? Math.floor(Math.random() * 5) - 2 : 0);
       return {
         ...bot,
@@ -338,12 +338,12 @@ export default function Rankings() {
   };
   
   // Extract unique algorithm types and symbols for filters
-  const algorithmTypes = [...new Set(bots.map(bot => bot.algorithm_type))];
-  const symbols = [...new Set(bots.map(bot => bot.ticker))];
+  const algorithmTypes = [...new Set(bots.map((bot: any) => bot.algorithm_type))];
+  const symbols = [...new Set(bots.map((bot: any) => bot.ticker))];
   
   // Filter and sort bots
   const filteredAndSortedBots = [...bots]
-    .filter(bot => {
+    .filter((bot: any) => {
       // Search filter
       if (
         searchTerm && 
@@ -371,7 +371,7 @@ export default function Rankings() {
       
       return true;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       let aValue: any = a[sortField as keyof typeof a];
       let bValue: any = b[sortField as keyof typeof b];
       
@@ -393,22 +393,22 @@ export default function Rankings() {
       
       // Handle numeric sorting
       if (sortDirection === 'asc') {
-        return aValue - bValue;
+        return (aValue ?? 0) - (bValue ?? 0);
       } else {
-        return bValue - aValue;
+        return (bValue ?? 0) - (aValue ?? 0);
       }
     });
   
   // Prepare data for comparison chart
   const selectedBots = bots
-    .filter(bot => selectedBotIds.includes(bot.bot_id))
-    .map(bot => ({
+    .filter((bot: any) => selectedBotIds.includes(bot.bot_id))
+    .map((bot: any) => ({
       bot_id: bot.bot_id,
       name: `Bot ${bot.bot_id} - ${bot.ticker}`,
       win_rate: parseFloat(bot.win_rate as string || '0'),
       profit_factor: parseFloat(bot.profit_factor as string || '0'),
       max_drawdown: parseFloat(bot.max_drawdown as string || '0') / 1000, // Normalize for radar chart
-      average_pnl_per_trade_percent: parseFloat(bot.average_pnl_per_trade as string || '0') * 100,
+      average_pnl_per_trade_percent: parseFloat(bot.avg_profit_per_trade as string || '0') * 100,
     }));
   
   // If no bots are selected, default to top 3
@@ -416,20 +416,20 @@ export default function Rankings() {
     ? selectedBots 
     : bots
         .slice(0, 3)
-        .map(bot => ({
+        .map((bot: any) => ({
           bot_id: bot.bot_id,
           name: `Bot ${bot.bot_id} - ${bot.ticker}`,
           win_rate: parseFloat(bot.win_rate as string || '0'),
           profit_factor: parseFloat(bot.profit_factor as string || '0'),
           max_drawdown: parseFloat(bot.max_drawdown as string || '0') / 1000,
-          average_pnl_per_trade_percent: parseFloat(bot.average_pnl_per_trade as string || '0') * 100,
+          average_pnl_per_trade_percent: parseFloat(bot.avg_profit_per_trade as string || '0') * 100,
         }));
         
   // Initialize trend data for selected bots or default to top 5
   useEffect(() => {
     if (trendSelectedBots.length === 0) {
       // Default to top 5 bots for trend visualization
-      setTrendSelectedBots(bots.slice(0, 5).map(bot => bot.bot_id));
+      setTrendSelectedBots(bots.slice(0, 5).map((bot: any) => bot.bot_id));
     }
   }, [bots]);
   
@@ -441,7 +441,7 @@ export default function Rankings() {
                 trendTimeframe === '30d' ? 30 : 90;
     
     const selectedBotsForTrend = bots
-      .filter(bot => trendSelectedBots.includes(bot.bot_id))
+      .filter((bot: any) => trendSelectedBots.includes(bot.bot_id))
       .slice(0, 5); // Limit to 5 for readability
       
     // Generate dates for the selected timeframe
@@ -456,10 +456,10 @@ export default function Rankings() {
     return dates.map(date => {
       const dataPoint: any = { date };
       
-      selectedBotsForTrend.forEach(bot => {
+      selectedBotsForTrend.forEach((bot: any) => {
         // Base rank calculation with some randomization to create a realistic trend
         // In a real app, this would come from historical data
-        const baseRank = bots.findIndex(b => b.bot_id === bot.bot_id) + 1;
+        const baseRank = bots.findIndex((b: any) => b.bot_id === bot.bot_id) + 1;
         const dayOffset = parseInt(date.split('-')[2]);
         const rankVariation = Math.sin(dayOffset / 5) * 3; // Create a wave pattern
         const randomFactor = (Math.random() - 0.5) * 2; // Add some noise
@@ -494,7 +494,7 @@ export default function Rankings() {
   
   // Generate rank volatility data
   const generateVolatilityData = () => {
-    return bots.slice(0, 20).map(bot => {
+    return bots.slice(0, 20).map((bot: any) => {
       // Calculate a volatility score based on rank change
       // In a real app, this would be based on historical rank changes
       const volatility = Math.abs(bot.rank_change || 0) + (Math.random() * 2);
@@ -505,14 +505,14 @@ export default function Rankings() {
         ticker: bot.ticker,
         algorithm: bot.algorithm_type,
       };
-    }).sort((a, b) => b.volatility - a.volatility);
+    }).sort((a: any, b: any) => (b.volatility ?? 0) - (a.volatility ?? 0));
   };
   
   // Calculate system-wide metrics from bot data
   const totalBots = bots.length;
-  const activeBots = bots.filter(bot => bot.is_active).length;
-  const botsWithTrades = bots.filter(bot => bot.total_trades > 0);
-  const totalPnl = botsWithTrades.reduce((sum, bot) => sum + parseFloat(bot.total_pnl as string || '0'), 0);
+  const activeBots = bots.filter((bot: any) => bot.is_active).length;
+  const botsWithTrades = bots.filter((bot: any) => bot.total_trades > 0);
+  const totalPnl = botsWithTrades.reduce((sum: number, bot: any) => sum + parseFloat(bot.total_pnl as string || '0'), 0);
   
   // Get active trade count
   const activeTradeCount = Object.keys(activeTrades).length;
@@ -625,9 +625,9 @@ export default function Rankings() {
               onChange={(e) => setAlgorithmFilter(e.target.value)}
             >
               <option value="">All Algorithms</option>
-              {algorithmTypes.map(type => (
-                <option key={type} value={type}>
-                  {type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              {algorithmTypes.map((type: string | number | undefined, index: number) => (
+                <option key={`${type}-${index}`} value={String(type)}>
+                  {String(type)?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                 </option>
               ))}
             </Select>
@@ -639,8 +639,8 @@ export default function Rankings() {
               onChange={(e) => setSymbolFilter(e.target.value)}
             >
               <option value="">All Symbols</option>
-              {symbols.map(symbol => (
-                <option key={symbol} value={symbol}>{symbol}</option>
+              {symbols.map((symbol: string | number | undefined, index: number) => (
+                <option key={`${symbol}-${index}`} value={String(symbol)}>{String(symbol)}</option>
               ))}
             </Select>
             
@@ -734,12 +734,12 @@ export default function Rankings() {
                         </Th>
                         <Th 
                           cursor="pointer" 
-                          onClick={() => handleSort('average_pnl_per_trade')}
+                          onClick={() => handleSort('avg_profit_per_trade')}
                           userSelect="none"
                         >
                           <Flex align="center">
-                            <MetricInfoTooltip metricKey="average_pnl_per_trade">
-                              Avg Return/Trade {renderSortIndicator('average_pnl_per_trade')}
+                            <MetricInfoTooltip metricKey="average_pnl_per_trade"> 
+                              Avg P&L/Trade {renderSortIndicator('avg_profit_per_trade')}
                             </MetricInfoTooltip>
                           </Flex>
                         </Th>
@@ -758,7 +758,7 @@ export default function Rankings() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {filteredAndSortedBots.map((bot, index) => {
+                      {filteredAndSortedBots.map((bot: any, index: number) => {
                         // Check if this bot has an active trade
                         const isInActiveTrade = Boolean(activeTrades[bot.bot_id]);
                         const activeTrade = activeTrades[bot.bot_id];
@@ -842,13 +842,11 @@ export default function Rankings() {
                             </Badge>
                           </Td>
                           <Td>
-                            <Badge 
-                              colorScheme={parseFloat(bot.average_pnl_per_trade as string || '0') >= 0 ? 'green' : 'red'}
-                              p={1}
-                              borderRadius="md"
+                            <Text 
+                              color={parseFloat(bot.avg_profit_per_trade as string || '0') >= 0 ? 'green.500' : 'red.500'}
                             >
-                              {formatPercent(parseFloat(bot.average_pnl_per_trade as string || '0') / 100)}
-                            </Badge>
+                              {formatCurrency(bot.avg_profit_per_trade || 0)}
+                            </Text>
                           </Td>
                           <Td 
                             color={parseFloat(bot.total_pnl as string || '0') >= 0 ? 'green.500' : 'red.500'}
