@@ -26,7 +26,6 @@ import {
 } from '@chakra-ui/react';
 import { getDashboardData } from '~/lib/api.server';
 import MainLayout from '~/components/layout/MainLayout';
-import TradeActivityChart from '~/components/charts/TradeActivityChart';
 import FundAllocationChart from '~/components/charts/FundAllocationChart';
 
 export async function loader() {
@@ -49,6 +48,12 @@ function formatPercent(value: number | string) {
 
 export default function Dashboard() {
   const data = useLoaderData<typeof loader>();
+  
+  // Debug log to check topBots data
+  console.log(`Dashboard received ${data.topBots?.length || 0} top bots`);
+  if (data.topBots?.length > 0) {
+    console.log("First top bot:", data.topBots[0]);
+  }
   
   return (
     <MainLayout>
@@ -128,13 +133,47 @@ export default function Dashboard() {
       
       {/* Chart Section */}
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} mb={8}>
-        {/* Trade Activity Chart */}
+        {/* Active Trades (replaced Trade Activity Chart) */}
         <Card shadow="base">
           <CardHeader pb={0}>
-            <Heading size="md">Trade Activity</Heading>
+            <Heading size="md">Active Trades</Heading>
           </CardHeader>
           <CardBody>
-            <TradeActivityChart />
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Ticker</Th>
+                  <Th>Direction</Th>
+                  <Th>Entry Price</Th>
+                  <Th>Bot</Th>
+                  <Th>Entry Time</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {data.openTrades.map((trade) => (
+                  <Tr key={trade.trade_id}>
+                    <Td>
+                      <Badge colorScheme="blue">{trade.ticker}</Badge>
+                    </Td>
+                    <Td>
+                      <Badge 
+                        colorScheme={trade.trade_direction === 'LONG' ? 'green' : 'red'}
+                      >
+                        {trade.trade_direction}
+                      </Badge>
+                    </Td>
+                    <Td>${parseFloat(trade.entry_price).toFixed(2)}</Td>
+                    <Td>{trade.bot_name || `Bot ${trade.bot_id}`}</Td>
+                    <Td>{new Date(trade.entry_time).toLocaleString()}</Td>
+                  </Tr>
+                ))}
+                {data.openTrades.length === 0 && (
+                  <Tr>
+                    <Td colSpan={5} textAlign="center">No active trades</Td>
+                  </Tr>
+                )}
+              </Tbody>
+            </Table>
           </CardBody>
         </Card>
         
@@ -144,18 +183,18 @@ export default function Dashboard() {
             <Heading size="md">Fund Allocation</Heading>
           </CardHeader>
           <CardBody>
-            <FundAllocationChart />
+            <FundAllocationChart topBots={data.topBots || []} />
           </CardBody>
         </Card>
       </SimpleGrid>
 
-      {/* Main Content Area */}
+      {/* Main Content Area - Removed the GridItem for active trades */}
       <Grid 
-        templateColumns={{ base: 'repeat(1, 1fr)', lg: 'repeat(3, 1fr)' }}
+        templateColumns="1fr"
         gap={6}
       >
         {/* Top Performing Bots */}
-        <GridItem colSpan={{ base: 1, lg: 2 }}>
+        <GridItem>
           <Card shadow="base" mb={6}>
             <CardHeader pb={0}>
               <Heading size="md">Top Performing Bots</Heading>
@@ -166,23 +205,35 @@ export default function Dashboard() {
                   <Tr>
                     <Th>Bot ID</Th>
                     <Th>Name</Th>
+                    <Th>Ticker</Th>
                     <Th>Win Rate</Th>
                     <Th>Profit Factor</Th>
                     <Th>P&L</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {data.topBots.map((bot) => (
-                    <Tr key={bot.bot_id}>
-                      <Td>{bot.bot_id}</Td>
-                      <Td>Bot {bot.bot_id}</Td>
-                      <Td>{formatPercent(bot.win_rate)}</Td>
-                      <Td>{parseFloat(bot.profit_factor).toFixed(2)}</Td>
-                      <Td color={parseFloat(bot.total_pnl) >= 0 ? 'green.500' : 'red.500'}>
-                        {formatCurrency(bot.total_pnl)}
-                      </Td>
+                  {data.topBots && data.topBots.length > 0 ? (
+                    data.topBots.map((bot, index) => (
+                      <Tr key={bot.bot_id}>
+                        <Td>{bot.bot_id}</Td>
+                        <Td>Bot {bot.bot_id}</Td>
+                        <Td>
+                          {bot.ticker && (
+                            <Badge colorScheme="blue">{bot.ticker}</Badge>
+                          )}
+                        </Td>
+                        <Td>{formatPercent(bot.win_rate)}</Td>
+                        <Td>{parseFloat(bot.profit_factor || 0).toFixed(2)}</Td>
+                        <Td color={parseFloat(bot.total_pnl || 0) >= 0 ? 'green.500' : 'red.500'}>
+                          {formatCurrency(bot.total_pnl)}
+                        </Td>
+                      </Tr>
+                    ))
+                  ) : (
+                    <Tr>
+                      <Td colSpan={6} textAlign="center">No top performing bots data available</Td>
                     </Tr>
-                  ))}
+                  )}
                 </Tbody>
               </Table>
             </CardBody>
@@ -233,40 +284,6 @@ export default function Dashboard() {
                       </Td>
                     </Tr>
                   ))}
-                </Tbody>
-              </Table>
-            </CardBody>
-          </Card>
-        </GridItem>
-        
-        {/* Open Trades */}
-        <GridItem colSpan={1}>
-          <Card shadow="base" h="100%">
-            <CardHeader pb={0}>
-              <Heading size="md">Active Trades</Heading>
-            </CardHeader>
-            <CardBody>
-              <Table variant="simple" size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>Ticker</Th>
-                    <Th>Direction</Th>
-                    <Th>Entry Price</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {data.openTrades.map((trade) => (
-                    <Tr key={trade.trade_id}>
-                      <Td>{trade.ticker}</Td>
-                      <Td>{trade.trade_direction}</Td>
-                      <Td>${parseFloat(trade.entry_price).toFixed(2)}</Td>
-                    </Tr>
-                  ))}
-                  {data.openTrades.length === 0 && (
-                    <Tr>
-                      <Td colSpan={3} textAlign="center">No active trades</Td>
-                    </Tr>
-                  )}
                 </Tbody>
               </Table>
             </CardBody>

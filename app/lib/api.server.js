@@ -29,9 +29,20 @@ export async function getDashboardData() {
 
     // Get top performing bots
     const topBots = metrics
-      .filter(bot => bot.total_trades > 0)
-      .sort((a, b) => parseFloat(b.rank_score || 0) - parseFloat(a.rank_score || 0))
-      .slice(0, 5);
+      // Include all bots, not just those with trades
+      .sort((a, b) => {
+        // First by rank score (if available)
+        if (a.rank_score !== undefined && b.rank_score !== undefined) {
+          return parseFloat(b.rank_score) - parseFloat(a.rank_score);
+        }
+        // Then by profit factor
+        if (a.profit_factor !== undefined && b.profit_factor !== undefined) {
+          return parseFloat(b.profit_factor) - parseFloat(a.profit_factor);
+        }
+        // Finally by total PNL
+        return parseFloat(b.total_pnl || 0) - parseFloat(a.total_pnl || 0);
+      })
+      .slice(0, 10); // Show top 10 bots
 
     // Get recent trades
     const recentTrades = await db.getTrades(10);
@@ -50,54 +61,50 @@ export async function getDashboardData() {
     };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
-    
-    // Return mock data as fallback in case of error
-    const mockData = {
-      summary: {
-        totalBots: 8,
-        activeBots: 7,
-        totalOpenTrades: 5,
-        totalPnl: 11553.8,
-        avgWinRate: 0.59,
-      },
-      topBots: [
-        { bot_id: 1, win_rate: 0.65, profit_factor: 2.10, total_pnl: 2450.75, rank_score: 0.92 },
-        { bot_id: 3, win_rate: 0.64, profit_factor: 1.95, total_pnl: 2120.50, rank_score: 0.89 },
-        { bot_id: 7, win_rate: 0.64, profit_factor: 1.92, total_pnl: 1870.30, rank_score: 0.87 },
-        { bot_id: 2, win_rate: 0.57, profit_factor: 1.68, total_pnl: 1650.20, rank_score: 0.78 },
-        { bot_id: 8, win_rate: 0.55, profit_factor: 1.62, total_pnl: 1320.60, rank_score: 0.75 },
-      ],
-      recentTrades: [
-        { trade_id: 1, bot_id: 1, bot_name: 'TSLA_Breakout_Bot', ticker: 'TSLA', trade_direction: 'LONG', trade_status: 'closed', pnl: 290.83 },
-        { trade_id: 2, bot_id: 2, bot_name: 'COIN_Momentum_Bot', ticker: 'COIN', trade_direction: 'LONG', trade_status: 'closed', pnl: -211.39 },
-        { trade_id: 3, bot_id: 3, bot_name: 'NVDA_Breakout_Bot', ticker: 'NVDA', trade_direction: 'LONG', trade_status: 'closed', pnl: 234.21 },
-        { trade_id: 4, bot_id: 4, bot_name: 'AMD_Momentum_Bot', ticker: 'AMD', trade_direction: 'LONG', trade_status: 'closed', pnl: 156.52 },
-        { trade_id: 5, bot_id: 5, bot_name: 'AAPL_Support_Resistance_Bot', ticker: 'AAPL', trade_direction: 'LONG', trade_status: 'closed', pnl: -137.61 },
-      ],
-      openTrades: [
-        { trade_id: 6, bot_id: 1, ticker: 'TSLA', trade_direction: 'LONG', entry_price: 182.40 },
-        { trade_id: 7, bot_id: 3, ticker: 'NVDA', trade_direction: 'LONG', entry_price: 965.25 },
-        { trade_id: 8, bot_id: 7, ticker: 'META', trade_direction: 'LONG', entry_price: 485.00 },
-        { trade_id: 9, bot_id: 8, ticker: 'AMZN', trade_direction: 'LONG', entry_price: 180.50 },
-        { trade_id: 10, bot_id: 2, ticker: 'COIN', trade_direction: 'LONG', entry_price: 208.25 },
-      ],
-    };
-    
-    return mockData;
+    throw error; // Don't use mock data, throw the error
   }
 }
 
 export async function getAllBots() {
   try {
     console.log("Fetching all bots...");
-    const bots = await db.getBots();
-    console.log(`Retrieved ${bots.length} bots`);
-    return bots;
+    
+    // Get both bots and metrics in parallel
+    const [bots, metrics] = await Promise.all([
+      db.getBots(),
+      db.getBotMetrics()
+    ]);
+    
+    console.log(`Retrieved ${bots.length} bots and ${metrics.length} metrics records`);
+    
+    // Create a lookup map of bot metrics by bot_id for faster access
+    const metricsMap = {};
+    metrics.forEach(metric => {
+      metricsMap[metric.bot_id] = metric;
+    });
+    
+    // Merge metrics with each bot
+    const botsWithMetrics = bots.map(bot => {
+      const botMetrics = metricsMap[bot.bot_id] || null;
+      
+      return {
+        ...bot,
+        metrics: botMetrics ? {
+          win_rate: botMetrics.win_rate,
+          profit_factor: botMetrics.profit_factor,
+          total_pnl: botMetrics.total_pnl,
+          sharpe_ratio: botMetrics.sharpe_ratio,
+          max_drawdown: botMetrics.max_drawdown,
+          rank_score: botMetrics.rank_score
+        } : null
+      };
+    });
+    
+    console.log(`Merged metrics data with ${botsWithMetrics.length} bots`);
+    return botsWithMetrics;
   } catch (error) {
     console.error('Error fetching bots:', error);
-    // Return mock data as fallback
-    console.log("Falling back to mock bots data");
-    return db.mockData ? db.mockData.bots : [];
+    throw error; // Don't use mock data, throw the error
   }
 }
 
@@ -105,34 +112,44 @@ export async function getBotById(botId) {
   try {
     console.log(`Fetching bot with ID ${botId}...`);
     const bot = await db.getBotById(botId);
-    if (bot) {
-      console.log(`Successfully retrieved bot with ID ${botId}`);
-    } else {
+    
+    if (!bot) {
       console.log(`No bot found with ID ${botId}`);
+      return null;
     }
+    
+    // If the bot already has metrics from getBotById, use them
+    if (bot.metrics) {
+      console.log(`Bot ${botId} already has metrics data`);
+      return bot;
+    }
+    
+    // Otherwise, fetch metrics specifically for this bot
+    const metrics = await db.getBotMetrics();
+    const botMetrics = metrics.find(m => m.bot_id === bot.bot_id);
+    
+    if (botMetrics) {
+      console.log(`Found metrics for bot ${botId}`);
+      bot.metrics = {
+        win_rate: botMetrics.win_rate,
+        profit_factor: botMetrics.profit_factor,
+        total_pnl: botMetrics.total_pnl,
+        sharpe_ratio: botMetrics.sharpe_ratio,
+        max_drawdown: botMetrics.max_drawdown,
+        rank_score: botMetrics.rank_score,
+        average_win_amount: botMetrics.average_win_amount,
+        average_loss_amount: botMetrics.average_loss_amount
+      };
+    } else {
+      console.log(`No metrics found for bot ${botId}`);
+      bot.metrics = null;
+    }
+    
+    console.log(`Successfully retrieved and enriched bot with ID ${botId}`);
     return bot;
   } catch (error) {
     console.error(`Error fetching bot ${botId}:`, error);
-    // Return mock data as fallback
-    if (db.mockData && db.mockData.bots) {
-      const mockBot = db.mockData.bots.find(b => b.bot_id === parseInt(botId));
-      if (mockBot) {
-        console.log(`Falling back to mock data for bot ${botId}`);
-        
-        // Get bot trades from mock data
-        const trades = db.mockData.trades.filter(t => t.bot_id === parseInt(botId));
-        
-        // Get bot metrics from mock data
-        const metrics = db.mockData.metrics.find(m => m.bot_id === parseInt(botId));
-        
-        return {
-          ...mockBot,
-          trades,
-          metrics,
-        };
-      }
-    }
-    throw error;
+    throw error; // Don't use mock data, throw the error
   }
 }
 

@@ -5,336 +5,431 @@ const { Pool } = pkg;
 // Get environment configuration
 const env = getEnv();
 
-// Flag to use mock data instead of real database
-const USE_MOCK_DATA = env.USE_MOCK_DATA || false;
+// Always use real database
+const USE_MOCK_DATA = false;
 
-// Create a PostgreSQL connection pool (only if not using mock data)
-let pool;
-if (!USE_MOCK_DATA) {
-  pool = new Pool({
-    host: env.DB_HOST,
-    port: env.DB_PORT,
-    database: env.DB_NAME,
-    user: env.DB_USER,
-    password: env.DB_PASSWORD,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // Extended timeout for initial connection
-  });
-}
+// Create a PostgreSQL connection pool with optimized settings
+const pool = new Pool({
+  host: env.DB_HOST,
+  port: env.DB_PORT,
+  database: env.DB_NAME,
+  user: env.DB_USER,
+  password: env.DB_PASSWORD,
+  max: 10,  // Reduce max connections to avoid overwhelming the database
+  idleTimeoutMillis: 10000, // Reduce idle timeout
+  connectionTimeoutMillis: 5000, // Reduce connection timeout
+  statement_timeout: 5000, // Set statement timeout to 5 seconds
+  query_timeout: 5000,     // Set query timeout to 5 seconds
+});
 
-// Mock data for development
-const mockData = {
-  bots: [
-    { bot_id: 1, name: 'TSLA_Breakout_Bot', ticker: 'TSLA', algorithm_module: 'algorithms.breakout_algorithm', algorithm_type: 'breakout', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.01, description: 'TSLA breakout strategy using volatility-based entry', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 2, name: 'COIN_Momentum_Bot', ticker: 'COIN', algorithm_module: 'algorithms.momentum_algorithm', algorithm_type: 'momentum', trade_direction: 'LONG', position_size: 1000.0, trailing_stop_pct: 0.015, description: 'COIN momentum strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 3, name: 'NVDA_Breakout_Bot', ticker: 'NVDA', algorithm_module: 'algorithms.breakout_algorithm', algorithm_type: 'breakout', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.01, description: 'NVDA breakout strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 4, name: 'AMD_Momentum_Bot', ticker: 'AMD', algorithm_module: 'algorithms.momentum_algorithm', algorithm_type: 'momentum', trade_direction: 'LONG', position_size: 1000.0, trailing_stop_pct: 0.012, description: 'AMD momentum strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 5, name: 'AAPL_Support_Resistance_Bot', ticker: 'AAPL', algorithm_module: 'algorithms.support_resistance_algorithm', algorithm_type: 'support_resistance', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.008, description: 'AAPL support resistance strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 6, name: 'MSFT_Mean_Reversion_Bot', ticker: 'MSFT', algorithm_module: 'algorithms.mean_reversion_algorithm', algorithm_type: 'mean_reversion', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.009, description: 'MSFT mean reversion strategy', version: '1.0', is_active: false, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 7, name: 'META_Volatility_Bot', ticker: 'META', algorithm_module: 'algorithms.volatility_breakout_algorithm', algorithm_type: 'volatility_breakout', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.011, description: 'META volatility breakout strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-    { bot_id: 8, name: 'AMZN_Price_Pattern_Bot', ticker: 'AMZN', algorithm_module: 'algorithms.price_pattern_algorithm', algorithm_type: 'price_pattern', trade_direction: 'BOTH', position_size: 1000.0, trailing_stop_pct: 0.01, description: 'AMZN price pattern strategy', version: '1.0', is_active: true, created_at: '2025-03-01T00:00:00.000Z', last_updated: '2025-03-01T00:00:00.000Z' },
-  ],
-  trades: [
-    { trade_id: 1, bot_id: 1, ticker: 'TSLA', entry_price: 180.25, exit_price: 185.50, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-20T10:15:00.000Z', exit_time: '2025-03-20T14:30:00.000Z', trade_status: 'closed', pnl: 290.83, pnl_percent: 0.0291, trailing_stop_price: 183.20, exit_reason: 'trailing_stop', bot_name: 'TSLA_Breakout_Bot', algorithm_type: 'breakout' },
-    { trade_id: 2, bot_id: 2, ticker: 'COIN', entry_price: 210.75, exit_price: 206.30, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-21T09:45:00.000Z', exit_time: '2025-03-21T15:20:00.000Z', trade_status: 'closed', pnl: -211.39, pnl_percent: -0.0211, trailing_stop_price: 206.30, exit_reason: 'trailing_stop', bot_name: 'COIN_Momentum_Bot', algorithm_type: 'momentum' },
-    { trade_id: 3, bot_id: 3, ticker: 'NVDA', entry_price: 950.00, exit_price: 972.25, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-22T10:00:00.000Z', exit_time: '2025-03-22T16:15:00.000Z', trade_status: 'closed', pnl: 234.21, pnl_percent: 0.0234, trailing_stop_price: 965.00, exit_reason: 'profit_target', bot_name: 'NVDA_Breakout_Bot', algorithm_type: 'breakout' },
-    { trade_id: 4, bot_id: 4, ticker: 'AMD', entry_price: 172.50, exit_price: 175.20, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-23T09:30:00.000Z', exit_time: '2025-03-23T14:45:00.000Z', trade_status: 'closed', pnl: 156.52, pnl_percent: 0.0157, trailing_stop_price: 173.80, exit_reason: 'profit_target', bot_name: 'AMD_Momentum_Bot', algorithm_type: 'momentum' },
-    { trade_id: 5, bot_id: 5, ticker: 'AAPL', entry_price: 185.30, exit_price: 182.75, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-24T11:15:00.000Z', exit_time: '2025-03-24T15:30:00.000Z', trade_status: 'closed', pnl: -137.61, pnl_percent: -0.0138, trailing_stop_price: 182.75, exit_reason: 'trailing_stop', bot_name: 'AAPL_Support_Resistance_Bot', algorithm_type: 'support_resistance' },
-    { trade_id: 6, bot_id: 1, ticker: 'TSLA', entry_price: 182.40, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-25T10:00:00.000Z', trade_status: 'open', trailing_stop_price: 179.75, bot_name: 'TSLA_Breakout_Bot', algorithm_type: 'breakout' },
-    { trade_id: 7, bot_id: 3, ticker: 'NVDA', entry_price: 965.25, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-25T09:45:00.000Z', trade_status: 'open', trailing_stop_price: 955.60, bot_name: 'NVDA_Breakout_Bot', algorithm_type: 'breakout' },
-    { trade_id: 8, bot_id: 7, ticker: 'META', entry_price: 485.00, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-25T10:30:00.000Z', trade_status: 'open', trailing_stop_price: 480.15, bot_name: 'META_Volatility_Bot', algorithm_type: 'volatility_breakout' },
-    { trade_id: 9, bot_id: 8, ticker: 'AMZN', entry_price: 180.50, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-25T11:00:00.000Z', trade_status: 'open', trailing_stop_price: 178.70, bot_name: 'AMZN_Price_Pattern_Bot', algorithm_type: 'price_pattern' },
-    { trade_id: 10, bot_id: 2, ticker: 'COIN', entry_price: 208.25, trade_size: 1000, trade_direction: 'LONG', entry_time: '2025-03-25T10:15:00.000Z', trade_status: 'open', trailing_stop_price: 205.10, bot_name: 'COIN_Momentum_Bot', algorithm_type: 'momentum' },
-  ],
-  metrics: [
-    { id: 1, bot_id: 1, total_trades: 32, winning_trades: 21, losing_trades: 11, total_pnl: 2450.75, average_pnl_per_trade: 76.59, win_rate: 0.6563, average_win_amount: 152.32, average_loss_amount: -72.45, profit_factor: 2.10, max_drawdown: -450.20, sharpe_ratio: 1.85, risk_reward_ratio: 2.10, expectancy: 0.24, rank_score: 0.92 },
-    { id: 2, bot_id: 3, total_trades: 28, winning_trades: 18, losing_trades: 10, total_pnl: 2120.50, average_pnl_per_trade: 75.73, win_rate: 0.6429, average_win_amount: 145.80, average_loss_amount: -68.90, profit_factor: 1.95, max_drawdown: -380.60, sharpe_ratio: 1.72, risk_reward_ratio: 2.12, expectancy: 0.23, rank_score: 0.89 },
-    { id: 3, bot_id: 7, total_trades: 25, winning_trades: 16, losing_trades: 9, total_pnl: 1870.30, average_pnl_per_trade: 74.81, win_rate: 0.6400, average_win_amount: 142.50, average_loss_amount: -65.80, profit_factor: 1.92, max_drawdown: -350.40, sharpe_ratio: 1.68, risk_reward_ratio: 2.17, expectancy: 0.22, rank_score: 0.87 },
-    { id: 4, bot_id: 2, total_trades: 30, winning_trades: 17, losing_trades: 13, total_pnl: 1650.20, average_pnl_per_trade: 55.01, win_rate: 0.5667, average_win_amount: 128.75, average_loss_amount: -75.30, profit_factor: 1.68, max_drawdown: -520.10, sharpe_ratio: 1.45, risk_reward_ratio: 1.71, expectancy: 0.19, rank_score: 0.78 },
-    { id: 5, bot_id: 8, total_trades: 22, winning_trades: 12, losing_trades: 10, total_pnl: 1320.60, average_pnl_per_trade: 60.03, win_rate: 0.5455, average_win_amount: 135.40, average_loss_amount: -72.10, profit_factor: 1.62, max_drawdown: -410.50, sharpe_ratio: 1.38, risk_reward_ratio: 1.88, expectancy: 0.18, rank_score: 0.75 },
-    { id: 6, bot_id: 4, total_trades: 24, winning_trades: 14, losing_trades: 10, total_pnl: 1410.80, average_pnl_per_trade: 58.78, win_rate: 0.5833, average_win_amount: 125.60, average_loss_amount: -69.80, profit_factor: 1.65, max_drawdown: -390.30, sharpe_ratio: 1.42, risk_reward_ratio: 1.80, expectancy: 0.17, rank_score: 0.74 },
-    { id: 7, bot_id: 5, total_trades: 26, winning_trades: 13, losing_trades: 13, total_pnl: 980.25, average_pnl_per_trade: 37.70, win_rate: 0.5000, average_win_amount: 118.90, average_loss_amount: -74.20, profit_factor: 1.42, max_drawdown: -480.70, sharpe_ratio: 1.20, risk_reward_ratio: 1.60, expectancy: 0.15, rank_score: 0.68 },
-    { id: 8, bot_id: 6, total_trades: 20, winning_trades: 11, losing_trades: 9, total_pnl: 750.40, average_pnl_per_trade: 37.52, win_rate: 0.5500, average_win_amount: 110.80, average_loss_amount: -70.60, profit_factor: 1.35, max_drawdown: -420.90, sharpe_ratio: 1.15, risk_reward_ratio: 1.57, expectancy: 0.14, rank_score: 0.65 },
-  ],
-};
+// Add event handlers for pool errors
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error:', err);
+});
 
-// Generate additional bots from 9-126
-for (let i = 9; i <= 126; i++) {
-  const strategies = ['breakout', 'momentum', 'mean_reversion', 'support_resistance', 'volatility_breakout', 'price_pattern'];
-  const tickers = ['AAPL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'GOOGL', 'META', 'COIN', 'AMD', 'NFLX', 'IBM', 'INTC'];
-  const directions = ['LONG', 'SHORT', 'BOTH'];
-  
-  const strategyIndex = i % strategies.length;
-  const tickerIndex = i % tickers.length;
-  const directionIndex = i % directions.length;
-  
-  const strategy = strategies[strategyIndex];
-  const ticker = tickers[tickerIndex];
-  const direction = directions[directionIndex];
-  
-  mockData.bots.push({
-    bot_id: i,
-    name: `${ticker}_${strategy}_Bot_${i}`,
-    ticker: ticker,
-    algorithm_module: `algorithms.${strategy.replace('_', '_')}_algorithm`,
-    algorithm_type: strategy,
-    trade_direction: direction,
-    position_size: 1000.0 + (i % 5) * 500,
-    trailing_stop_pct: 0.005 + (i % 10) * 0.001,
-    description: `${ticker} ${strategy.replace('_', ' ')} strategy #${i}`,
-    version: '1.0',
-    is_active: i % 8 !== 0, // Make every 8th bot inactive
-    created_at: '2025-03-01T00:00:00.000Z',
-    last_updated: '2025-03-01T00:00:00.000Z',
-  });
-}
+// Track active connections for debugging
+let activeConnections = 0;
+pool.on('connect', () => {
+  activeConnections++;
+  console.log(`DB connection established. Active connections: ${activeConnections}`);
+});
 
-// Add metrics for all bots
-for (let i = 1; i <= 126; i++) {
-  if (!mockData.metrics.find(m => m.bot_id === i)) {
-    // Base values that get slightly randomized
-    const winRate = 0.45 + (Math.random() * 0.3);
-    const profitFactor = 1.0 + (Math.random() * 1.5);
-    const totalPnl = (500 + Math.random() * 2500) * (Math.random() > 0.2 ? 1 : -1); // 20% chance of negative PnL
-    
-    mockData.metrics.push({
-      id: mockData.metrics.length + 1,
-      bot_id: i,
-      total_trades: 10 + Math.floor(Math.random() * 30),
-      winning_trades: Math.floor(winRate * (10 + Math.floor(Math.random() * 30))),
-      losing_trades: Math.floor((1 - winRate) * (10 + Math.floor(Math.random() * 30))),
-      total_pnl: totalPnl,
-      average_pnl_per_trade: totalPnl / (10 + Math.floor(Math.random() * 30)),
-      win_rate: winRate,
-      average_win_amount: 80 + Math.random() * 100,
-      average_loss_amount: -(30 + Math.random() * 70),
-      profit_factor: profitFactor,
-      max_drawdown: -(100 + Math.random() * 500),
-      sharpe_ratio: 0.8 + Math.random() * 1.5,
-      risk_reward_ratio: 1.0 + Math.random() * 1.5,
-      expectancy: 0.1 + Math.random() * 0.3,
-      rank_score: 0.4 + Math.random() * 0.6
-    });
-  }
-}
-
-// Generate bot data with parameters for testing
-mockData.bots = mockData.bots.map(bot => {
-  bot.parameters = {
-    lookback_period: Math.floor(Math.random() * 10) + 15,
-    volatility_threshold: (Math.random() * 1.5 + 1).toFixed(2),
-    profit_target_pct: (Math.random() * 0.03 + 0.01).toFixed(3),
-    stop_loss_pct: (Math.random() * 0.01 + 0.005).toFixed(3),
-    rsi_upper: Math.floor(Math.random() * 10) + 65,
-    rsi_lower: Math.floor(Math.random() * 10) + 25,
-    moving_average_period: Math.floor(Math.random() * 10) + 10,
-  };
-  return bot;
+pool.on('remove', () => {
+  activeConnections--;
+  console.log(`DB connection released. Active connections: ${activeConnections}`);
 });
 
 export async function getConnection() {
-  if (USE_MOCK_DATA) {
-    return {
-      query: () => Promise.resolve({ rows: [] }),
-      release: () => {},
-    };
-  }
-  
   try {
     console.log("Attempting to connect to PostgreSQL database...");
-    // Try to connect directly to the main pool
     return await pool.connect();
   } catch (error) {
     console.error('Error connecting to database:', error.message);
-    console.log("Falling back to mock data due to connection error");
-    // Switch to mock data mode
-    Object.defineProperty(exports, 'USE_MOCK_DATA', { value: true });
-    return {
-      query: () => Promise.resolve({ rows: [] }),
-      release: () => {},
-    };
+    throw error; // Don't fall back to mock data, throw the error
   }
 }
 
 export async function query(text, params) {
-  if (USE_MOCK_DATA) {
-    // For mock data, parse the query to determine what data to return
-    if (text.includes('sim_bots')) {
-      return { rows: mockData.bots };
-    } else if (text.includes('sim_bot_trades')) {
-      // Handle filtering for open trades
-      if (text.includes("trade_status = 'open'")) {
-        return { rows: mockData.trades.filter(t => t.trade_status === 'open') };
-      }
-      return { rows: mockData.trades };
-    } else if (text.includes('bot_metrics')) {
-      return { rows: mockData.metrics };
-    }
-    console.log(`Using mock data for query: ${text.substring(0, 100)}...`);
-    return { rows: [] };
-  }
+  // Use a timeout to prevent long-running queries
+  const QUERY_TIMEOUT = 5000;
   
-  const client = await getConnection();
-  try {
-    console.log(`Executing query: ${text.substring(0, 100)}...`);
-    const result = await client.query(text, params);
-    console.log(`Query result rows: ${result.rows.length}`);
-    return result;
-  } catch (error) {
-    console.error('Error executing query:', error.message);
+  const queryPromise = new Promise(async (resolve, reject) => {
+    let isTimedOut = false;
+    const timeout = setTimeout(() => {
+      isTimedOut = true;
+      reject(new Error(`Query timed out after ${QUERY_TIMEOUT}ms: ${text.substring(0, 100)}...`));
+    }, QUERY_TIMEOUT);
     
-    // If we get specific DB errors, fall back to mock data
-    if (error.code === '3D000' || error.code === '42P01' || error.code === '28P01' || 
-        error.code === 'ECONNREFUSED' || error.code === '08006' || error.code === '57P03') {
-      console.warn('Database error. Falling back to mock data for this query.');
-      // Switch to mock data mode globally
-      Object.defineProperty(exports, 'USE_MOCK_DATA', { value: true });
+    let client;
+    try {
+      client = await pool.connect();
+      const startTime = Date.now();
       
-      // Return appropriate mock data
-      if (text.includes('sim_bots')) {
-        return { rows: mockData.bots };
-      } else if (text.includes('sim_bot_trades')) {
-        // Handle filtering for open trades
-        if (text.includes("trade_status = 'open'")) {
-          return { rows: mockData.trades.filter(t => t.trade_status === 'open') };
-        }
-        return { rows: mockData.trades };
-      } else if (text.includes('bot_metrics')) {
-        return { rows: mockData.metrics };
+      // Execute the query
+      const result = await client.query(text, params);
+      
+      // Clear timeout since query completed
+      clearTimeout(timeout);
+      if (isTimedOut) return; // Already rejected
+      
+      const duration = Date.now() - startTime;
+      console.log(`Query completed in ${duration}ms`);
+      
+      // Log slow queries for optimization
+      if (duration > 200) {
+        console.warn(`SLOW QUERY (${duration}ms): ${text.substring(0, 100)}...`);
+      }
+      
+      resolve(result);
+    } catch (error) {
+      // Clear timeout since query errored
+      clearTimeout(timeout);
+      if (isTimedOut) return; // Already rejected
+      
+      console.error('Error executing query:', error.message);
+      reject(error);
+    } finally {
+      if (client) {
+        client.release();
       }
     }
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
+
+  return queryPromise;
 }
 
-export async function getBots() {
-  if (USE_MOCK_DATA) {
-    return mockData.bots;
-  }
+export async function getBots(limit = 500) {
+  // Add limit to avoid loading too many bots, but make it high enough to get all bots
+  const result = await query('SELECT * FROM sim_bots ORDER BY bot_id LIMIT $1', [limit]);
   
-  const result = await query('SELECT * FROM sim_bots ORDER BY bot_id');
-  return result.rows;
+  // Use more efficient property mapping
+  return result.rows.map(bot => ({
+    bot_id: bot.bot_id,
+    name: bot.name,
+    ticker: bot.ticker,
+    algorithm_module: bot.algorithm_module,
+    algorithm_type: bot.algorithm_type,
+    trade_direction: bot.trade_direction,
+    position_size: Number(bot.position_size || 0),
+    trailing_stop_pct: Number(bot.trailing_stop_pct || 0),
+    description: bot.description || '',
+    version: bot.version || '1.0',
+    is_active: Boolean(bot.is_active),
+    created_at: bot.created_at,
+    last_updated: bot.last_updated
+  }));
 }
 
-export async function getTrades(limit = 100) {
-  if (USE_MOCK_DATA) {
-    return mockData.trades.slice(0, limit);
-  }
-  
+export async function getTrades(limit = 50) {
+  // Use a more efficient query with only needed columns
   const result = await query(
-    `SELECT t.*, b.name AS bot_name, b.algorithm_type
+    `SELECT 
+       t.trade_id, t.bot_id, t.ticker, t.entry_price, t.exit_price, 
+       t.trade_size, t.trade_direction, t.entry_time, t.exit_time, 
+       t.trade_status, t.trade_pnl, t.pnl_percent, t.exit_trigger_price,
+       b.name AS bot_name, b.algorithm_type
      FROM sim_bot_trades t
      JOIN sim_bots b ON t.bot_id = b.bot_id
      ORDER BY t.entry_time DESC
      LIMIT $1`,
     [limit]
   );
-  return result.rows;
+  
+  // Map only essential properties with more efficient conversions
+  return result.rows.map(row => ({
+    trade_id: row.trade_id,
+    bot_id: row.bot_id,
+    ticker: row.ticker,
+    entry_price: Number(row.entry_price || 0),
+    exit_price: Number(row.exit_price || 0),
+    trade_size: Number(row.trade_size || 0),
+    trade_direction: row.trade_direction,
+    entry_time: row.entry_time,
+    exit_time: row.exit_time,
+    trade_status: row.trade_status,
+    pnl: Number(row.trade_pnl || 0),
+    pnl_percent: Number(row.pnl_percent || 0),
+    trailing_stop_price: row.exit_trigger_price,
+    exit_reason: row.exit_trigger_price ? 'trigger_price' : 'unknown',
+    bot_name: row.bot_name,
+    algorithm_type: row.algorithm_type
+  }));
 }
 
-export async function getOpenTrades() {
-  if (USE_MOCK_DATA) {
-    return mockData.trades.filter(trade => trade.trade_status === 'open');
-  }
-  
+export async function getOpenTrades(limit = 50) {
+  // Use a more efficient query with only needed columns and filter in SQL
   const result = await query(
-    `SELECT t.*, b.name AS bot_name, b.algorithm_type
+    `SELECT 
+       t.trade_id, t.bot_id, t.ticker, t.entry_price, t.exit_price, 
+       t.trade_size, t.trade_direction, t.entry_time, t.exit_time, 
+       t.trade_status, t.trade_pnl, t.pnl_percent, t.exit_trigger_price,
+       b.name AS bot_name, b.algorithm_type
      FROM sim_bot_trades t
      JOIN sim_bots b ON t.bot_id = b.bot_id
      WHERE t.trade_status = 'open'
-     ORDER BY t.entry_time DESC`
+     ORDER BY t.entry_time DESC
+     LIMIT $1`,
+    [limit]
   );
-  return result.rows;
+  
+  // Map only essential properties with more efficient conversions
+  return result.rows.map(row => ({
+    trade_id: row.trade_id,
+    bot_id: row.bot_id,
+    ticker: row.ticker,
+    entry_price: Number(row.entry_price || 0),
+    exit_price: Number(row.exit_price || 0),
+    trade_size: Number(row.trade_size || 0),
+    trade_direction: row.trade_direction,
+    entry_time: row.entry_time,
+    exit_time: row.exit_time,
+    trade_status: row.trade_status,
+    pnl: Number(row.trade_pnl || 0),
+    pnl_percent: Number(row.pnl_percent || 0),
+    trailing_stop_price: row.exit_trigger_price,
+    bot_name: row.bot_name,
+    algorithm_type: row.algorithm_type
+  }));
 }
 
-export async function getBotMetrics() {
-  if (USE_MOCK_DATA) {
-    console.log('Using mock data for bot metrics');
-    return mockData.metrics;
-  }
-  
+export async function getBotMetrics(limit = 500) {
   try {
-    // First try with rank_score (if column exists)
     console.log('Querying real database for bot metrics');
-    const result = await query('SELECT * FROM bot_metrics ORDER BY rank_score DESC');
     
-    // Make sure data is properly formatted
+    // First, check if we can get any data at all from the table
+    const countResult = await query('SELECT COUNT(DISTINCT bot_id) FROM bot_metrics');
+    console.log(`Found ${countResult.rows[0].count} unique bot_ids in bot_metrics table`);
+    
+    if (parseInt(countResult.rows[0].count) === 0) {
+      console.log('No records found in bot_metrics table');
+      return [];
+    }
+    
+    // Get only the most recent record for each bot_id to avoid duplicates
+    const result = await query(`
+      SELECT m.*, b.position_size 
+      FROM (
+        SELECT DISTINCT ON (bot_id) * 
+        FROM bot_metrics 
+        ORDER BY bot_id, last_updated DESC
+      ) m
+      LEFT JOIN sim_bots b ON m.bot_id = b.bot_id
+      LIMIT $1
+    `, [limit]);
+    
+    console.log(`Retrieved ${result.rows.length} unique bot metrics records`);
+    
+    if (result.rows.length === 0) {
+      console.log('Query returned zero rows');
+      return [];
+    }
+    
+    // Log the first row to see its structure
+    console.log('Sample row structure:', JSON.stringify(result.rows[0]));
+    
+    // Map the results, handling possible missing columns
     return result.rows.map(row => {
+      // Use appropriate column names based on your schema
+      // Check if properties exist before using them
+      
+      // Handle win rate calculation from various possible column names
+      let winRate = 0;
+      if (row.win_rate !== undefined) {
+        winRate = Number(row.win_rate || 0);
+      } else if (row.avg_win_rate !== undefined) {
+        winRate = Number(row.avg_win_rate || 0) / 100; // Convert from percentage
+      } else if (row.winning_trades !== undefined && row.total_trades !== undefined) {
+        winRate = row.total_trades > 0 ? Number(row.winning_trades) / Number(row.total_trades) : 0;
+      }
+      
+      // Calculate rank score based on available metrics
+      const profitFactor = Number(row.profit_factor || 0);
+      const sharpeRatio = Number(row.sharpe_ratio || 0);
+      
+      const calculatedRankScore = (
+        (winRate * 0.5) + 
+        (profitFactor * 0.3 / 3) + 
+        (sharpeRatio * 0.2 / 3)
+      ).toFixed(2);
+      
+      // Return a standardized object, using fallbacks for missing properties
       return {
-        ...row,
-        win_rate: parseFloat(row.win_rate || 0).toString(),
-        profit_factor: parseFloat(row.profit_factor || 0).toString(),
-        total_pnl: parseFloat(row.total_pnl || 0).toString(),
-        average_win_amount: parseFloat(row.average_win_amount || 0).toString(),
-        average_loss_amount: parseFloat(row.average_loss_amount || 0).toString(),
-        max_drawdown: parseFloat(row.max_drawdown || 0).toString(),
-        sharpe_ratio: parseFloat(row.sharpe_ratio || 0).toString(),
-        risk_reward_ratio: parseFloat(row.risk_reward_ratio || 0).toString(),
-        expectancy: parseFloat(row.expectancy || 0).toString(),
-        rank_score: parseFloat(row.rank_score || 0).toString(),
+        bot_id: row.bot_id || 0,
+        algo_id: row.algo_id || row.algorithm_id || 0,
+        ticker: row.ticker || '',
+        win_rate: winRate.toFixed(4),
+        profit_factor: Number(row.profit_factor || 0).toFixed(2),
+        total_pnl: Number(row.total_pnl || 0).toFixed(2),
+        average_win_amount: Number(row.avg_profit_per_trade || row.average_win_amount || 0).toFixed(2),
+        average_loss_amount: (-Math.abs(Number(row.avg_drawdown || row.average_loss_amount || 0))).toFixed(2),
+        max_drawdown: (-Math.abs(Number(row.max_drawdown || 0))).toFixed(2),
+        sharpe_ratio: Number(row.sharpe_ratio || 0).toFixed(2),
+        risk_reward_ratio: Number(row.r_multiple || row.risk_reward_ratio || 0).toFixed(2),
+        total_trades: Number(row.total_trades || 0),
+        winning_trades: Number(row.winning_trades || Math.round(Number(row.total_trades || 0) * winRate)),
+        losing_trades: Number(row.losing_trades || Math.round(Number(row.total_trades || 0) * (1 - winRate))),
+        rank_score: calculatedRankScore,
+        last_updated: row.last_updated,
+        drawdown_percent: Number(row.drawdown_percent || 0).toFixed(2),
+        position_size: Number(row.position_size || 10000).toFixed(2),
+        pnl_percent: Number(row.one_month_performance || row.one_week_performance || 0).toFixed(2),
+        avg_profit_per_trade: Number(row.avg_profit_per_trade || 0).toFixed(2),
+        avg_drawdown: Number(row.avg_drawdown || 0).toFixed(2)
       };
-    });
+    }).sort((a, b) => Number(b.total_pnl) - Number(a.total_pnl));
   } catch (error) {
-    console.warn('Error fetching bot metrics:', error.message);
-    console.log('Falling back to mock data for bot metrics');
-    return mockData.metrics;
+    console.error('Error fetching bot metrics:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    // Return an empty array instead of throwing to prevent the UI from breaking
+    return [];
   }
 }
 
 export async function getBotById(botId) {
-  if (USE_MOCK_DATA) {
-    const bot = mockData.bots.find(b => b.bot_id === botId);
-    if (!bot) return null;
-    
-    // Get bot trades
-    const trades = mockData.trades.filter(t => t.bot_id === botId);
-    
-    // Get bot metrics
-    const metrics = mockData.metrics.find(m => m.bot_id === botId);
-    
-    return {
-      ...bot,
-      trades,
-      metrics,
-    };
-  }
-  
-  // Real database implementation
   try {
+    // Build the query to get only needed columns
     const result = await query('SELECT * FROM sim_bots WHERE bot_id = $1', [botId]);
     
     if (result.rows.length === 0) {
       return null;
     }
     
-    // Get bot trades
-    const trades = await query(
-      'SELECT * FROM sim_bot_trades WHERE bot_id = $1 ORDER BY entry_time DESC', 
+    // Get only the most recent trades (limit to 20) with specific columns
+    const tradesResult = await query(
+      `SELECT 
+         t.trade_id, t.bot_id, t.ticker, t.entry_price, t.exit_price, 
+         t.trade_size, t.trade_direction, t.entry_time, t.exit_time, 
+         t.trade_status, t.trade_pnl, t.pnl_percent, t.exit_trigger_price,
+         b.name AS bot_name, b.algorithm_type
+       FROM sim_bot_trades t
+       JOIN sim_bots b ON t.bot_id = b.bot_id 
+       WHERE t.bot_id = $1 
+       ORDER BY t.entry_time DESC
+       LIMIT 20`, 
       [botId]
     );
     
-    // Get bot metrics
-    const metrics = await query(
-      'SELECT * FROM bot_metrics WHERE bot_id = $1', 
+    // Efficiently map trade data
+    const trades = tradesResult.rows.map(row => ({
+      trade_id: row.trade_id,
+      bot_id: row.bot_id,
+      ticker: row.ticker,
+      entry_price: Number(row.entry_price || 0),
+      exit_price: Number(row.exit_price || 0),
+      trade_size: Number(row.trade_size || 0),
+      trade_direction: row.trade_direction,
+      entry_time: row.entry_time,
+      exit_time: row.exit_time,
+      trade_status: row.trade_status,
+      pnl: Number(row.trade_pnl || 0),
+      pnl_percent: Number(row.pnl_percent || 0),
+      trailing_stop_price: row.exit_trigger_price,
+      exit_reason: row.exit_trigger_price ? 'trigger_price' : 'unknown',
+      bot_name: row.bot_name,
+      algorithm_type: row.algorithm_type
+    }));
+    
+    // Get only required metrics columns
+    const metricsResult = await query(
+      `SELECT 
+         bot_id, ticker, algo_id, avg_win_rate, profit_factor, 
+         total_pnl, avg_profit_per_trade, avg_drawdown, max_drawdown,
+         sharpe_ratio, r_multiple, total_trades
+       FROM bot_metrics WHERE bot_id = $1`, 
       [botId]
     );
     
-    return {
-      ...result.rows[0],
-      trades: trades.rows,
-      metrics: metrics.rows[0] || null,
+    let metrics = null;
+    
+    if (metricsResult.rows.length > 0) {
+      const row = metricsResult.rows[0];
+      const winRate = Number(row.avg_win_rate || 0) / 100; // Convert from percentage to decimal
+      
+      metrics = {
+        bot_id: row.bot_id,
+        ticker: row.ticker,
+        win_rate: winRate.toFixed(4),
+        profit_factor: Number(row.profit_factor || 0).toFixed(2),
+        total_pnl: Number(row.total_pnl || 0).toFixed(2),
+        average_win_amount: Number(row.avg_profit_per_trade || 0).toFixed(2),
+        average_loss_amount: (-Math.abs(Number(row.avg_drawdown || 0))).toFixed(2),
+        max_drawdown: (-Math.abs(Number(row.max_drawdown || 0))).toFixed(2),
+        sharpe_ratio: Number(row.sharpe_ratio || 0).toFixed(2),
+        risk_reward_ratio: Number(row.r_multiple || 0).toFixed(2),
+        total_trades: Number(row.total_trades || 0),
+        winning_trades: Math.round(Number(row.total_trades || 0) * winRate),
+        losing_trades: Math.round(Number(row.total_trades || 0) * (1 - winRate)),
+        rank_score: ((winRate * 0.5) + (Number(row.profit_factor || 1) * 0.3 / 3) + 
+                   (Number(row.sharpe_ratio || 0) * 0.2 / 3)).toFixed(2)
+      };
+    }
+    
+    // Format the bot data with minimal property copying
+    const bot = {
+      bot_id: result.rows[0].bot_id,
+      name: result.rows[0].name,
+      ticker: result.rows[0].ticker,
+      algorithm_module: result.rows[0].algorithm_module,
+      algorithm_type: result.rows[0].algorithm_type,
+      trade_direction: result.rows[0].trade_direction,
+      position_size: Number(result.rows[0].position_size || 0),
+      trailing_stop_pct: Number(result.rows[0].trailing_stop_pct || 0),
+      description: result.rows[0].description || '',
+      version: result.rows[0].version || '1.0',
+      is_active: Boolean(result.rows[0].is_active),
+      created_at: result.rows[0].created_at,
+      last_updated: result.rows[0].last_updated,
+      trades,
+      metrics
     };
+    
+    return bot;
   } catch (error) {
     console.error(`Error fetching bot ${botId}:`, error);
     throw error;
   }
 }
 
-// Export the mockData for fallback in api.server.js
-export { mockData };
+export async function getTickData(ticker = null, limit = 100) {
+  try {
+    console.log(`Fetching tick data${ticker ? ` for ${ticker}` : ''}`);
+    
+    let queryText = `
+      SELECT id, ticker, timestamp, price, trade_size, volume, bid, ask
+      FROM tick_data
+    `;
+    
+    const queryParams = [];
+    
+    // Add ticker filter if provided
+    if (ticker) {
+      queryText += ' WHERE ticker = $1';
+      queryParams.push(ticker);
+    }
+    
+    // Add order and limit
+    queryText += ' ORDER BY timestamp DESC LIMIT $' + (queryParams.length + 1);
+    queryParams.push(limit);
+    
+    const result = await query(queryText, queryParams);
+    console.log(`Retrieved ${result.rows.length} tick data records`);
+    
+    return result.rows.map(row => ({
+      id: row.id,
+      ticker: row.ticker,
+      timestamp: row.timestamp,
+      price: Number(row.price || 0),
+      trade_size: Number(row.trade_size || 0),
+      volume: Number(row.volume || 0),
+      bid: Number(row.bid || 0),
+      ask: Number(row.ask || 0)
+    }));
+  } catch (error) {
+    console.error('Error fetching tick data:', error.message);
+    return [];
+  }
+}
 
 export default {
   getConnection,
@@ -344,5 +439,5 @@ export default {
   getOpenTrades,
   getBotMetrics,
   getBotById,
-  mockData,  // Include mockData in the default export
+  getTickData
 };

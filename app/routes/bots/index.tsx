@@ -545,26 +545,38 @@ export default function BotsIndex() {
                       </Text>
                     </Td>
                     <Td>
-                      {/* Performance metrics - these would come from the actual metrics in a real app */}
-                      <HStack spacing={3}>
-                        <Tooltip label="Win Rate" placement="top">
-                          <HStack spacing={1}>
-                            <Icon as={FiActivity} color="green.500" boxSize={4} />
-                            <Text fontSize="sm">
-                              {(Math.random() * 30 + 50).toFixed(1)}%
-                            </Text>
-                          </HStack>
-                        </Tooltip>
-                        
-                        <Tooltip label="Profit Factor" placement="top">
-                          <HStack spacing={1}>
-                            <Icon as={FiPieChart} color="purple.500" boxSize={4} />
-                            <Text fontSize="sm">
-                              {(Math.random() * 1 + 1).toFixed(2)}
-                            </Text>
-                          </HStack>
-                        </Tooltip>
-                      </HStack>
+                      {/* Display actual metrics if available, otherwise show a no data message */}
+                      {bot.metrics ? (
+                        <HStack spacing={3}>
+                          <Tooltip label="Win Rate" placement="top">
+                            <HStack spacing={1}>
+                              <Icon 
+                                as={FiActivity} 
+                                color={parseFloat(bot.metrics.win_rate) >= 0.5 ? "green.500" : "red.500"} 
+                                boxSize={4} 
+                              />
+                              <Text fontSize="sm">
+                                {(parseFloat(bot.metrics.win_rate) * 100).toFixed(1)}%
+                              </Text>
+                            </HStack>
+                          </Tooltip>
+                          
+                          <Tooltip label="Profit Factor" placement="top">
+                            <HStack spacing={1}>
+                              <Icon 
+                                as={FiPieChart} 
+                                color={parseFloat(bot.metrics.profit_factor) >= 1 ? "purple.500" : "orange.500"} 
+                                boxSize={4} 
+                              />
+                              <Text fontSize="sm">
+                                {parseFloat(bot.metrics.profit_factor).toFixed(2)}
+                              </Text>
+                            </HStack>
+                          </Tooltip>
+                        </HStack>
+                      ) : (
+                        <Text fontSize="sm" color="gray.500">No metrics available</Text>
+                      )}
                     </Td>
                     <Td onClick={(e) => e.stopPropagation()}>
                       <Switch 

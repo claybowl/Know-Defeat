@@ -309,3 +309,45 @@ This can happen if:
 3. The bot_tick_data table is not populating correctly
 
 Check the connections and verify the data is flowing through the system.
+
+## Live Trading Monitor
+
+The frontend now includes a live trading monitor that highlights bots with active trades in real-time. This feature is available on the Bot Rankings page.
+
+### Features:
+- Highlights bots with active trades in green
+- Shows active trade status with direction indicators
+- Updates in real-time via WebSocket connection
+- Displays active trade count in the dashboard header
+
+### How to Use:
+1. Ensure the WebSocket server is running:
+   ```bash
+   python -m src.websocket_server
+   ```
+
+2. Make sure your trading system is running:
+   ```bash
+   python src/run_bots.py --algo_dir src/bots
+   ```
+
+3. Navigate to the Bot Rankings page in the UI to see active trades.
+
+### Testing the WebSocket Connection:
+For development and testing purposes, you can use the provided test script to simulate trade updates:
+
+```bash
+# Interactive mode
+python tests/test_websocket_trade_updates.py
+
+# Automatic mode (random trades for 2 minutes with 5-second intervals)
+python tests/test_websocket_trade_updates.py --auto --duration 120 --interval 5
+```
+
+The test script supports:
+- Creating new trades
+- Closing trades
+- Sending bulk updates
+- Simulating trading activity
+
+Trade notifications are sent through PostgreSQL's notification system, which the WebSocket server forwards to connected clients.

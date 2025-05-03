@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Tuple
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- Configuration ---
 DATABASE_URL = "postgres://clayb:musicman@localhost:5432/tick_data"
@@ -298,6 +298,87 @@ async def get_bot_details(
         raise HTTPException(status_code=500, detail="Database query error.")
     except Exception as e:
         logger.exception(f"Unexpected error fetching bot details for id {bot_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+@app.get("/api/metrics/bots/{bot_id}/history")
+async def get_bot_history(
+    bot_id: int = Path(..., ge=1, description="The unique identifier of the bot"),
+    metric: str = Query("total_pnl", description="The metric to retrieve history for"),
+    timespan: str = Query("7d", description="Timespan to retrieve (1d, 7d, 30d, 90d, 1y)"),
+    pool: asyncpg.Pool = Depends(get_db_pool)
+):
+    """
+    Retrieves historical metrics data for a specific bot.
+    """
+    # Validate metric
+    valid_metrics = ["total_pnl", "win_rate", "sharpe_ratio", "rank_score", "total_trades", "max_drawdown"]
+    if metric not in valid_metrics:
+        raise HTTPException(status_code=400, detail=f"Invalid metric. Valid values: {', '.join(valid_metrics)}")
+    
+    # Calculate the start date based on the timespan
+    now = datetime.utcnow()
+    start_date = None
+    
+    if timespan == "1d":
+        start_date = now - timedelta(days=1)
+        interval = "hour"
+    elif timespan == "7d":
+        start_date = now - timedelta(days=7)
+        interval = "day"
+    elif timespan == "30d":
+        start_date = now - timedelta(days=30)
+        interval = "day"
+    elif timespan == "90d":
+        start_date = now - timedelta(days=90)
+        interval = "week"
+    elif timespan == "1y":
+        start_date = now - timedelta(days=365)
+        interval = "month"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid timespan. Valid values: 1d, 7d, 30d, 90d, 1y")
+    
+    try:
+        # Query for the historical data
+        query = f"""
+            SELECT timestamp, {metric} as value
+            FROM bot_metrics_history
+            WHERE bot_id = $1 AND timestamp >= $2
+            ORDER BY timestamp ASC
+        """
+        
+        async with pool.acquire() as conn:
+            history_data = await conn.fetch(query, bot_id, start_date)
+        
+        # Format the results
+        data_points = [{"timestamp": record['timestamp'].isoformat(), "value": record['value']} for record in history_data]
+        
+        # If no data, return an empty dataset with info
+        if not data_points:
+            logger.warning(f"No historical data found for bot {bot_id}, metric {metric}, timespan {timespan}")
+            # Generate synthetic data for testing purposes if no real data exists
+            # In production, you might want to just return an empty array
+            if not data_points:
+                # Generate some sample data points
+                sample_data = []
+                for i in range(10):
+                    sample_time = start_date + timedelta(days=i)
+                    sample_data.append({
+                        "timestamp": sample_time.isoformat(),
+                        "value": None  # Use null to indicate no data
+                    })
+                data_points = sample_data
+        
+        return {
+            "metric": metric,
+            "timespan": timespan,
+            "data": data_points
+        }
+        
+    except asyncpg.exceptions.PostgresError as e:
+        logger.error(f"Database error fetching history for bot {bot_id}: {e}")
+        raise HTTPException(status_code=500, detail="Database query error.")
+    except Exception as e:
+        logger.exception(f"Unexpected error fetching history for bot {bot_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error.")
 
 # --- Optional: Add main block to run with uvicorn for testing ---

@@ -1,5 +1,6 @@
 import logging
 import asyncpg
+import json
 from datetime import datetime
 
 class TradeManager:
@@ -257,20 +258,54 @@ class TradeManager:
                 self.logger.info(f"Closed lowest-ranked trade {closed_trade['trade_id']} to make room for bot {bot_id}")
             
             # Open the new trade
+            trade_id = None # Initialize trade_id
             async with self.db_pool.acquire() as connection:
-                trade_id = await connection.fetchval("""
+                # Use fetchrow to get the created trade details along with the ID
+                new_trade_row = await connection.fetchrow("""
                     INSERT INTO sim_bot_trades (
                         bot_id, ticker, entry_time, entry_price, 
                         trade_direction, trade_size, trade_status
                     )
                     VALUES ($1, $2, NOW(), $3, $4, $5, 'open')
-                    RETURNING trade_id
+                    RETURNING trade_id, bot_id, ticker, entry_price, trade_size, 
+                              trade_direction, entry_time, trade_status, exit_trigger_price
                 """, bot_id, ticker, entry_price, trade_direction, trade_size)
-                
+
+                if not new_trade_row:
+                    self.logger.error(f"Failed to insert trade for bot {bot_id}")
+                    return {
+                        'success': False,
+                        'reason': 'Failed to insert trade record'
+                    }
+
+                trade_id = new_trade_row['trade_id']
                 self.logger.info(f"Opened new trade {trade_id} for bot {bot_id} ({ticker} {trade_direction})")
-                
                 result['trade_id'] = trade_id
-            
+
+                # --- Add NOTIFY for trade_opened ---
+                try:
+                    # Prepare payload matching frontend expectations
+                    trade_data_opened = {
+                        'action': 'trade_opened',
+                        'trade_id': new_trade_row['trade_id'],
+                        'bot_id': new_trade_row['bot_id'],
+                        'ticker': new_trade_row['ticker'],
+                        'entry_price': float(new_trade_row['entry_price']), # Ensure float
+                        'trade_size': float(new_trade_row['trade_size']), # Ensure float
+                        'trade_direction': new_trade_row['trade_direction'],
+                        'entry_time': new_trade_row['entry_time'].isoformat(), # Use ISO format
+                        'trade_status': new_trade_row['trade_status'],
+                        'trailing_stop_price': float(new_trade_row['exit_trigger_price']) if new_trade_row['exit_trigger_price'] else None # Handle None
+                    }
+                    payload_opened = json.dumps(trade_data_opened)
+                    # Escape single quotes in the JSON payload for SQL
+                    payload_opened_sql = payload_opened.replace("'", "''") 
+                    await connection.execute(f"NOTIFY trade_channel, '{payload_opened_sql}'")
+                    self.logger.info(f"Sent trade_opened notification for trade {trade_id}")
+                except Exception as notify_err:
+                    self.logger.error(f"Failed to send trade_opened notification for trade {trade_id}: {notify_err}")
+                # --- End NOTIFY ---
+
             # Update bot activations based on new trade state
             await self.update_bot_activations()
             
@@ -295,8 +330,9 @@ class TradeManager:
             dict: Status information about the trade completion
         """
         try:
+            closed_trade_row = None # Initialize
             async with self.db_pool.acquire() as connection:
-                # Get trade details
+                # Get trade details before update
                 trade = await connection.fetchrow("""
                     SELECT bot_id, ticker, entry_price, trade_direction, trade_size
                     FROM sim_bot_trades
@@ -320,8 +356,8 @@ class TradeManager:
                 else:  # SHORT
                     pnl = (entry_price_float - exit_price_float) * (trade_size_float / entry_price_float)
                     
-                # Update trade
-                await connection.execute("""
+                # Update trade and return the updated row
+                closed_trade_row = await connection.fetchrow("""
                     UPDATE sim_bot_trades
                     SET 
                         trade_status = 'closed',
@@ -329,15 +365,39 @@ class TradeManager:
                         exit_price = $1,
                         trade_pnl = $2
                     WHERE trade_id = $3
+                    RETURNING trade_id, bot_id, ticker, exit_price, trade_pnl, pnl_percent
                 """, exit_price, pnl, trade_id)
-                
-                # Get the trade status for better logging
-                trade_status = await connection.fetchval("""
-                    SELECT trade_status FROM sim_bot_trades WHERE trade_id = $1
-                """, trade_id)
-                
-                self.logger.info(f"Completed trade {trade_id} with PnL: ${pnl:.2f} (previous status: {trade_status})")
-            
+
+                if not closed_trade_row:
+                     self.logger.error(f"Failed to update trade {trade_id} to closed status")
+                     # Handle error appropriately, maybe return failure
+                     return { 
+                        'success': False, 
+                        'reason': 'Failed to update trade status to closed' 
+                     }
+
+                # --- Add NOTIFY for trade_closed ---
+                try:
+                    # Prepare payload matching frontend expectations
+                    trade_data_closed = {
+                        'action': 'trade_closed',
+                        'trade_id': closed_trade_row['trade_id'],
+                        'bot_id': closed_trade_row['bot_id'],
+                        'ticker': closed_trade_row['ticker'],
+                        'exit_price': float(closed_trade_row['exit_price']), # Ensure float
+                        'pnl': float(closed_trade_row['trade_pnl']), # Ensure float
+                        'pnl_percent': float(closed_trade_row['pnl_percent']) if closed_trade_row['pnl_percent'] else None # Ensure float, handle None
+                        # Add other relevant fields if needed by frontend for closure
+                    }
+                    payload_closed = json.dumps(trade_data_closed)
+                     # Escape single quotes in the JSON payload for SQL
+                    payload_closed_sql = payload_closed.replace("'", "''")
+                    await connection.execute(f"NOTIFY trade_channel, '{payload_closed_sql}'")
+                    self.logger.info(f"Sent trade_closed notification for trade {trade_id}")
+                except Exception as notify_err:
+                    self.logger.error(f"Failed to send trade_closed notification for trade {trade_id}: {notify_err}")
+                # --- End NOTIFY ---
+
             # Update bot activations since we've completed a trade
             await self.update_bot_activations()
             

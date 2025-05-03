@@ -315,6 +315,10 @@ const NAV_ITEMS: Array<NavItem> = [
     ],
   },
   {
+    label: 'Market Data',
+    href: '/market-data',
+  },
+  {
     label: 'Metrics',
     href: '/metrics',
   },

@@ -3,11 +3,14 @@ import logging
 import signal
 from typing import Dict, Any, List
 import json
+import os
+import mimetypes
 import uvicorn
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, Response
+import httpx
 
 # Import application components
 from src.api.monitoring_endpoints import router as monitoring_router
@@ -36,10 +39,12 @@ app = FastAPI(
 # Configure CORS to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, limit this to your frontend domain
+    allow_origins=["*"],  # For production, specify your domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers to the browser
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 # Global state
@@ -49,12 +54,88 @@ app_state: Dict[str, Any] = {
     "active_connections": 0
 }
 
-# Mount the monitoring API endpoints
-app.include_router(monitoring_router)
+# Ensure JavaScript files are served with the correct MIME type
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('application/javascript', '.mjs')
+mimetypes.add_type('application/json', '.map')
 
-# Mount static files for the frontend
-# Uncomment when you have a frontend build
-# app.mount("/", StaticFiles(directory="ui/build", html=True), name="ui")
+# Debug middleware
+@app.middleware("http")
+async def debug_request(request: Request, call_next):
+    """Debug middleware to log request information."""
+    # Log request details
+    logger.info(f"Request: {request.method} {request.url}")
+    logger.info(f"Client host: {request.client.host if request.client else 'unknown'}")
+    
+    # Call the next middleware/route handler
+    response = await call_next(request)
+    
+    # Log response details
+    logger.info(f"Response status: {response.status_code}")
+    
+    return response
+
+# Mount the monitoring API endpoints
+app.include_router(monitoring_router, prefix="/api")
+
+# Define the location of your static files
+BUILD_DIR = os.path.join(os.getcwd(), "build")
+
+# Main middleware to handle all non-API requests by proxying to the dev server
+@app.middleware("http")
+async def proxy_to_dev_server(request: Request, call_next):
+    # If it's an API request, let it go through to our API endpoints
+    if request.url.path.startswith("/api"):
+        return await call_next(request)
+        
+    # For all other paths, proxy to React dev server
+    try:
+        target_url = f"http://localhost:3000{request.url.path}"
+        if request.url.query:
+            target_url += f"?{request.url.query}"
+        
+        logger.info(f"Proxying to dev server: {target_url}")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method=request.method,
+                url=target_url,
+                headers={k: v for k, v in request.headers.items() if k.lower() not in ("host",)},
+                content=await request.body(),
+                follow_redirects=True
+            )
+            
+            logger.info(f"Dev server response: {response.status_code}")
+            
+            # Return the proxied response
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.headers.get("content-type", "text/html")
+            )
+    except Exception as e:
+        logger.error(f"Proxy error: {e}")
+        # If dev server is unavailable, try serving static files as fallback
+        return await call_next(request)
+
+# Fallback route for static file serving
+@app.get("/{path:path}")
+async def serve_static(path: str):
+    file_path = os.path.join(BUILD_DIR, path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # Default to index.html for SPA
+    index_path = os.path.join(BUILD_DIR, "index.html")
+    if os.path.exists(index_path) and os.path.isfile(index_path):
+        return FileResponse(index_path)
+        
+    # Last resort
+    return HTMLResponse(
+        "<html><body><h1>Error</h1><p>Application not found. Make sure the React dev server is running.</p></body></html>",
+        status_code=404
+    )
 
 @app.on_event("startup")
 async def startup_event():
@@ -93,11 +174,6 @@ async def shutdown_event():
     
     app_state["is_running"] = False
     logger.info("Application shutdown complete")
-
-@app.get("/")
-async def root():
-    """Root endpoint that redirects to docs."""
-    return {"message": "Know-Defeat Trading System API", "docs": "/docs"}
 
 @app.get("/api/system/status")
 async def system_status():

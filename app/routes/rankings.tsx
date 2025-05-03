@@ -44,7 +44,7 @@ import {
 } from '@chakra-ui/react';
 import { useState, useEffect, useRef } from 'react';
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, ArrowUpIcon, ArrowDownIcon } from '@chakra-ui/icons';
-import { FiFilter, FiActivity, FiPieChart, FiTrendingUp, FiTrendingDown, FiMinus } from 'react-icons/fi';
+import { FiFilter, FiActivity, FiPieChart, FiTrendingUp, FiTrendingDown, FiMinus, FiDollarSign, FiZap } from 'react-icons/fi';
 import MainLayout from '~/components/layout/MainLayout';
 import BotComparisonChart from '~/components/charts/BotComparisonChart';
 import ParameterRadarChart from '~/components/charts/ParameterRadarChart';
@@ -76,15 +76,15 @@ interface BotMetrics {
   winning_trades: number;
   losing_trades: number;
   total_pnl: number | string;
+  total_pnl_percent: number | string; // Add percentage representation
   average_pnl_per_trade: number | string;
+  average_pnl_per_trade_percent: number | string; // Add percentage representation
   win_rate: number | string;
   average_win_amount: number | string;
   average_loss_amount: number | string;
   profit_factor: number | string;
   max_drawdown: number | string;
-  sharpe_ratio: number | string;
   risk_reward_ratio: number | string;
-  expectancy: number | string;
   rank_score: number | string;
   last_updated: string;
   // Additional fields for historical rankings
@@ -100,6 +100,103 @@ interface BotDetails {
   trade_direction: string;
   is_active: boolean;
   parameters?: Record<string, any>;
+}
+
+// Add a custom hook for WebSocket connection
+function useTradeWebSocket(url = 'ws://localhost:8765/trades') {
+  const [activeTrades, setActiveTrades] = useState<Record<number, any>>({});
+  const ws = useRef<WebSocket | null>(null);
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  useEffect(() => {
+    const connect = () => {
+      try {
+        ws.current = new WebSocket(url);
+        
+        // Setup event handlers
+        ws.current.onopen = () => {
+          console.log('WebSocket connected to trades channel');
+          setIsConnected(true);
+          
+          // Clear any reconnect timeout
+          if (reconnectTimeout.current) {
+            clearTimeout(reconnectTimeout.current);
+          }
+        };
+        
+        ws.current.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            
+            // If we received trade data
+            if (message.channel === 'trades' && message.data) {
+              // Update active trades
+              if (message.data.action === 'trade_opened') {
+                // Add new trade
+                setActiveTrades(prev => ({
+                  ...prev,
+                  [message.data.bot_id]: message.data
+                }));
+              } else if (message.data.action === 'trade_closed') {
+                // Remove closed trade
+                setActiveTrades(prev => {
+                  const newState = { ...prev };
+                  delete newState[message.data.bot_id];
+                  return newState;
+                });
+              } else if (message.data.action === 'trade_update' && message.data.trades) {
+                // Full trade update - replace entire state with current active trades
+                const newActiveTrades: Record<number, any> = {};
+                message.data.trades.forEach((trade: any) => {
+                  if (trade.trade_status === 'open') {
+                    newActiveTrades[trade.bot_id] = trade;
+                  }
+                });
+                setActiveTrades(newActiveTrades);
+              }
+            }
+          } catch (err) {
+            console.error('Error processing WebSocket message:', err);
+          }
+        };
+        
+        ws.current.onclose = (event) => {
+          console.log('WebSocket disconnected, code:', event.code);
+          setIsConnected(false);
+          
+          // Attempt to reconnect after a delay
+          reconnectTimeout.current = setTimeout(() => {
+            console.log('Attempting to reconnect WebSocket...');
+            connect();
+          }, 2000);
+        };
+        
+        ws.current.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          setIsConnected(false);
+        };
+      } catch (error) {
+        console.error('Error creating WebSocket connection:', error);
+        setIsConnected(false);
+      }
+    };
+    
+    connect();
+    
+    // Cleanup on unmount
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+      
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+      }
+    };
+  }, [url]);
+  
+  return { activeTrades, isConnected };
 }
 
 // Loader function to fetch data
@@ -185,6 +282,10 @@ export default function Rankings() {
   const accentColor = useColorModeValue('blue.500', 'blue.300');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const hoveredRowBg = useColorModeValue('gray.50', 'gray.600');
+  const activeTradeBg = useColorModeValue('green.50', 'green.900');
+  
+  // Connect to WebSocket for real-time trade updates
+  const { activeTrades, isConnected } = useTradeWebSocket();
 
   // State for filtering and sorting
   const [searchTerm, setSearchTerm] = useState('');
@@ -306,9 +407,8 @@ export default function Rankings() {
       name: `Bot ${bot.bot_id} - ${bot.ticker}`,
       win_rate: parseFloat(bot.win_rate as string || '0'),
       profit_factor: parseFloat(bot.profit_factor as string || '0'),
-      sharpe_ratio: parseFloat(bot.sharpe_ratio as string || '0'),
       max_drawdown: parseFloat(bot.max_drawdown as string || '0') / 1000, // Normalize for radar chart
-      expectancy: parseFloat(bot.expectancy as string || '0'),
+      average_pnl_per_trade_percent: parseFloat(bot.average_pnl_per_trade as string || '0') * 100,
     }));
   
   // If no bots are selected, default to top 3
@@ -321,9 +421,8 @@ export default function Rankings() {
           name: `Bot ${bot.bot_id} - ${bot.ticker}`,
           win_rate: parseFloat(bot.win_rate as string || '0'),
           profit_factor: parseFloat(bot.profit_factor as string || '0'),
-          sharpe_ratio: parseFloat(bot.sharpe_ratio as string || '0'),
           max_drawdown: parseFloat(bot.max_drawdown as string || '0') / 1000,
-          expectancy: parseFloat(bot.expectancy as string || '0'),
+          average_pnl_per_trade_percent: parseFloat(bot.average_pnl_per_trade as string || '0') * 100,
         }));
         
   // Initialize trend data for selected bots or default to top 5
@@ -415,6 +514,9 @@ export default function Rankings() {
   const botsWithTrades = bots.filter(bot => bot.total_trades > 0);
   const totalPnl = botsWithTrades.reduce((sum, bot) => sum + parseFloat(bot.total_pnl as string || '0'), 0);
   
+  // Get active trade count
+  const activeTradeCount = Object.keys(activeTrades).length;
+  
   return (
     <MainLayout>
       <Heading size="lg" mb={2}>Bot Rankings</Heading>
@@ -445,9 +547,9 @@ export default function Rankings() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Total P&L</StatLabel>
+          <StatLabel fontSize="md">Total Returns</StatLabel>
           <StatNumber fontSize="3xl" color={totalPnl >= 0 ? 'green.500' : 'red.500'}>
-            {formatCurrency(totalPnl)}
+            {formatPercent(totalPnl / 100000)}
           </StatNumber>
           <StatHelpText>
             <StatArrow type={totalPnl >= 0 ? 'increase' : 'decrease'} />
@@ -481,15 +583,18 @@ export default function Rankings() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Most Improved</StatLabel>
+          <StatLabel fontSize="md">Active Trades</StatLabel>
           <HStack>
             <StatNumber fontSize="3xl">
-              Bot {bots.sort((a, b) => (b.rank_change || 0) - (a.rank_change || 0))[0]?.bot_id}
+              {activeTradeCount}
             </StatNumber>
-            <Icon as={FiTrendingUp} color="green.500" />
+            <Icon as={FiZap} color="orange.500" />
           </HStack>
           <StatHelpText>
-            Up {bots.sort((a, b) => (b.rank_change || 0) - (a.rank_change || 0))[0]?.rank_change || 0} positions
+            <HStack spacing={1}>
+              <Icon as={isConnected ? FiActivity : FiMinus} color={isConnected ? "green.500" : "red.500"} />
+              <Text>{isConnected ? "Live updates" : "Disconnected"}</Text>
+            </HStack>
           </StatHelpText>
         </Stat>
       </SimpleGrid>
@@ -571,8 +676,6 @@ export default function Rankings() {
       <Tabs variant="enclosed" colorScheme="blue">
         <TabList>
           <Tab>Rankings Table</Tab>
-          <Tab>Performance Comparison</Tab>
-          <Tab>Ranking Trend</Tab>
         </TabList>
         
         <TabPanels>
@@ -631,34 +734,12 @@ export default function Rankings() {
                         </Th>
                         <Th 
                           cursor="pointer" 
-                          onClick={() => handleSort('profit_factor')}
+                          onClick={() => handleSort('average_pnl_per_trade')}
                           userSelect="none"
                         >
                           <Flex align="center">
-                            <MetricInfoTooltip metricKey="profit_factor">
-                              Profit Factor {renderSortIndicator('profit_factor')}
-                            </MetricInfoTooltip>
-                          </Flex>
-                        </Th>
-                        <Th 
-                          cursor="pointer" 
-                          onClick={() => handleSort('sharpe_ratio')}
-                          userSelect="none"
-                        >
-                          <Flex align="center">
-                            <MetricInfoTooltip metricKey="sharpe_ratio">
-                              Sharpe {renderSortIndicator('sharpe_ratio')}
-                            </MetricInfoTooltip>
-                          </Flex>
-                        </Th>
-                        <Th 
-                          cursor="pointer" 
-                          onClick={() => handleSort('expectancy')}
-                          userSelect="none"
-                        >
-                          <Flex align="center">
-                            <MetricInfoTooltip metricKey="expectancy">
-                              Expectancy {renderSortIndicator('expectancy')}
+                            <MetricInfoTooltip metricKey="average_pnl_per_trade">
+                              Avg Return/Trade {renderSortIndicator('average_pnl_per_trade')}
                             </MetricInfoTooltip>
                           </Flex>
                         </Th>
@@ -669,23 +750,32 @@ export default function Rankings() {
                         >
                           <Flex align="center">
                             <MetricInfoTooltip metricKey="total_pnl">
-                              P&L {renderSortIndicator('total_pnl')}
+                              Returns {renderSortIndicator('total_pnl')}
                             </MetricInfoTooltip>
                           </Flex>
                         </Th>
-                        <Th width="100px">Trend</Th>
+                        <Th width="100px">Status</Th>
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {filteredAndSortedBots.map((bot, index) => (
+                      {filteredAndSortedBots.map((bot, index) => {
+                        // Check if this bot has an active trade
+                        const isInActiveTrade = Boolean(activeTrades[bot.bot_id]);
+                        const activeTrade = activeTrades[bot.bot_id];
+                        
+                        return (
                         <Tr 
                           key={bot.bot_id}
                           _hover={{ bg: hoveredRowBg }}
                           cursor="pointer"
                           onClick={() => toggleBotSelection(bot.bot_id)}
-                          bg={selectedBotIds.includes(bot.bot_id) ? 'blue.50' : undefined}
+                          bg={
+                            selectedBotIds.includes(bot.bot_id) ? 'blue.50' : 
+                            isInActiveTrade ? activeTradeBg : undefined
+                          }
                           _dark={{
-                            bg: selectedBotIds.includes(bot.bot_id) ? 'blue.900' : undefined,
+                            bg: selectedBotIds.includes(bot.bot_id) ? 'blue.900' : 
+                            isInActiveTrade ? 'green.900' : undefined,
                           }}
                         >
                           <Td>
@@ -752,511 +842,63 @@ export default function Rankings() {
                             </Badge>
                           </Td>
                           <Td>
-                            {parseFloat(bot.profit_factor as string || '0').toFixed(2)}
-                          </Td>
-                          <Td>
-                            {parseFloat(bot.sharpe_ratio as string || '0').toFixed(2)}
-                          </Td>
-                          <Td>
-                            {parseFloat(bot.expectancy as string || '0').toFixed(3)}
+                            <Badge 
+                              colorScheme={parseFloat(bot.average_pnl_per_trade as string || '0') >= 0 ? 'green' : 'red'}
+                              p={1}
+                              borderRadius="md"
+                            >
+                              {formatPercent(parseFloat(bot.average_pnl_per_trade as string || '0') / 100)}
+                            </Badge>
                           </Td>
                           <Td 
                             color={parseFloat(bot.total_pnl as string || '0') >= 0 ? 'green.500' : 'red.500'}
                             fontWeight="bold"
                           >
-                            {formatCurrency(bot.total_pnl || 0)}
+                            {formatPercent(parseFloat(bot.total_pnl as string || '0') / 100000)}
                           </Td>
                           <Td>
-                            <HStack spacing={1}>
-                              <Tooltip label="Win Rate Trend">
-                                <HStack spacing={1}>
-                                  <Icon as={FiActivity} color="green.500" boxSize={4} />
-                                  <Icon as={bot.rank_change > 0 ? FiTrendingUp : FiTrendingDown} 
-                                    color={bot.rank_change > 0 ? "green.500" : "red.500"} 
-                                    boxSize={4} 
+                            {isInActiveTrade ? (
+                              <Tooltip 
+                                label={`${activeTrade.trade_direction.toUpperCase()} ${activeTrade.ticker} @ $${activeTrade.entry_price}`}
+                                placement="top"
+                              >
+                                <Badge 
+                                  colorScheme="green" 
+                                  p={1} 
+                                  borderRadius="md"
+                                  display="flex"
+                                  alignItems="center"
+                                >
+                                  <Icon 
+                                    as={activeTrade.trade_direction === 'long' ? FiTrendingUp : FiTrendingDown} 
+                                    mr={1} 
+                                    boxSize={3}
                                   />
-                                </HStack>
+                                  <Text>IN TRADE</Text>
+                                </Badge>
                               </Tooltip>
-                              
-                              <Tooltip label="Profit Factor Trend">
-                                <HStack spacing={1}>
-                                  <Icon as={FiPieChart} color="purple.500" boxSize={4} />
-                                  <Icon as={parseFloat(bot.profit_factor as string || '0') > 1.5 ? FiTrendingUp : FiTrendingDown} 
-                                    color={parseFloat(bot.profit_factor as string || '0') > 1.5 ? "green.500" : "red.500"} 
-                                    boxSize={4} 
-                                  />
-                                </HStack>
-                              </Tooltip>
-                            </HStack>
+                            ) : (
+                              <Badge 
+                                colorScheme="gray" 
+                                p={1} 
+                                borderRadius="md"
+                                opacity={0.7}
+                              >
+                                IDLE
+                              </Badge>
+                            )}
                           </Td>
                         </Tr>
-                      ))}
+                      )})}
                       {filteredAndSortedBots.length === 0 && (
                         <Tr>
-                          <Td colSpan={10} textAlign="center" py={6}>
+                          <Td colSpan={8} textAlign="center" py={6}>
                             <Text color="gray.500">No bots match your filters</Text>
                           </Td>
                         </Tr>
                       )}
                     </Tbody>
                   </Table>
-                </Box>
-              </CardBody>
-            </Card>
-          </TabPanel>
-          
-          {/* Performance Comparison Tab */}
-          <TabPanel px={0}>
-            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-              <Card shadow="sm" bg={cardBg}>
-                <CardHeader>
-                  <Heading size="md">Performance Metrics Comparison</Heading>
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    Comparing key metrics across selected bots
-                  </Text>
-                </CardHeader>
-                <CardBody>
-                  <BotComparisonChart bots={comparisonBots} />
-                </CardBody>
-              </Card>
-              
-              <Card shadow="sm" bg={cardBg}>
-                <CardHeader>
-                  <Heading size="md">Strategy Parameters</Heading>
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    Optimal parameter configurations
-                  </Text>
-                </CardHeader>
-                <CardBody>
-                  {selectedBotIds.length > 0 ? (
-                    <Tabs variant="soft-rounded" colorScheme="blue" size="sm">
-                      <TabList>
-                        {selectedBotIds.map(botId => (
-                          <Tab key={botId}>Bot {botId}</Tab>
-                        ))}
-                      </TabList>
-                      <TabPanels>
-                        {selectedBotIds.map(botId => {
-                          const bot = bots.find(b => b.bot_id === botId);
-                          // Use sample parameters if real ones aren't available
-                          const parameters = bot?.parameters || {
-                            lookback_period: 20,
-                            volatility_threshold: 2.0,
-                            profit_target_pct: 0.02,
-                            stop_loss_pct: 0.01,
-                            rsi_upper: 70,
-                            rsi_lower: 30,
-                            moving_average_period: 15,
-                          };
-                          
-                          return (
-                            <TabPanel key={botId}>
-                              <ParameterRadarChart parameters={parameters} />
-                            </TabPanel>
-                          );
-                        })}
-                      </TabPanels>
-                    </Tabs>
-                  ) : (
-                    <Flex 
-                      justify="center" 
-                      align="center" 
-                      direction="column" 
-                      h="300px"
-                      color="gray.500"
-                    >
-                      <Text mb={3}>Select bots to compare their parameters</Text>
-                      <Button 
-                        colorScheme="blue" 
-                        size="sm"
-                        onClick={() => {
-                          // Select top 3 bots by default
-                          setSelectedBotIds(bots.slice(0, 3).map(b => b.bot_id));
-                        }}
-                      >
-                        Select Top 3 Bots
-                      </Button>
-                    </Flex>
-                  )}
-                </CardBody>
-              </Card>
-              
-              <Card shadow="sm" bg={cardBg} gridColumn={{ lg: "span 2" }}>
-                <CardHeader>
-                  <Heading size="md">Key Performance Indicators</Heading>
-                </CardHeader>
-                <CardBody>
-                  <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
-                    {selectedBotIds.length > 0 ? selectedBotIds.map(botId => {
-                      const bot = bots.find(b => b.bot_id === botId);
-                      if (!bot) return null;
-                      
-                      return (
-                        <VStack 
-                          key={botId} 
-                          align="stretch" 
-                          p={4} 
-                          borderWidth="1px" 
-                          borderRadius="lg" 
-                          spacing={3}
-                          borderLeftWidth="4px"
-                          borderLeftColor={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`}
-                        >
-                          <Flex justify="space-between" align="center">
-                            <HStack>
-                              <Avatar 
-                                size="xs" 
-                                name={`Bot ${bot.bot_id}`} 
-                                bg={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`} 
-                              />
-                              <Text fontWeight="bold">Bot {bot.bot_id}</Text>
-                            </HStack>
-                            <Badge colorScheme="blue">{bot.ticker}</Badge>
-                          </Flex>
-                          
-                          <SimpleGrid columns={2} spacing={3}>
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="xs" color="gray.500">Win Rate</Text>
-                              <Text fontWeight="medium">{formatPercent(bot.win_rate || 0)}</Text>
-                            </VStack>
-                            
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="xs" color="gray.500">Profit Factor</Text>
-                              <Text fontWeight="medium">{parseFloat(bot.profit_factor as string || '0').toFixed(2)}</Text>
-                            </VStack>
-                            
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="xs" color="gray.500">Sharpe Ratio</Text>
-                              <Text fontWeight="medium">{parseFloat(bot.sharpe_ratio as string || '0').toFixed(2)}</Text>
-                            </VStack>
-                            
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="xs" color="gray.500">Total P&L</Text>
-                              <Text 
-                                fontWeight="medium"
-                                color={parseFloat(bot.total_pnl as string || '0') >= 0 ? 'green.500' : 'red.500'}
-                              >
-                                {formatCurrency(bot.total_pnl || 0)}
-                              </Text>
-                            </VStack>
-                          </SimpleGrid>
-                          
-                          <Flex justify="space-between" fontSize="sm">
-                            <Text color="gray.500">Rank:</Text>
-                            <HStack>
-                              <Text fontWeight="bold">#{bots.findIndex(b => b.bot_id === botId) + 1}</Text>
-                              {bot.rank_change !== 0 && (
-                                <Badge 
-                                  borderRadius="full" 
-                                  colorScheme={bot.rank_change > 0 ? 'green' : 'red'}
-                                  fontSize="xs"
-                                >
-                                  {bot.rank_change > 0 ? '+' : ''}{bot.rank_change}
-                                </Badge>
-                              )}
-                            </HStack>
-                          </Flex>
-                        </VStack>
-                      );
-                    }) : (
-                      <Box 
-                        gridColumn="span 4" 
-                        p={6} 
-                        textAlign="center" 
-                        color="gray.500"
-                      >
-                        <Text mb={3}>Select bots to view their key performance indicators</Text>
-                        <Button 
-                          colorScheme="blue" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedBotIds(bots.slice(0, 4).map(b => b.bot_id));
-                          }}
-                        >
-                          Select Top 4 Bots
-                        </Button>
-                      </Box>
-                    )}
-                  </SimpleGrid>
-                </CardBody>
-              </Card>
-            </SimpleGrid>
-          </TabPanel>
-          
-          {/* Ranking Trend Tab */}
-          <TabPanel px={0}>
-            <Card shadow="sm" bg={cardBg} mb={6}>
-              <CardHeader>
-                <Flex justify="space-between" align="center">
-                  <Box>
-                    <Heading size="md">Ranking History</Heading>
-                    <Text fontSize="sm" color="gray.500" mt={1}>
-                      Historical ranking positions over time
-                    </Text>
-                  </Box>
-                  <HStack>
-                    <Text fontSize="sm">Timeframe:</Text>
-                    <Select 
-                      size="sm" 
-                      w="120px" 
-                      value={trendTimeframe}
-                      onChange={(e) => setTrendTimeframe(e.target.value)}
-                    >
-                      <option value="7d">7 Days</option>
-                      <option value="14d">14 Days</option>
-                      <option value="30d">30 Days</option>
-                      <option value="90d">90 Days</option>
-                    </Select>
-                  </HStack>
-                </Flex>
-              </CardHeader>
-              <CardBody>
-                <Box h="450px">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={generateTrendData()}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(date) => {
-                          const d = new Date(date);
-                          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                        }}
-                      />
-                      <YAxis 
-                        reversed={true} 
-                        domain={[1, 'dataMax']} 
-                        label={{ 
-                          value: 'Rank Position', 
-                          angle: -90, 
-                          position: 'insideLeft',
-                          style: { textAnchor: 'middle' }
-                        }}
-                      />
-                      <RechartsTooltip
-                        formatter={(value: any, name: string) => [`Rank #${value}`, name]}
-                        labelFormatter={(label) => {
-                          const date = new Date(label);
-                          return date.toLocaleDateString(undefined, {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          });
-                        }}
-                      />
-                      <Legend />
-                      {bots
-                        .filter(bot => trendSelectedBots.includes(bot.bot_id))
-                        .slice(0, 5) // Limit to 5 for clarity
-                        .map((bot, index) => (
-                          <Line
-                            key={bot.bot_id}
-                            type="monotone"
-                            dataKey={`Bot ${bot.bot_id}`}
-                            stroke={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`}
-                            strokeWidth={2}
-                            dot={{ r: 3 }}
-                            activeDot={{ r: 5 }}
-                          />
-                        ))
-                      }
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Box>
-                
-                <Box mt={4}>
-                  <Text fontWeight="medium" mb={2}>Select Bots to Compare (max 5)</Text>
-                  <HStack spacing={4} flexWrap="wrap">
-                    <CheckboxGroup
-                      value={trendSelectedBots.map(String)}
-                      onChange={(values) => {
-                        const selectedIds = values
-                          .map(v => parseInt(v.toString()))
-                          .slice(0, 5); // Limit to 5 selections
-                        setTrendSelectedBots(selectedIds);
-                      }}
-                    >
-                      <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} spacing={3}>
-                        {bots.slice(0, 15).map(bot => (
-                          <Checkbox 
-                            key={bot.bot_id} 
-                            value={bot.bot_id}
-                            isDisabled={
-                              !trendSelectedBots.includes(bot.bot_id) && 
-                              trendSelectedBots.length >= 5
-                            }
-                          >
-                            <HStack>
-                              <Box 
-                                w="12px" 
-                                h="12px" 
-                                borderRadius="full" 
-                                bg={`hsl(${(bot.bot_id * 40) % 360}, 70%, 50%)`} 
-                              />
-                              <Text fontSize="sm">Bot {bot.bot_id} ({bot.ticker})</Text>
-                            </HStack>
-                          </Checkbox>
-                        ))}
-                      </SimpleGrid>
-                    </CheckboxGroup>
-                  </HStack>
-                </Box>
-              </CardBody>
-            </Card>
-            
-            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-              <Card shadow="sm" bg={cardBg}>
-                <CardHeader>
-                  <Heading size="md">Fund Allocation Distribution</Heading>
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    How trading capital is allocated across bot tiers
-                  </Text>
-                </CardHeader>
-                <CardBody>
-                  <Box h="300px">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={generateAllocationData()}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          label={({
-                            cx, cy, midAngle, innerRadius, outerRadius, value, index, name
-                          }) => {
-                            const RADIAN = Math.PI / 180;
-                            const radius = 25 + innerRadius + (outerRadius - innerRadius);
-                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-                            return (
-                              <text
-                                x={x}
-                                y={y}
-                                textAnchor={x > cx ? 'start' : 'end'}
-                                dominantBaseline="central"
-                                fill="#718096" // Using a neutral color that works in both modes
-                                fontSize="12"
-                              >
-                                {name} ({value}%)
-                              </text>
-                            );
-                          }}
-                        >
-                          {generateAllocationData().map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip
-                          formatter={(value: any) => [`${value}%`, 'Allocation']}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </Box>
-                </CardBody>
-              </Card>
-              
-              <Card shadow="sm" bg={cardBg}>
-                <CardHeader>
-                  <Heading size="md">Rank Volatility</Heading>
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    Bots with the most unstable ranking positions
-                  </Text>
-                </CardHeader>
-                <CardBody>
-                  <Box h="300px">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={generateVolatilityData().slice(0, 10)}
-                        layout="vertical"
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" domain={[0, 'dataMax + 1']} />
-                        <YAxis 
-                          dataKey="name" 
-                          type="category" 
-                          scale="band" 
-                          tick={{ fontSize: 12 }} 
-                          width={80}
-                        />
-                        <RechartsTooltip
-                          formatter={(value: any, name: string, props: any) => {
-                            const { payload } = props;
-                            return [
-                              `Volatility: ${value.toFixed(2)}`,
-                              `${payload.name} (${payload.ticker} - ${payload.algorithm})`
-                            ];
-                          }}
-                        />
-                        <Bar 
-                          dataKey="volatility" 
-                          fill={accentColor}
-                          // Add a gradient or custom color based on value
-                          background={{ fill: useColorModeValue('#f5f5f5', '#2D3748') }}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Box>
-                </CardBody>
-              </Card>
-            </SimpleGrid>
-            
-            {/* Historical Performance Metrics */}
-            <Card shadow="sm" bg={cardBg} mt={6}>
-              <CardHeader>
-                <Heading size="md">Rank Position Changes</Heading>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Recent rank movements across the system
-                </Text>
-              </CardHeader>
-              <CardBody>
-                <Box h="250px">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={[
-                        { name: '1-10', improved: 4, worsened: 3, unchanged: 3 },
-                        { name: '11-30', improved: 7, worsened: 8, unchanged: 5 },
-                        { name: '31-60', improved: 12, worsened: 9, unchanged: 9 },
-                        { name: '61-100', improved: 18, worsened: 12, unchanged: 10 },
-                        { name: '101+', improved: 9, worsened: 14, unchanged: 7 },
-                      ]}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" label={{ value: 'Rank Tier', position: 'insideBottom', offset: -5 }} />
-                      <YAxis label={{ value: 'Bot Count', angle: -90, position: 'insideLeft' }} />
-                      <RechartsTooltip />
-                      <Legend />
-                      <Area 
-                        type="monotone" 
-                        dataKey="improved" 
-                        stackId="1" 
-                        stroke="green" 
-                        fill="#48BB78" 
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="worsened" 
-                        stackId="1" 
-                        stroke="red" 
-                        fill="#F56565" 
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="unchanged" 
-                        stackId="1" 
-                        stroke="gray" 
-                        fill="#A0AEC0" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
                 </Box>
               </CardBody>
             </Card>

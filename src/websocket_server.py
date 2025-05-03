@@ -166,13 +166,15 @@ async def websocket_handler(websocket, path):
 
 async def start_server(host='0.0.0.0', port=8765):
     """Start the WebSocket server and database listener."""
-    # Start WebSocket server
     websocket_server = await websocket_serve(
-        websocket_handler, 
-        host, 
+        websocket_handler,
+        host,
         port,
-        ping_interval=30,  # Send ping every 30 seconds
-        ping_timeout=10    # Wait 10 seconds for pong response
+        ping_interval=30,
+        ping_timeout=10,
+        # Temporarily allow all origins for debugging:
+        origins=None # Or you might try ["*"] if None doesn't work
+        # origins=["http://localhost:3000"] # Comment out the specific one for now
     )
     
     logger.info(f"WebSocket server started on {host}:{port}")
