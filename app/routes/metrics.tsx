@@ -90,8 +90,8 @@ function formatPercentChange(value: number | string | null | undefined) {
 export default function Metrics() {
   const { metrics, error } = useLoaderData<typeof loader>();
   const cardBg = useColorModeValue('white', 'gray.700');
-  const [selectedMetric, setSelectedMetric] = useState<'win_rate' | 'profit_factor' | 'sharpe_ratio' | 'max_drawdown'>('win_rate');
-  const [sortBy, setSortBy] = useState<string>('pnl');
+  const [selectedMetric, setSelectedMetric] = useState<'win_rate' | 'profit_factor'>('win_rate');
+  const [sortBy, setSortBy] = useState<string>('rank_score');
   
   // Guard against empty metrics data
   if (!metrics || metrics.length === 0) {
@@ -146,6 +146,15 @@ export default function Metrics() {
     return sum + pnl;
   }, 0);
   
+  // Calculate total starting capital approximation (sum of position sizes)
+  const totalCapital = uniqueBots.reduce((sum, m) => {
+      const size = m.position_size ? parseFloat(m.position_size) : 0;
+      return sum + size;
+  }, 0);
+  
+  // Calculate Total Return Percentage
+  const totalReturnPercent = totalCapital > 0 ? totalPnl / totalCapital : 0;
+  
   // Calculate win rate from avg_win_rate which is in percentage format (e.g., 29.55%)
   const getWinRate = (bot) => {
     if (bot.win_rate) return parseFloat(bot.win_rate);
@@ -168,17 +177,25 @@ export default function Metrics() {
   // Sort bots based on selected sort method
   const sortBots = (bots, sortMethod) => {
     return [...bots].sort((a, b) => {
+      // Helper to safely parse float
+      const safeParseFloat = (val) => parseFloat(String(val || '0'));
+      
       switch (sortMethod) {
-        case 'pnl':
-          return parseFloat(b.total_pnl || 0) - parseFloat(a.total_pnl || 0);
+        case 'rank_score':
+          return safeParseFloat(b.rank_score) - safeParseFloat(a.rank_score);
+        case 'total_trades':
+          return safeParseFloat(b.total_trades) - safeParseFloat(a.total_trades);
         case 'win_rate':
           return getWinRate(b) - getWinRate(a);
         case 'profit_factor':
-          return parseFloat(b.profit_factor || 0) - parseFloat(a.profit_factor || 0);
-        case 'sharpe':
-          return parseFloat(b.sharpe_ratio || 0) - parseFloat(a.sharpe_ratio || 0);
+          return safeParseFloat(b.profit_factor) - safeParseFloat(a.profit_factor);
+        // Add case for Avg Return/Trade %
+        case 'avg_return_per_trade':
+            const avgReturnA = safeParseFloat(a.position_size) !== 0 ? safeParseFloat(a.avg_profit_per_trade) / safeParseFloat(a.position_size) : 0;
+            const avgReturnB = safeParseFloat(b.position_size) !== 0 ? safeParseFloat(b.avg_profit_per_trade) / safeParseFloat(b.position_size) : 0;
+            return avgReturnB - avgReturnA;
         default:
-          return parseFloat(b.total_pnl || 0) - parseFloat(a.total_pnl || 0);
+          return safeParseFloat(b.rank_score) - safeParseFloat(a.rank_score);
       }
     });
   };
@@ -190,10 +207,9 @@ export default function Metrics() {
     bot_id: bot.bot_id,
     name: `Bot ${bot.bot_id}`,
     win_rate: getWinRate(bot),
-    profit_factor: parseFloat(bot.profit_factor || 0),
-    sharpe_ratio: parseFloat(bot.sharpe_ratio || 0),
-    max_drawdown: parseFloat(bot.max_drawdown || 0),
-    expectancy: parseFloat(bot.r_multiple || 0),
+    profit_factor: parseFloat(bot.profit_factor || '0'),
+    rank_score: parseFloat(bot.rank_score || '0'),
+    expectancy: parseFloat(bot.r_multiple || '0'),
   }));
   
   const handleSortChange = (e) => {
@@ -247,21 +263,14 @@ export default function Metrics() {
           bg={cardBg}
         >
           <StatLabel fontSize="md">
-            <MetricInfoTooltip metricKey="total_pnl_percent">Total P&L %</MetricInfoTooltip>
+            <MetricInfoTooltip metricKey="total_pnl_percent">Total Return %</MetricInfoTooltip>
           </StatLabel>
-          <StatNumber fontSize="3xl" color={totalPnl >= 0 ? 'green.500' : 'red.500'}>
-            {/* Calculate an approximate percentage based on average bot position size */}
-            {formatPercentChange(uniqueBots.reduce((sum, bot) => {
-              // Calculate percentage based on drawdown_percent if available
-              if (bot.drawdown_percent) {
-                return sum + parseFloat(bot.drawdown_percent);
-              }
-              return sum;
-            }, 0) / Math.max(1, uniqueBots.length))}
+          <StatNumber fontSize="3xl" color={totalReturnPercent >= 0 ? 'green.500' : 'red.500'}>
+            {formatPercentChange(totalReturnPercent)}
           </StatNumber>
           <StatHelpText>
-            <StatArrow type={totalPnl >= 0 ? 'increase' : 'decrease'} />
-            Average percent change across portfolio
+            <StatArrow type={totalReturnPercent >= 0 ? 'increase' : 'decrease'} />
+            Based on Total PnL / Sum of Position Sizes
           </StatHelpText>
         </Stat>
         
@@ -274,12 +283,11 @@ export default function Metrics() {
           bg={cardBg}
         >
           <StatLabel fontSize="md">
-            <MetricInfoTooltip metricKey="win_rate">Win Rate</MetricInfoTooltip>
+            <MetricInfoTooltip metricKey="profitable_bots">Profitable Bots</MetricInfoTooltip>
           </StatLabel>
-          <StatNumber fontSize="3xl">{formatPercent(overallWinRate)}</StatNumber>
+          <StatNumber fontSize="3xl">{formatPercent(profitableBotPercentage)}</StatNumber>
           <StatHelpText>
-            <StatArrow type={overallWinRate >= 0.5 ? 'increase' : 'decrease'} />
-            Average across all bots
+            {profitableBots} out of {totalBots} profitable
           </StatHelpText>
         </Stat>
         
@@ -291,11 +299,12 @@ export default function Metrics() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Profitable Bots</StatLabel>
-          <StatNumber fontSize="3xl">{formatPercent(profitableBotPercentage)}</StatNumber>
+          <StatLabel fontSize="md">
+            <MetricInfoTooltip metricKey="win_rate">Avg Win Rate</MetricInfoTooltip>
+          </StatLabel>
+          <StatNumber fontSize="3xl">{formatPercent(overallWinRate)}</StatNumber>
           <StatHelpText>
-            <StatArrow type={profitableBotPercentage >= 0.5 ? 'increase' : 'decrease'} />
-            {profitableBots} out of {totalBots} bots
+            Across all bots
           </StatHelpText>
         </Stat>
       </SimpleGrid>
@@ -308,10 +317,11 @@ export default function Metrics() {
             <HStack>
               <Text fontSize="sm">Sort by:</Text>
               <Select size="sm" w="150px" value={sortBy} onChange={handleSortChange}>
-                <option value="pnl">Total P&L</option>
+                <option value="rank_score">Rank Score</option>
+                <option value="total_trades">Total Trades</option>
                 <option value="win_rate">Win Rate</option>
                 <option value="profit_factor">Profit Factor</option>
-                <option value="sharpe">Sharpe Ratio</option>
+                <option value="avg_return_per_trade">Avg Return/Trade (%)</option>
               </Select>
             </HStack>
           </Flex>
@@ -321,69 +331,40 @@ export default function Metrics() {
             <Table variant="simple">
               <Thead>
                 <Tr>
-                  <Th>Rank</Th>
+                  <Th cursor="pointer" onClick={() => setSortBy('rank_score')}>Rank Score</Th>
                   <Th>Bot ID</Th>
                   <Th>Ticker</Th>
-                  <Th><MetricInfoTooltip metricKey="win_rate">Win Rate</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="profit_factor">Profit Factor</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="average_win_amount">Avg Profit</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="average_loss_amount">Avg Drawdown</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="max_drawdown">Max Drawdown</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="sharpe_ratio">Sharpe Ratio</MetricInfoTooltip></Th>
-                  <Th><MetricInfoTooltip metricKey="total_pnl">Total P&L</MetricInfoTooltip></Th>
+                  <Th cursor="pointer" onClick={() => setSortBy('win_rate')}>Win Rate</Th>
+                  <Th cursor="pointer" onClick={() => setSortBy('avg_return_per_trade')}>Avg Return/Trade (%)</Th>
+                  <Th cursor="pointer" onClick={() => setSortBy('profit_factor')}>Profit Factor</Th>
+                  <Th cursor="pointer" onClick={() => setSortBy('total_trades')}>Total Trades</Th>
                 </Tr>
               </Thead>
               <Tbody>
-                {sortedBots.map((bot, index) => (
-                  <Tr key={bot.bot_id}>
-                    <Td>{index + 1}</Td>
-                    <Td>Bot {bot.bot_id}</Td>
-                    <Td>{bot.ticker || '-'}</Td>
-                    <Td>
-                      <Badge colorScheme={getWinRate(bot) >= 0.5 ? 'green' : 'red'}>
-                        {formatPercent(getWinRate(bot))}
-                      </Badge>
-                    </Td>
-                    <Td>{parseFloat(bot.profit_factor || 0).toFixed(2)}</Td>
-                    <Td color="green.500">
-                      {/* Display average win as a percentage */}
-                      {formatPercentChange(bot.pnl_percent || 
-                        (bot.avg_profit_per_trade && bot.position_size ? 
-                          parseFloat(bot.avg_profit_per_trade) / parseFloat(bot.position_size || 1000) : 
-                          0.01))}
-                    </Td>
-                    <Td color="red.500">
-                      {/* Display average loss as a percentage */}
-                      {formatPercentChange(bot.avg_drawdown ? 
-                        -Math.abs(parseFloat(bot.avg_drawdown) / 100) : 
-                        -0.01)}
-                    </Td>
-                    <Td color="red.500">
-                      {/* Display max drawdown as a percentage */}
-                      {formatPercentChange(bot.drawdown_percent ? 
-                        -Math.abs(parseFloat(bot.drawdown_percent) / 100) :
-                        (bot.max_drawdown ? 
-                          -Math.abs(parseFloat(bot.max_drawdown) / 100) : 
-                          -0.01))}
-                    </Td>
-                    <Td>{parseFloat(bot.sharpe_ratio || 0).toFixed(2)}</Td>
-                    <Td 
-                      color={parseFloat(bot.total_pnl || 0) >= 0 ? 'green.500' : 'red.500'}
-                      fontWeight="bold"
-                    >
-                      {/* Display total PnL as both currency and percentage */}
-                      <VStack spacing={0} align="flex-start">
-                        <Text>{formatCurrency(bot.total_pnl)}</Text>
-                        <Text fontSize="xs">
-                          {formatPercentChange(bot.pnl_percent || 
-                            (bot.total_pnl && bot.position_size ? 
-                              parseFloat(bot.total_pnl) / parseFloat(bot.position_size || 10000) : 
-                              0))}
-                        </Text>
-                      </VStack>
-                    </Td>
-                  </Tr>
-                ))}
+                {sortedBots.map((bot) => {
+                  // Calculate Avg Return %
+                  const positionSize = parseFloat(bot.position_size || '0');
+                  const avgProfit = parseFloat(bot.avg_profit_per_trade || '0');
+                  const avgReturnPercent = positionSize !== 0 ? avgProfit / positionSize : 0;
+                  
+                  return (
+                    <Tr key={bot.bot_id} _hover={{ bg: useColorModeValue('gray.50', 'gray.600') }}>
+                      <Td>{parseFloat(bot.rank_score || '0').toFixed(2)}</Td>
+                      <Td>
+                        <Link to={`/bots/${bot.bot_id}`}>
+                          <Button variant="link" size="sm">{bot.bot_id}</Button>
+                        </Link>
+                      </Td>
+                      <Td>{bot.ticker}</Td>
+                      <Td>{formatPercent(getWinRate(bot))}</Td>
+                      <Td color={avgReturnPercent >= 0 ? 'green.500' : 'red.500'}>
+                        {formatPercentChange(avgReturnPercent)}
+                      </Td>
+                      <Td>{parseFloat(bot.profit_factor || '0').toFixed(2)}</Td>
+                      <Td>{bot.total_trades}</Td>
+                    </Tr>
+                  );
+                })}
               </Tbody>
             </Table>
           </Box>
@@ -416,8 +397,6 @@ export default function Metrics() {
                       >
                         <option value="win_rate">Win Rate</option>
                         <option value="profit_factor">Profit Factor</option>
-                        <option value="sharpe_ratio">Sharpe Ratio</option>
-                        <option value="max_drawdown">Max Drawdown</option>
                       </Select>
                     </HStack>
                   </Flex>

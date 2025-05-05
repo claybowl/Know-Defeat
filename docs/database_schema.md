@@ -147,7 +147,7 @@ CREATE TABLE bot_metrics (
     losing_trades INTEGER NOT NULL DEFAULT 0,
     total_pnl NUMERIC(15,2) NOT NULL DEFAULT 0,
     average_pnl_per_trade NUMERIC(15,2) NOT NULL DEFAULT 0,
-    win_rate NUMERIC(5,4) NOT NULL DEFAULT 0,
+    win_rate NUMERIC(5,4) NOT NULL **DEFAULT** 0,
     average_win_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
     average_loss_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
     profit_factor NUMERIC(15,4) NOT NULL DEFAULT 0,

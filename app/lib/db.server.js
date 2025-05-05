@@ -252,6 +252,11 @@ export async function getBotMetrics(limit = 500) {
         (sharpeRatio * 0.2 / 3)
       ).toFixed(2);
       
+      // Use existing rank_score if available, otherwise calculate
+      const rankScore = row.rank_score !== undefined && row.rank_score !== null
+          ? Number(row.rank_score).toFixed(2)
+          : calculatedRankScore; // Use the previously calculated one as fallback
+      
       // Return a standardized object, using fallbacks for missing properties
       return {
         bot_id: row.bot_id || 0,
@@ -265,18 +270,18 @@ export async function getBotMetrics(limit = 500) {
         max_drawdown: (-Math.abs(Number(row.max_drawdown || 0))).toFixed(2),
         sharpe_ratio: Number(row.sharpe_ratio || 0).toFixed(2),
         risk_reward_ratio: Number(row.r_multiple || row.risk_reward_ratio || 0).toFixed(2),
-        total_trades: Number(row.total_trades || 0),
+        total_trades: Number(row.total_trades || 0), // Ensure total_trades is a number, default 0
         winning_trades: Number(row.winning_trades || Math.round(Number(row.total_trades || 0) * winRate)),
         losing_trades: Number(row.losing_trades || Math.round(Number(row.total_trades || 0) * (1 - winRate))),
-        rank_score: calculatedRankScore,
+        rank_score: rankScore, // Use the prioritized rank_score
         last_updated: row.last_updated,
         drawdown_percent: Number(row.drawdown_percent || 0).toFixed(2),
-        position_size: Number(row.position_size || 10000).toFixed(2),
+        position_size: Number(row.position_size || 10000).toFixed(2), // Default if null
         pnl_percent: Number(row.one_month_performance || row.one_week_performance || 0).toFixed(2),
         avg_profit_per_trade: Number(row.avg_profit_per_trade || 0).toFixed(2),
         avg_drawdown: Number(row.avg_drawdown || 0).toFixed(2)
       };
-    }).sort((a, b) => Number(b.total_pnl) - Number(a.total_pnl));
+    }).sort((a, b) => Number(b.rank_score) - Number(a.rank_score)); // Sort by rank_score descending
   } catch (error) {
     console.error('Error fetching bot metrics:', error);
     console.error('Error details:', error.message);
@@ -501,6 +506,58 @@ export async function updateVariableWeights(weightsToUpdate) {
   }
 }
 
+// Function to get today's trades count
+export async function getTodayTradesCount() {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const result = await query(`
+      SELECT COUNT(*) as count 
+      FROM sim_bot_trades 
+      WHERE entry_time >= $1::timestamp
+    `, [today.toISOString()]);
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error getting today\'s trades count:', error.message);
+    return { count: 0 };
+  }
+}
+
+// Function to get daily return percentage across all bots
+export async function getDailyReturnPercentage() {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get all completed trades for today and calculate the overall return
+    const result = await query(`
+      SELECT 
+        SUM(trade_pnl) AS total_pnl,
+        SUM(trade_size) AS total_size
+      FROM sim_bot_trades 
+      WHERE 
+        (entry_time >= $1::timestamp OR exit_time >= $1::timestamp)
+        AND trade_pnl IS NOT NULL
+    `, [today.toISOString()]);
+    
+    const row = result.rows[0];
+    
+    if (!row.total_pnl || !row.total_size) {
+      return { percentage: 0 };
+    }
+    
+    // Calculate return as a percentage
+    const percentage = (parseFloat(row.total_pnl) / parseFloat(row.total_size));
+    
+    return { percentage };
+  } catch (error) {
+    console.error('Error calculating daily return percentage:', error.message);
+    return { percentage: 0 };
+  }
+}
+
 export default {
   getConnection,
   query,
@@ -511,5 +568,7 @@ export default {
   getBotById,
   getTickData,
   getVariableWeights,
-  updateVariableWeights
+  updateVariableWeights,
+  getTodayTradesCount,
+  getDailyReturnPercentage
 };

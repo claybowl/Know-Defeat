@@ -133,16 +133,16 @@ function useTradeWebSocket(url = 'ws://localhost:8765/trades') {
             if (message.channel === 'trades' && message.data) {
               // Update active trades
               if (message.data.action === 'trade_opened') {
-                // Add new trade
+                // Add new trade by trade_id
                 setActiveTrades(prev => ({
                   ...prev,
-                  [message.data.bot_id]: message.data
+                  [message.data.trade_id]: message.data
                 }));
               } else if (message.data.action === 'trade_closed') {
-                // Remove closed trade
+                // Remove closed trade by trade_id
                 setActiveTrades(prev => {
                   const newState = { ...prev };
-                  delete newState[message.data.bot_id];
+                  delete newState[message.data.trade_id];
                   return newState;
                 });
               } else if (message.data.action === 'trade_update' && message.data.trades) {
@@ -150,7 +150,7 @@ function useTradeWebSocket(url = 'ws://localhost:8765/trades') {
                 const newActiveTrades: Record<number, any> = {};
                 message.data.trades.forEach((trade: any) => {
                   if (trade.trade_status === 'open') {
-                    newActiveTrades[trade.bot_id] = trade;
+                    newActiveTrades[trade.trade_id] = trade; // Key by trade_id
                   }
                 });
                 setActiveTrades(newActiveTrades);
@@ -207,6 +207,12 @@ export async function loader() {
     
     // Fetch metrics for ranking
     const metrics: BotMetrics[] = await db.getBotMetrics();
+
+    // Fetch today's trades count
+    const todayTrades = await db.getTodayTradesCount();
+    
+    // Fetch daily return percentage
+    const dailyReturn = await db.getDailyReturnPercentage();
     
     // Create merged bot data with metrics
     const botsWithMetrics = bots.map((bot: BotDetails) => {
@@ -227,10 +233,19 @@ export async function loader() {
       };
     });
     
-    return json({ bots: rankedBots });
+    return json({ 
+      bots: rankedBots,
+      todayTrades: todayTrades?.count || 0,
+      dailyReturn: dailyReturn?.percentage || 0
+    });
   } catch (error) {
     console.error('Error loading ranking data:', error);
-    return json({ error: 'Failed to load ranking data', bots: [] });
+    return json({ 
+      error: 'Failed to load ranking data', 
+      bots: [],
+      todayTrades: 0,
+      dailyReturn: 0
+    });
   }
 }
 
@@ -277,7 +292,7 @@ function generateHistoricRankData(botId: number) {
 }
 
 export default function Rankings() {
-  const { bots } = useLoaderData<typeof loader>();
+  const { bots, todayTrades, dailyReturn } = useLoaderData<typeof loader>();
   const cardBg = useColorModeValue('white', 'gray.700');
   const accentColor = useColorModeValue('blue.500', 'blue.300');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -514,8 +529,9 @@ export default function Rankings() {
   const botsWithTrades = bots.filter((bot: any) => bot.total_trades > 0);
   const totalPnl = botsWithTrades.reduce((sum: number, bot: any) => sum + parseFloat(bot.total_pnl as string || '0'), 0);
   
-  // Get active trade count
+  // Get active trade count and list of unique bot IDs with active trades
   const activeTradeCount = Object.keys(activeTrades).length;
+  const botsWithActiveTrades = new Set(Object.values(activeTrades).map((trade: any) => trade.bot_id)).size;
   
   return (
     <MainLayout>
@@ -547,13 +563,13 @@ export default function Rankings() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Total Returns</StatLabel>
-          <StatNumber fontSize="3xl" color={totalPnl >= 0 ? 'green.500' : 'red.500'}>
-            {formatPercent(totalPnl / 100000)}
+          <StatLabel fontSize="md">Daily Return</StatLabel>
+          <StatNumber fontSize="3xl" color={dailyReturn >= 0 ? 'green.500' : 'red.500'}>
+            {formatPercent(dailyReturn)}
           </StatNumber>
           <StatHelpText>
-            <StatArrow type={totalPnl >= 0 ? 'increase' : 'decrease'} />
-            System-wide performance
+            <StatArrow type={dailyReturn >= 0 ? 'increase' : 'decrease'} />
+            Today's performance
           </StatHelpText>
         </Stat>
         
@@ -565,13 +581,12 @@ export default function Rankings() {
           borderRadius="lg"
           bg={cardBg}
         >
-          <StatLabel fontSize="md">Top Performer</StatLabel>
+          <StatLabel fontSize="md">Total Trades Today</StatLabel>
           <HStack>
-            <StatNumber fontSize="3xl">Bot {bots[0]?.bot_id}</StatNumber>
-            <Badge colorScheme="green">#{1}</Badge>
+            <StatNumber fontSize="3xl">{todayTrades}</StatNumber>
           </HStack>
           <StatHelpText>
-            Win Rate: {formatPercent(bots[0]?.win_rate || 0)}
+            Across all bots
           </StatHelpText>
         </Stat>
         
@@ -593,7 +608,7 @@ export default function Rankings() {
           <StatHelpText>
             <HStack spacing={1}>
               <Icon as={isConnected ? FiActivity : FiMinus} color={isConnected ? "green.500" : "red.500"} />
-              <Text>{isConnected ? "Live updates" : "Disconnected"}</Text>
+              <Text>{isConnected ? `${botsWithActiveTrades} bots trading` : "Disconnected"}</Text>
             </HStack>
           </StatHelpText>
         </Stat>
@@ -760,8 +775,14 @@ export default function Rankings() {
                     <Tbody>
                       {filteredAndSortedBots.map((bot: any, index: number) => {
                         // Check if this bot has an active trade
-                        const isInActiveTrade = Boolean(activeTrades[bot.bot_id]);
-                        const activeTrade = activeTrades[bot.bot_id];
+                        const isInActiveTrade = Object.values(activeTrades).some(
+                          (trade: any) => trade.bot_id === bot.bot_id
+                        );
+                        
+                        // Get the active trade(s) for this bot
+                        const botActiveTrades = Object.values(activeTrades).filter(
+                          (trade: any) => trade.bot_id === bot.bot_id
+                        );
                         
                         return (
                         <Tr 
@@ -789,27 +810,7 @@ export default function Rankings() {
                             />
                           </Td>
                           <Td>
-                            <Flex align="center">
-                              <Text fontWeight="bold" mr={1}>{index + 1}</Text>
-                              {bot.rank_change !== 0 && (
-                                <Badge 
-                                  borderRadius="full" 
-                                  colorScheme={bot.rank_change > 0 ? 'green' : bot.rank_change < 0 ? 'red' : 'gray'}
-                                  ml={1}
-                                  display="flex"
-                                  alignItems="center"
-                                >
-                                  {bot.rank_change > 0 ? (
-                                    <Icon as={FiTrendingUp} mr={1} boxSize={3} />
-                                  ) : bot.rank_change < 0 ? (
-                                    <Icon as={FiTrendingDown} mr={1} boxSize={3} />
-                                  ) : (
-                                    <Icon as={FiMinus} mr={1} boxSize={3} />
-                                  )}
-                                  {Math.abs(bot.rank_change || 0)}
-                                </Badge>
-                              )}
-                            </Flex>
+                            <Text fontWeight="bold">{index + 1}</Text>
                           </Td>
                           <Td>
                             <HStack>
@@ -845,7 +846,7 @@ export default function Rankings() {
                             <Text 
                               color={parseFloat(bot.avg_profit_per_trade as string || '0') >= 0 ? 'green.500' : 'red.500'}
                             >
-                              {formatCurrency(bot.avg_profit_per_trade || 0)}
+                              {formatPercent(parseFloat(bot.avg_profit_per_trade as string || '0') / 100)}
                             </Text>
                           </Td>
                           <Td 
@@ -857,7 +858,14 @@ export default function Rankings() {
                           <Td>
                             {isInActiveTrade ? (
                               <Tooltip 
-                                label={`${activeTrade.trade_direction.toUpperCase()} ${activeTrade.ticker} @ $${activeTrade.entry_price}`}
+                                label={
+                                  botActiveTrades.length > 1
+                                    ? `${botActiveTrades.length} active trades: ` + 
+                                      botActiveTrades.map(t => 
+                                        `${t.trade_direction.toUpperCase()} ${t.ticker} @ $${parseFloat(t.entry_price).toFixed(2)}`
+                                      ).join(', ')
+                                    : `${botActiveTrades[0].trade_direction.toUpperCase()} ${botActiveTrades[0].ticker} @ $${parseFloat(botActiveTrades[0].entry_price).toFixed(2)}`
+                                }
                                 placement="top"
                               >
                                 <Badge 
@@ -868,11 +876,13 @@ export default function Rankings() {
                                   alignItems="center"
                                 >
                                   <Icon 
-                                    as={activeTrade.trade_direction === 'long' ? FiTrendingUp : FiTrendingDown} 
+                                    as={botActiveTrades[0].trade_direction === 'long' ? FiTrendingUp : FiTrendingDown} 
                                     mr={1} 
                                     boxSize={3}
                                   />
-                                  <Text>IN TRADE</Text>
+                                  <Text>
+                                    {botActiveTrades.length > 1 ? `${botActiveTrades.length} TRADES` : 'IN TRADE'}
+                                  </Text>
                                 </Badge>
                               </Tooltip>
                             ) : (

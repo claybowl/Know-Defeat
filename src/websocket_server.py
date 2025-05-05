@@ -4,6 +4,7 @@ import logging
 import argparse
 import signal
 from typing import Dict, Set, Any
+import datetime
 
 import asyncpg
 from websockets.server import serve as websocket_serve
@@ -127,6 +128,59 @@ async def websocket_handler(websocket, path):
             'channel': channel,
             'message': f'Connected to {channel} channel'
         }))
+        
+        # Send initial data snapshot for 'trades' channel
+        if channel == 'trades':
+            try:
+                # Create a new DB connection for this query
+                conn = await asyncpg.connect(
+                    host='localhost',
+                    database='tick_data',
+                    user='clayb',
+                    password='musicman'
+                )
+                
+                # Get all active trades
+                trades = await conn.fetch("""
+                    SELECT t.trade_id, t.bot_id, b.name AS bot_name, t.ticker,
+                        t.entry_price, t.trade_size, t.trade_direction, t.entry_time,
+                        t.trailing_stop_price, t.trade_status
+                    FROM sim_bot_trades t
+                    JOIN sim_bots b ON t.bot_id = b.bot_id
+                    WHERE t.trade_status = 'open'
+                    ORDER BY t.entry_time DESC
+                """)
+                
+                # Convert to list of dictionaries
+                trade_list = []
+                for trade in trades:
+                    trade_dict = dict(trade)
+                    # Convert any non-serializable types (like datetime)
+                    for key, value in trade_dict.items():
+                        if isinstance(value, (datetime.datetime, datetime.date)):
+                            trade_dict[key] = value.isoformat()
+                    trade_list.append(trade_dict)
+                
+                # Send snapshot to client
+                if trade_list:
+                    logger.info(f"Sending initial snapshot of {len(trade_list)} active trades")
+                    # Send update message with all active trades
+                    await websocket.send(json.dumps({
+                        'channel': 'trades',
+                        'data': {
+                            'action': 'trade_update',
+                            'trades': trade_list,
+                            'timestamp': datetime.datetime.now().isoformat()
+                        }
+                    }))
+                else:
+                    logger.info("No active trades found for initial snapshot")
+                
+                # Close the connection
+                await conn.close()
+                
+            except Exception as e:
+                logger.error(f"Error sending initial trades snapshot: {e}")
         
         # Keep connection alive until client disconnects
         async for message in websocket:
