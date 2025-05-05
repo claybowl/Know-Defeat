@@ -431,6 +431,76 @@ export async function getTickData(ticker = null, limit = 100) {
   }
 }
 
+// Function to get all variable weights
+export async function getVariableWeights() {
+  try {
+    console.log('Fetching variable weights...');
+    const result = await query('SELECT variable_name, weight FROM variable_weights');
+    console.log(`Retrieved ${result.rows.length} variable weights.`);
+    // Ensure weights are returned as numbers
+    return result.rows.map(row => ({
+        ...row,
+        weight: parseFloat(row.weight) // Parse weight to float
+    }));
+  } catch (error) {
+    console.error('Error fetching variable weights:', error.message);
+    // Return empty array on error to prevent UI crashes
+    return []; 
+  }
+}
+
+// Function to update multiple variable weights in a transaction
+export async function updateVariableWeights(weightsToUpdate) {
+  if (!Array.isArray(weightsToUpdate) || weightsToUpdate.length === 0) {
+    console.log('No weights provided for update.');
+    return;
+  }
+  
+  let client;
+  try {
+    console.log(`Attempting to update ${weightsToUpdate.length} variable weights...`);
+    client = await pool.connect(); // Get a client from the pool
+    await client.query('BEGIN'); // Start transaction
+    
+    // Prepare the update query
+    const updateQuery = `
+      UPDATE variable_weights 
+      SET weight = $1, last_updated = NOW() 
+      WHERE variable_name = $2
+    `;
+    
+    // Execute updates for each weight
+    for (const weightData of weightsToUpdate) {
+      if (weightData.variable_name && weightData.weight !== undefined) {
+          // Ensure weight is a number before sending to DB
+         const numericWeight = parseFloat(String(weightData.weight));
+         if (!isNaN(numericWeight)) { 
+             await client.query(updateQuery, [numericWeight, weightData.variable_name]);
+         } else {
+             console.warn(`Skipping update for ${weightData.variable_name} due to invalid weight: ${weightData.weight}`);
+         }
+      } else {
+         console.warn('Skipping update due to missing variable_name or weight:', weightData);
+      }
+    }
+    
+    await client.query('COMMIT'); // Commit transaction
+    console.log('Variable weights updated successfully.');
+    
+  } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK'); // Rollback on error
+    }
+    console.error('Error updating variable weights:', error.message);
+    // Re-throw the error so the calling action function knows it failed
+    throw new Error('Failed to update weights in database'); 
+  } finally {
+    if (client) {
+      client.release(); // Release the client back to the pool
+    }
+  }
+}
+
 export default {
   getConnection,
   query,
@@ -439,5 +509,7 @@ export default {
   getOpenTrades,
   getBotMetrics,
   getBotById,
-  getTickData
+  getTickData,
+  getVariableWeights,
+  updateVariableWeights
 };
